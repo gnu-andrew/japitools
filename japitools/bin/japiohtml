@@ -32,6 +32,9 @@ $javatypes = {Z=>'boolean', B=>'byte', C=>'char', D=>'double', F=>'float',
 
 # Requirements
 #use IO::Handle;
+sub sig2type($);
+sub readable_member($);
+sub readable_item($);
 
 my $verline = <>;
 chomp $verline;
@@ -162,7 +165,7 @@ EOF
     } else {
       $pkgl = $pkg; $pkgl =~ s/\./_/g;
       $pkga = $pkgn;
-      $pkga =~ s/\./.<span class="sp"> <\/span>/;
+      $pkga =~ s/\./.<span class="sp"> <\/span>/g;
       $pkga = "<a href=\"#pkg_$pkgl\">$pkga</a>";
       push @packages, $pkg;
     }

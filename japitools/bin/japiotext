@@ -30,6 +30,10 @@ $japiover = "0.9.1";
 $javatypes = {Z=>'boolean', B=>'byte', C=>'char', D=>'double', F=>'float',
                   I=>'int', J=>'long', S=>'short', V=>'void'};
 
+sub readable_item($);
+sub sig2type($);
+sub readable_member($);
+
 my $verline = <>;
 chomp $verline;
 ($filever, $origfile, $newfile) = ($1, $2, $3)

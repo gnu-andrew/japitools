@@ -80,7 +80,10 @@ class JodeClass implements ClassWrapper {
     return modifiers;
   }
   public boolean isDeprecated() {
-    return c.isDeprecated();
+    synchronized (c) {
+      c.loadInfo(ClassInfo.KNOWNATTRIBS);
+      return c.isDeprecated();
+    }
   }
   public String getName() {
     return c.getName();
@@ -244,7 +247,7 @@ class JodeClass implements ClassWrapper {
   private void addFields(TreeSet fieldSet) {
     FieldInfo[] fields;
     synchronized (c) {
-      c.loadInfo(ClassInfo.FIELDS);
+      c.loadInfo(ClassInfo.FIELDS | ClassInfo.KNOWNATTRIBS);
       fields = c.getFields();
       for (int i = 0; i < fields.length; i++) {
         JodeField jf = new JodeField(fields[i], this);
@@ -268,7 +271,7 @@ class JodeClass implements ClassWrapper {
   private void addMethods(TreeSet methodSet, boolean constr) {
     MethodInfo[] methods;
     synchronized (c) {
-      c.loadInfo(ClassInfo.METHODS);
+      c.loadInfo(ClassInfo.METHODS | ClassInfo.KNOWNATTRIBS);
       methods = c.getMethods();
       for (int i = 0; i < methods.length; i++) {
         JodeMethod jm = new JodeMethod(methods[i], this);

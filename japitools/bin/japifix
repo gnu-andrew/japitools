@@ -412,7 +412,7 @@ sub to_new() {
     my ($member, $mods, $type) = split / /, $_, 3;
 
     # All top-level classes are considered static.
-    $mods =~ s/i/s/ if $member =~ /^[^!$]+!$/;
+    $mods =~ s/i/s/ if $member =~ /^[^!\$]+!$/;
 
     # Add "?" (unknown deprecation status) to the end of mods.
     $_ = "$member $mods? $type";

@@ -72,6 +72,7 @@ sub compare_japis($$);
 sub compare_japi_item($$$$);
 sub merge_results();
 sub print_summary();
+sub sig2type($);
 
 
 ## MAIN LOOP ##
@@ -233,7 +234,6 @@ EOF
   $mitem->{class} = $class;
   $mitem->{package} = $pkg;
   $mitem->{member} = $member;
-  $mitem->{rmember} = readable_member($member);
   my ($public, $abstract, $static, $final, $deprecated) = split //, $flags;
   $mitem->{public} = ($public eq 'P' || 0);
   $mitem->{abstract} = ($abstract eq 'a' || 0);
@@ -282,7 +282,7 @@ EOF
     my ($val, $bits);
     ($type, $val) = split(/:/, $type, 2);
     ($val, $bits) = ($1, $2)
-      if ($type eq 'F' || $type eq 'D') && $val =~ /^(.*)\/(.*)$/;
+      if ($type eq 'F'||$type eq 'D') && defined $val && $val =~ /^(.*)\/(.*)$/;
     $mitem->{constbits} = $bits if defined $bits;
     $mitem->{constant} = $val if defined $val;
   }
@@ -661,4 +661,14 @@ sub print_summary() {
   count_summary($sc, "#constructor");
   count_summary($sc, "#method");
   print STDERR "$totalerrors unique errors found.\n" if $dot;
+}
+# Convert a type signature as used in a japi file to a displayable type.
+sub sig2type($) {
+  my ($sig) = @_;
+  return sig2type($1) . '[]' if $sig =~ /^\[(.*)$/;
+  return $javatypes->{$sig} if $javatypes->{$sig};
+  if ($sig =~ /^L(.*);$/) {
+    $sig = $1; $sig =~ s-/-.-g;
+  }
+  $sig;
 }
