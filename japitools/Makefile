@@ -7,5 +7,5 @@ jar: classes
 	jar -0cvf share/java/japitools.jar net/wuffies/japi/*.class jode/*.class jode/bytecode/*.class jode/util/*.class
 
 tarball: jar
-	cd .. && tar zcvf japitools.tar.gz japi/
+	cd .. && tar zcvf japitools.tar.gz japitools/
 
