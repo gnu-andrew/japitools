@@ -784,6 +784,18 @@ public class Japize {
           mmods |= Modifier.ABSTRACT | Modifier.PUBLIC;
         }
 
+        // Methods of final classes are by definition final
+        if (Modifier.isFinal(c.getModifiers())) {
+          mmods |= Modifier.FINAL;
+        }
+
+        // Constructors are never final. The verifier should enforce this
+        // so this should always be a no-op, except for when the line above
+        // set it.
+        if ("".equals(calls[i].getName()) {
+          mmods &= ~Modifier.FINAL;
+        }
+
         // Print the japi entry for the method.
         printEntry(entry, type, mmods, calls[i].isDeprecated());
       }
