@@ -119,12 +119,13 @@ EOF
         my $cat = "$2$3";
         my $capegory = uc($2).$3;
         my $letter = $2;
+        my $ok = $1;
         $letter = $1 if $cat =~ /_(.)/;
         $cat =~ s/_//;
         $letters->{$cat} = $letter;
         $capegory =~ s/_//;
         push @categories, $cat;
-        $okcats->{$cat} = 1 if $1;
+        $okcats->{$cat} = 1 if $ok;
         $cat =~ s/\./-/g;
         print <<EOF;
         <th class="$cat">$capegory</th>
