@@ -15,6 +15,36 @@ compatibility, as defined by Sun in the
 <a href="http://java.sun.com/docs/books/jls/clarify.html">here</a>).</p>
 <h3>News</h3>
 <ul>
+  <li>24 September 2002: Released japitools-0.8.7, which is a "release
+      candidate" for a hopefully stable and widely-announced 0.9. Quite a bit
+      new in this release:
+      <ul>
+        <li>Japize (and japifix) will now ignore any subclasses of Error and
+            RuntimeException thrown, because they're redundant. Exceptions will
+            also be skipped if they are subclasses of another exception thrown
+            by the same method, eg FileNotFoundException won't be included if
+            the method also throws IOException.</li>
+        <li>Added Ant build system (optional) provided by Brian Jones.</li>
+        <li>Added new tools serialize and serialcompat for testing serialization
+            compatibility, again thanks to Brian Jones.</li>
+        <li>japipkgs has evolved into japilist, which can list classes and
+            members, and filter results by package and class, as well as just
+            listing packages. Thanks again to Brian for the "japiclasses" script
+            that inspired this tool.</li>
+        <li>japifix can now detect mis-sorted files without the explicit -s
+            flag, by re-starting as soon as a mis-sort is detected. To make this
+            possible, the ability to operate on stdin has been dropped.</li>
+        <li>Fixed a corner-case mis-sorting bug in japize that appeared if
+            java.lang.something was included but java.lang itself was not.</li>
+        <li>japicompat flushes stdout when it's done, making the output appear
+            in a nice order if stdout and stderr are redirected to the same
+            place.</li>
+        <li>Added windows batch file for running japize on windows systems,
+            thanks (yet again :) ) to Brian Jones.</li>
+        <li>Added the <a href="japi-spec.txt">japi file format specification</a>
+            for the benefit of anyone writing code to interoperate with
+            japitools.</li>
+      </ul></li>
   <li>18 September 2002: Released japitools-0.8.6, fixing an ordering problem
       related to inner classes (serve me right for having a machine that can
       only handle japizing JDK1.1, which has no inner classes). This release
@@ -74,7 +104,7 @@ compatibility, as defined by Sun in the
       fixed one of the Kaffe bugs which will mean that some hackarounds can be
       removed Real Soon (once another related bug gets fixed). I've been hacking
       japicompat to allow duplicates to be removed; you can find the code
-      <a href="japicompat2.pl">here</a>. It doesn't actually <b>do</b> the
+      <a href="japicompat2.pl">here</a> [long-dead link]. It doesn't actually <b>do</b> the
       removal yet, but the architecture is in. This will replace japicompat once
       I'm convinced it's as robust; early signs look good. It's also commented!
       Certify me on <a href="http://www.advogato.org/person/sab39">Advogato</a>
@@ -83,7 +113,7 @@ compatibility, as defined by Sun in the
 </ul>
 
 <h3>Installation</h3>
-<p>You can download <a href="japitools-0.8.6.tar.gz">japitools-0.8.6.tar.gz</a>
+<p>You can download <a href="japitools-0.8.7.tar.gz">japitools-0.8.7.tar.gz</a>
 here. This tarball contains a bin/ directory containing all the japi tools, a
 share/ directory containing the java runtime libraries, and a src/ directory
 containing all the sources in case you want to do development. It should be
@@ -126,10 +156,6 @@ are extremely tight (zipping and unzipping both require more memory the larger
 the file gets, and require more CPU usage - on todays computers this is rarely
 an issue, though) or if your JVM does not implement GZIPOutputStream correctly
 (in which case you might still want to gzip the resulting file manually).</p>
-<p>In previous releases "zip" was an option and "unzip" was not available as
-an option, because it was the implicit default. Since zipping is the recommended
-mode of operation, "zip" is now the implicit default, although it is accepted as
-a no-op. Future versions will refuse it entirely.</p>
 <h4>as &lt;name&gt;</h4>
 <p>Specifying this option tells japize to write its output to a file with the
 specified name. If this option is omitted, japize will write to standard output.
@@ -271,6 +297,13 @@ $ japicompat kaffe.japi.gz jdk12.japi.gz</pre>
 tests, since Sun's own JDK1.2 produces numerous errors when tested against
 JDK1.1.</p>
 
+<h3>File format</h3>
+<p>The file format of .japi files is described in full in
+<a href="japi-spec.txt">the japi file format specification</a>. This document
+should provide enough information to write a japi file fully compatible with
+those produced by japize. This spec can also be found in the tarball as
+design/japi-spec.txt.</p>
+
 <h3>License</h3>
 <p>These programs are made available under the
 <a href="http://www.gnu.org/copyleft/gpl.html"</a>GNU General Public License</a>,
@@ -294,6 +327,6 @@ version 2 or later.</p>
 <li>Write a japi2java tool, just because I can...</li>
 </ul>
 <p>Another to-do list with most of these same todos broken down by hypothetical
-future release number can be found in the jarball in design/TODO.</p>
+future release number can be found in the tarball in design/TODO.</p>
 </body></html>
 

@@ -313,7 +313,7 @@ public class Japize {
     // Print the header identifier. The syntax is "%%japi ver anything". Right
     // now we don't use the 'anything', and in that case the space after the
     // version is optional.
-    out.println("%%japi 0.9.1");
+    out.println("%%japi 0.9.2");
 
     // Identify whether java.lang,Object fits into our list of things to
     // process. If it does, process it first, then add it to the list of
@@ -324,12 +324,31 @@ public class Japize {
       if (roots.contains(J_L_OBJECT)) roots.remove(J_L_OBJECT);
       exclusions.add(J_L_OBJECT);
     }
+
     // Then do the same thing with java.lang as a whole.
+    SortedSet langRoots = roots.subSet(J_LANG, J_LANG + '/');
     if (checkIncluded(J_LANG)) {
       processPackage(J_LANG);
-      if (roots.contains(J_LANG)) roots.remove(J_LANG);
       exclusions.add(J_LANG);
+
+    // Even if java.lang isn't included, java.lang.something might be...
+    } else {
+      processRootSet(langRoots);
     }
+    
+    // Remove all roots that are subpackages of java.lang.
+    for (Iterator i = new TreeSet(langRoots).iterator(); i.hasNext(); ) {
+      roots.remove(i.next());
+    }
+    // Note that the following code would be more efficient but requires
+    // a fully-functional subSet() implementation. Doing it this way allows
+    // for the possibility of a hacky partial subSet() implementation, which
+    // could allow japize to run on Kaffe or Classpath. When they both get
+    // full subSet implementations, this should be changed to the more
+    // efficient code).
+//  for (Iterator i = langRoots.iterator(); i.hasNext(); ) {
+//    i.next(); i.remove();
+//  }
 
     // Now process all the roots that are left.
     processRootSet(roots);
@@ -751,7 +770,7 @@ public class Japize {
       type = calls[i].getReturnType();
       String[] excps = calls[i].getExceptionTypes();
       for (int j = 0; j < excps.length; j++) {
-        type += "*" + excps[j];
+        if (includeException(excps, j)) type += "*" + excps[j];
       }
 
       // Get the modifiers for this method. Methods of interfaces are
@@ -796,6 +815,32 @@ public class Japize {
     out.print(Modifier.isFinal(mods) ? 'f' : 'n');
     out.print(' ');
     out.println(type);
+  }
+
+  /**
+   * Check to see if an exception should be included in the list of exceptions.
+   * Subclasses of RuntimeException and Error should be omitted, as should
+   * subclasses of other exceptions also thrown.
+   */
+  static boolean includeException(String[] excps, int index)
+      throws ClassNotFoundException {
+    boolean isSuper = false;
+    for (ClassWrapper supclass = getClassWrapper(excps[index]);
+         supclass != null;
+         supclass = supclass.getSuperclass()) {
+      String supname = supclass.getName();
+      if ("java.lang.RuntimeException".equals(supname) ||
+          "java.lang.Error".equals(supname)) {
+        return false;
+      }
+      if (isSuper) {
+        for (int i = 0; i < excps.length; i++) {
+          if (i != index && supname.equals(excps[i])) return false;
+        }
+      }
+      isSuper = true;
+    }
+    return true;
   }
   
   /**

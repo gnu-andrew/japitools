@@ -55,7 +55,7 @@
 ## GLOBAL VARIABLES ##
 
 # Some global variables used for displaying stuff.
-$japiver = "0.9.1";
+$japiver = "0.9.2";
 $javatypes = {Z=>'boolean', B=>'byte', C=>'char', D=>'double', F=>'float',
                   I=>'int', J=>'long', S=>'short', V=>'void'};
 @static = ('instance', 'static');
@@ -227,7 +227,7 @@ sub read_japi_item($) {
   my ($pkg, $class) = split /,/, $fqcn, 2;
   my $isa;
   if ($member eq "") {
-    $isa = $type =~ /class/ ? "class" : "interface";
+    $isa = $type =~ /^class/ ? "class" : "interface";
   } elsif ($member =~ /^\(.*\)$/) {
     $isa = "constructor";
   } elsif ($member =~ /\(.*\)$/) {
@@ -638,6 +638,7 @@ sub count_summary($$) {
 }
 # Print summary information.
 sub print_summary() {
+  STDOUT->autoflush();
   if ($dot) {
     print STDERR "\n";
     count_summary($sc, "#package");

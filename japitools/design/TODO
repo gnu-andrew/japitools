@@ -55,25 +55,43 @@
   * Test japifix on old kaffe japis (to ensure that the ordering of inner
     classes is right)
   * Test japicompat between jdk1.1 and kaffe, as usual.
+- For 0.8.7:
+  * Bump file format version
+  * Exclude subclasses of RuntimeException and Error, and subclasses of other
+    exceptions thrown by the same method.
+  * Flush stdout at the end of output...
+  * Filter out Throwable subclasses in japifix by the same algorithm as used in
+    japize.
+  * Remove japifix's ability to work on stdin/stdout.
+  * Remove japifix's -s option.
+  * Allow japifix to restart with needtosort set if a file is found to be
+    mis-sorted.
+  * Turn japipkgs into japilist with enhanced capabilities.
+  * Allow japifix to read to the end of a file to find all the Throwables and
+    then restart using that list for exception-filtering.
+  * Allow specifying a file to japifix that won't be converted but will be
+    scanned for exceptions, so that you can include platform libraries when
+    fixing japis that don't include the full platform.
+  * Fix japize bug causing missort when java.lang is not included but
+    java.lang.(something) is.
+  - Include serialize, serialcompat, build.xml and new runner scripts from
+    Brian Jones.
 - For 0.9:
-  - Make japifix catch misordered files of versions that are expected to be
-    ordered and fix them up. Essentially it should abort and restart with the
-    'sortneeded' flag set to true.
-    - Use new_tmpfile (like japicompat does) if output is to stdout
-    - Don't set needtosort based on japi version at all. Rather, always print
-      all output, but test sortedness as we go and set needtosort if we
-      encounter a mis-sorted item.
-    - When we get to the end, if needtosort is set, rename the .new file to
-      .unsorted, read it in, sort it, and dump it out to .new (or stdout, if
-      appropriate). If needtosort *isn't* set, just leave the new file alone.
-    - *then* move .new over the orig, like we do now.
-    - so mis-sorting isn't an error, just a flag.
-  - Make japifix continue with the next file on an error.
-  - Make japifix clean up its temporary files on an error.
-  - Any bug fixes reported in 0.8.6
+  - Any bug fixes reported in 0.8.7
+  - Make sure all relevant files carry the GPL
+  - Prepare a nice-looking announcement
   - This is intended as a vaguely stable milestone before everything breaks
     again.
 - For 0.9.1:
+  - Bump the file format version again...
+  - Add "++" in front of java.lang.Object and "+" in front of java.lang.*,
+    and make both japifix and japicompat use straight "cmp" for sorting.
+  - Make japifix add the pluses as needed.
+  - Make japicompat ignore the pluses.
+  - Make japilist ignore the pluses.
+  - Add more filtering options to japilist: -s superclass, -t throwabletype,
+    -f (public|protected|abstract|concrete|static|instance|final|nonfinal|
+        constant|variable)
   - Output in raw mode by default (suggest .japio as file ext). Add a version
     to japio files similar to that in japi files.
   - Put all summary information into the japio somehow to allow it to appear in
