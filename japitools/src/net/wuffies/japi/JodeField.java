@@ -32,7 +32,9 @@ class JodeField implements FieldWrapper {
     modifiers = f.getModifiers();
     constValue = f.getConstant();
     if (!jc.isInterface()) {
-      if (!Modifier.isStatic(modifiers) || !Modifier.isFinal(modifiers) ||
+      // The JLS says constant fields also have to be static, but reality
+      // sadly disagrees, so we allow constant instance fields.
+      if (!Modifier.isFinal(modifiers) ||
           (!Modifier.isPublic(modifiers) && !Modifier.isProtected(modifiers))) {
         constValue = null;
       }

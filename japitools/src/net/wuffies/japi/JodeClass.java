@@ -287,7 +287,7 @@ class JodeClass implements ClassWrapper {
     }
     JodeClass sc = (JodeClass)getSuperclass();
     if (sc != null) sc.addMethods(methodSet, false);
-    if (isInterface()) {
+    if (isInterface() || Modifier.isAbstract(c.getModifiers())) {
       JodeClass[] ifaces = (JodeClass[])getInterfaces();
       for (int i = 0; i < ifaces.length; i++) {
         ifaces[i].addMethods(methodSet, false);
