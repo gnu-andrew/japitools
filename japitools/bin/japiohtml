@@ -334,7 +334,7 @@ print <<EOF;
         </td>
       </tr>
     </table>
-    <hr>
+    <p>&nbsp;</p>
 EOF
 foreach my $pkg (@packages) {
   my $pkgl = $pkg; $pkgl =~ s/\./_/g;
