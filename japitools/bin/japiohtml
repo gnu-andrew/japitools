@@ -278,7 +278,7 @@ foreach my $pkg (@packages) {
   my $anyerrors = 0;
   foreach my $cat (@categories) {
     my $catl = $cat; $catl =~ s/\./_/g;
-    unless ($cat eq "good")
+    unless ($cat eq "good") {
       if ($errors->{"$pkg/$cat"}) {
         $anyerrors = 1;
       } else {
