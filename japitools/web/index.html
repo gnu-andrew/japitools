@@ -120,9 +120,12 @@ containing all the sources in case you want to do development. It should be
 unnecessary to set your CLASSPATH, since japitools can figure out the path to
 its runtime libraries by relative directory structures.</p>
 <p>The tarball also contains a <a href="http://jode.sourceforge.net/">Jode</a>
-jarball (also mirrored <a href="jode-1.1.1.jar">here</a>). By including this
-in the tarball, japitools is completely self-sufficient (except for perl and
-Java)</p>
+jarball (also mirrored <a href="jode-1.1.1.jar">here</a>).  To compile all
+of the sources you will need to also download 
+<a href="http://www.csse.monash.edu.au/~bren/JSX/">JSX</a> and 
+<a href="http://www.urbanophile.com/arenn/hacking/download.html">gnu.getopt</a>.
+  After placing these packages in <code>share/java</code>, japitools 
+is completely self-sufficient (except for perl and Java)</p>
 <p>The tools in the bin directory assume that perl is /usr/bin/perl and that
 your prefered Java runtime is "java" in your PATH. If you're working with
 zipped japi files, you must also have "gzip" in your path.</p>

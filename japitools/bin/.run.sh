@@ -82,3 +82,4 @@ fi
 #echo ""
 
 # Execute the JVM
+exec $JAVA $JAVA_OPTS -classpath "$CLASSPATH:$JAPI_CLASSPATH" "$PROGRAM_CLASS" "$@"

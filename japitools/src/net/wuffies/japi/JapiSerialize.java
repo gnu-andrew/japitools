@@ -372,6 +372,7 @@ public class JapiSerialize
     System.err.println ("japiserialize [OPTION] [FILE|CLASS]");
     System.err.println ("  -d <directory>    output directory");
     System.err.println ("  -x                xml output, default is binary");
+    System.exit (1);
   }
 }
 
