@@ -48,6 +48,13 @@ import java.io.FileWriter;
  * japicompat.pl can test APIs for source/binary compatibility with each other.
  * <p>
  * Recent changes:<br>
+ * - 2002/09/10: Make 'zip|unzip' optional, defaulting to 'zip'. Remove
+ *   reflection support because it's just a Bad Idea (but keep the wrapper
+ *   classes in case they turn out to be useful later).
+ * - 2002/xx/xx: At some point after the last entry, a few changes were made,
+ *   notably in the JodeField and JodeMethod classes to ensure that data hasn't
+ *   gone away by the time we want to use it. Also 'unzip' option was added,
+ *   and specifying either that or 'zip' is compulsory.
  * - 2002/03/29: After a long hiatus, I got some motivation to hack on this
  *   again. Changed commandline options to default to jode, also allow use of
  *   GZIPOutputStream if available. Sort the output in a way that should help
@@ -83,11 +90,6 @@ import java.io.FileWriter;
  * @author Stuart Ballard &lt;<a href="mailto:sballard@wuffies.net">sballard@wuffies.net</a>&gt;
  */
 public class Japize {
-
-  /**
-   * True if the jode.bytecode package is being used, false otherwise.
-   */
-  private static boolean useJode = true;
 
   /**
    * The path to scan for classes in.
@@ -130,23 +132,15 @@ public class Japize {
     String fileName = null;
 
     if (i < args.length && "zip".equals(args[i])) {
+      // Redundant...
       zipIt = true;
       i++;
     } else if (i < args.length && "unzip".equals(args[i])) {
       zipIt = false;
       i++;
-    } else {
-      // Specifying neither zip nor unzip is an error, so we pretend there are
-      // no more arguments so that error handling later picks up the case.
-      i = args.length;
     }
     if (i < args.length && "as".equals(args[i])) {
       fileName = args[++i];
-      i++;
-    }
-    if (i < args.length && "reflect".equals(args[i])) {
-      useJode = false;
-      System.err.println("WARNING: The 'reflect' option gives wrong information in some situations.\n");
       i++;
     }
 
@@ -238,14 +232,12 @@ public class Japize {
 
     // If we are using Jode, we need to initialize Jode's classpath to
     // find classes in the correct location.
-    if (useJode) {
-      StringBuffer cp = new StringBuffer();
-      for (Iterator j = path.iterator(); j.hasNext(); ) {
-        if (cp.length() > 0) cp.append(':');
-        cp.append(j.next());
-      }
-      JodeClass.setClassPath(cp.toString());
+    StringBuffer cp = new StringBuffer();
+    for (Iterator j = path.iterator(); j.hasNext(); ) {
+      if (cp.length() > 0) cp.append(':');
+      cp.append(j.next());
     }
+    JodeClass.setClassPath(cp.toString());
 
     // Figure out what output writer to use.
     if (fileName == null) {
@@ -289,11 +281,6 @@ public class Japize {
     // Now actually go and japize the classes.
     doJapize();
     out.close();
-
-    // It seems that doing all of the <clinit>s that happen during asking
-    // for compile time constants if we use 'reflect' causes a Toolkit thread
-    // to start, so we need this to terminate.
-    if (!useJode) System.exit(0);
   }
 
   private static String toClassRoot(String pkgpath) {
@@ -326,7 +313,7 @@ public class Japize {
     // Print the header identifier. The syntax is "%%japi ver anything". Right
     // now we don't use the 'anything', and in that case the space after the
     // version is optional.
-    out.println("%%japi 0.9");
+    out.println("%%japi 0.9.1");
 
     // Identify whether java.lang,Object fits into our list of things to
     // process. If it does, process it first, then add it to the list of
@@ -549,9 +536,8 @@ public class Japize {
    * Print a usage message.
    */
   private static void printUsage() {
-    System.err.println("Usage: japize zip|unzip [as <name>] apis <zipfile>|<dir> ... +|-<pkg> ...");
-    System.err.println("At least one +pkg is required. The word 'reflect' can appear before 'apis'");
-    System.err.println("but this is unreliable and deprecated. 'name' will have .japi and/or .gz");
+    System.err.println("Usage: japize [unzip] [as <name>] apis <zipfile>|<dir> ... +|-<pkg> ...");
+    System.err.println("At least one +pkg is required. 'name' will have .japi and/or .gz");
     System.err.println("appended if appropriate.");
     System.err.println("The word 'apis' can be replaced by 'explicitly', 'byname', 'packages' or");
     System.err.println("'classes'. These values indicate whether something of the form a.b.C should");
@@ -620,13 +606,13 @@ public class Japize {
     }
 
     // Construct the basic strings that will be used in the output.
-    String entry = toClassRoot(c.getName()) + "%";
+    String entry = toClassRoot(c.getName()) + "!";
     String classEntry = entry;
     String type = "class";
     if (c.isInterface()) {
       type = "interface";
       mods |= Modifier.ABSTRACT; // Interfaces are abstract by definition,
-                                 // but reflection implementations are
+                                 // but wrapper implementations are
                                  // inconsistent in telling us this.
     } else {
 
@@ -676,7 +662,7 @@ public class Japize {
       mods = fields[i].getModifiers();
 
       // Fields of interfaces are *always* public, static and final, although
-      // reflection implementations are inconsistent about telling us this.
+      // wrapper implementations are inconsistent about telling us this.
       if (fields[i].getDeclaringClass().isInterface()) {
         mods |= Modifier.PUBLIC | Modifier.FINAL | Modifier.STATIC;
       }
@@ -751,7 +737,7 @@ public class Japize {
         continue;
       }
 
-      // Construct the name of the method, of the form Class%method(params).
+      // Construct the name of the method, of the form Class!method(params).
       entry = classEntry + calls[i].getName() + "(";
       String[] params = calls[i].getParameterTypes();
       String comma = "";
@@ -769,7 +755,7 @@ public class Japize {
       }
 
       // Get the modifiers for this method. Methods of interfaces are
-      // by definition public and abstract, although reflection implementations
+      // by definition public and abstract, although wrapper implementations
       // are inconsistent about telling us this.
       int mmods = calls[i].getModifiers();
       if (c.isInterface()) {
@@ -847,8 +833,9 @@ public class Japize {
 
   /**
    * Construct the appropriate type of ClassWrapper object for the processing we
-   * are doing. Returns a JodeClass if we are using Jode, or a ReflectClass ifi
-   * not.
+   * are doing. Returns a JodeClass unconditionally because that's all we
+   * currently support (the alternative used to be Reflection, but that didn't
+   * provide enough information to function correctly).
    *
    * @param className The fully-qualified name of the class to get a wrapper
    * for.
@@ -856,10 +843,6 @@ public class Japize {
    */
   public static ClassWrapper getClassWrapper(String className) 
       throws  ClassNotFoundException {
-    if (useJode) {
-      return new JodeClass(className);
-    } else {
-      return new ReflectClass(className);
-    }
+    return new JodeClass(className);
   }
 }

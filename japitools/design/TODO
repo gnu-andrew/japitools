@@ -4,7 +4,7 @@
   * Update docs
 * For 0.8.4:
   * Oops! Fix hang-at-end bug!
-- For 0.8.5:
+* For 0.8.5:
   * Better summary information
   * Update file version format to 0.9
   * Put the whole of java.lang first along with Object
@@ -19,6 +19,9 @@
   * Make japi2new work something like gzip/gunzip, replacing the original
     unless otherwise specified. Make it work with gzipped input and produce
     gzipped output (by default, but turn-offable).
+  * Rename japi2new to japifix.
+  * Make japifix abort with an error on mis-ordered files. Support a -s option
+    to force a sort in such situations.
   * Test japize at least a little bit!
   * Figure out why japize is screwing up the ordering and fix it. Perhaps
     put jdk1.1/classes.zip onto laptop so I can work with it.
@@ -29,19 +32,45 @@
     problems "inherited" from a superclass constructor.
   * Test japize on jdk1.1 classes.zip (again) and make sure output is equivalent
     or better than the best I've gotten so far.
-  - Test japicompat again against japicompat-old for new jdk1.1.japi vs
+  * Test japicompat again against japicompat-old for new jdk1.1.japi vs
     kaffe.japi from Dalibor.
   * Distribute as a tarball rather than a jarball, so permissions flags on the
     things in 'bin' are preserved.
-- For 0.9.0:
-  - Make japi2new catch misordered files of versions that are expected to be
+* For 0.8.6:
+  * Make tarball include 'japi' directory rather than just its contents.
+  * Make zipped output the silent default in japize, with "zip" a no-op. "unzip"
+    explicitly will turn off the zipping.
+  * Remove reflection support.
+  * Remove japicompat-old.
+  * Put japitools.jar in japi/share/java, and put jode.jar there too.
+  * Make japize figure out location of *.jar from $0 (../share/java rel path)
+  * Use "!" instead of "%" so that it sorts before "$", making the order
+    correct for inner classes.
+    * Change japize to output "!" and japiver 0.9.1
+    * Change japicompat to recognize "!" and japiver 0.9.1
+    * Change japipkgs to recognize 0.9.1
+    * Change japifix to convert to "!" and 0.9.1
+  * Test japize on jdk1.1
+  * Test japifix on old jdk1.1 japis
+  * Test japifix on old kaffe japis (to ensure that the ordering of inner
+    classes is right)
+  * Test japicompat between jdk1.1 and kaffe, as usual.
+- For 0.9:
+  - Make japifix catch misordered files of versions that are expected to be
     ordered and fix them up. Essentially it should abort and restart with the
     'sortneeded' flag set to true.
+    - Use new_tmpfile (like japicompat does) if output is to stdout
+    - Don't set needtosort based on japi version at all. Rather, always print
+      all output, but test sortedness as we go and set needtosort if we
+      encounter a mis-sorted item.
+    - When we get to the end, if needtosort is set, rename the .new file to
+      .unsorted, read it in, sort it, and dump it out to .new (or stdout, if
+      appropriate). If needtosort *isn't* set, just leave the new file alone.
+    - *then* move .new over the orig, like we do now.
+    - so mis-sorting isn't an error, just a flag.
   - Make japifix continue with the next file on an error.
   - Make japifix clean up its temporary files on an error.
-  - Make zipped output the silent default in japize, with "zip" a no-op. "unzip"
-    explicitly would turn off the zipping.
-  - Any bug fixes reported in 0.8.4/5
+  - Any bug fixes reported in 0.8.6
   - This is intended as a vaguely stable milestone before everything breaks
     again.
 - For 0.9.1:
@@ -52,9 +81,11 @@
   - japiotext, japiohtml filter programs
   - "-h" and "-t" flags to japicompat will pipe to the relevant program
   - Remove "zip" no-op option as useless cruft.
-  - Remove reflection support - there's no use case for it and it's useless
-    generality. Keep the generality in case something better than Jode comes
-    along, but "it's generalized!" is no excuse for keeping broken code.
+  - ./configure;make;make install?
+  - Deprecation support (it's an error to *un*deprecate an API...)
+  - Convert all non-"a-zA-Z0-9_$" characters in class and method names into
+    "\uXXXX". Do the same with characters in constant strings, only use a wider
+    range (eg everything in the ascii charset from space to the end).
 - For 0.9.2:
   - Optional new argument syntax to japicompat:
     - "-a file.japio" and "-f file.japio" will add or filter based on existing
@@ -72,14 +103,13 @@
   - Anything else needed by kaffe or any other free java project for creating
     nightly results output.
   - This is 1.0 "release candidate"
-  - ?? bump file format version to 1.0 with no changes? Or perhaps support
-    international chars and bump the version that way?
+  - ?? bump file format version to 1.0 with no changes?
 - For 0.9.4:
   - If there's any fallout from 0.9.3, do a second release candidate. Otherwise
     skip this and go straight to 1.0.
 - For 1.0.0:
   - Minor bugfixes only.
-  - Do 1.0.x releases for other minor bugfixes.
-- For 1.1.0:
-  - New file format version
-  - Deprecation support
+  - Do 1.0.x releases for other (hopefully minor) bugfixes.
+- For 1.1 etc:
+  - New features, if I can think of any (everything I've thought of so far is
+    on the roadmap for 1.0...)

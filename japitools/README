@@ -1,15 +1,22 @@
 This is a temporary README file for the sake of getting *something* together
-fast. Full instructions can be found at http://stuart.wuffies.net/japi/ .
+fast. Full instructions can be found in the web/index.html file, or at
+http://rainbow.netreach.net/~sballard/japi/ .
 
-You can use the jarball directly in your classpath, because the class files in
-net/ are precompiled and ready. Alternatively, if you want to do any hacking,
-just unpack the jarball and use "make" in the root of the jarball to compile
-the source code. Sorry, the build system is spartan!
+You can unpack the tarball and use the files in the bin/ directory directly or
+via symlinks: they can find the java libraries, when necessary, by relative
+pathnames. The tarball comes with the java code precompiled so you don't need
+to build before use, but if you do any hacking, "make" in the root japi/
+directory will rebuild the java code. There's no "make install" but if you copy
+everything from bin/ to $prefix/bin and everything in share/java to
+$prefix/share/java, everything will continue to work. Sorry, the build system is
+spartan!
 
-This code requires jode-1.1.1.jar to also be in your classpath unless you use
-the "reflect" option, which isn't recommended. Also, Japize requires at least
-JDK1.2, although Jode is perfectly capable of loading previous versions of
-Java to Japize them.
+Japitools assumes that perl is /usr/bin/perl, "gzip" is in your path, and your
+preferred java runtime is "java" in your path. gzip is not required if you
+work with uncompressed japi files (see the "unzip" option in the japize
+documentation). Japize requires a Java runtime with some JDK1.2 features: mostly
+the Collections classes. At the time of writing, Kaffe is not sufficient (it
+fails to implement TreeSet.subSet) and GNU Classpath has not been tested.
 
 Fixes are welcomed, and I'll be improving the docs over time.
 

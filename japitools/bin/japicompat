@@ -55,7 +55,7 @@
 ## GLOBAL VARIABLES ##
 
 # Some global variables used for displaying stuff.
-$japiver = "0.9";
+$japiver = "0.9.1";
 $javatypes = {Z=>'boolean', B=>'byte', C=>'char', D=>'double', F=>'float',
                   I=>'int', J=>'long', S=>'short', V=>'void'};
 @static = ('instance', 'static');
@@ -138,7 +138,7 @@ sub japicmp($$) {
 
 sub japitemcmp($$) {
   ($a, $b) = @_;
-  scmp {/^java\.lang,Object%/} sub {scmp {/^java\.lang[\.,]/}};
+  scmp {/^java\.lang,Object!/} sub {scmp {/^java\.lang[\.,]/}};
 }
 
 # Convert a type signature as used in a japi file to a displayable type.
@@ -187,13 +187,13 @@ This looks like an old-style japi file. The format was changed since version
 0.7 to save disk space and avoid a theoretically possible ambiguity. Most
 new japis are approx. 30% smaller than the coresponding old-style ones. It was
 changed again since version 0.8 to allow japicompat to use smarter algorithms.
-You can use japi2new.pl to convert to the new format.
+You can use japifix to convert to the new format.
 EOF
   my $filever = $1;
   die <<EOF if $filever lt $japiver;
 
 This japi file claims to be version $filever, but this version of japicompat
-only understands version $japiver. You can use japi2new to upgrade old japi
+only understands version $japiver. You can use japifix to upgrade old japi
 files to version $japiver.
 EOF
   die <<EOF if $filever gt $japiver;
@@ -223,7 +223,7 @@ sub read_japi_item($) {
        japitemcmp($japi->{last_item}, $item) >= 0;
   $japi->{last_item} = $item;
 
-  my ($fqcn, $member) = split /%/, $item, 2;
+  my ($fqcn, $member) = split /!/, $item, 2;
   my ($pkg, $class) = split /,/, $fqcn, 2;
   my $isa;
   if ($member eq "") {
@@ -414,7 +414,7 @@ sub compare_japis($$) {
                         $nitem->{package} ne $oitem->{package})) {
         $eitem->{isa} = "package";
         $eitem->{class} = "";
-        $eitem->{item} = "$pkg,%";
+        $eitem->{item} = "$pkg,!";
         while (defined $oitem && $oitem->{package} eq $pkg) {
           $oitem = read_japi_item($orig);
           if (defined $oitem && $oitem->{package} eq $pkg) {
@@ -578,7 +578,7 @@ sub merge_results() {
       while (<$fh>) {
         chomp;
         my ($sups, $etype, $isa, $item, $rest) = split(/ /, $_, 5);
-        my ($class, $member) = split(/%/, $item, 2);
+        my ($class, $member) = split(/!/, $item, 2);
         my @sups = split(/;/, $sups);
         my $insup = 0;
 
@@ -591,13 +591,13 @@ sub merge_results() {
                  $etype eq 'missing') ||
                 $isa eq 'constructor') {
           foreach my $sup (@sups) {
-            $insup = 1 if $errs->{"$sup\%$member $rest"};
+            $insup = 1 if $errs->{"$sup\!$member $rest"};
           }
         }
         unless ($insup) {
           my ($pkg, $cls) = split(/,/, $class, 2);
           $class = "$pkg.$cls";
-          $errs->{"$class\%$member $rest"} = 1;
+          $errs->{"$class\!$member $rest"} = 1;
           print "$isa $class.".readable_member($member)." $rest\n";
           $totalerrors++;
           inc($sc, $pkg, $isa, $etype);

@@ -135,10 +135,10 @@ sub begin() {
     $japiver = "0.8";
   } elsif (/^\%\%japi ([^ ]*)(?: .*)?$/) {
     $japiver = $1;
-    if ($japiver ne "0.8.1" && $japiver ne "0.9") {
+    if ($japiver ne "0.8.1" && $japiver ne "0.9" && $japiver ne "0.9.1") {
       print STDERR <<EOF;
 This japi file claims to be version $japiver, but this version of $progname only
-understands version 0.8.1, version 0.9, and older versions that did not carry a
+understands versions 0.8.1, 0.9, 0.9.1, and older versions that did not carry a
 version number. Either this japi file is incorrect or you need a newer version
 of $progname.
 EOF
@@ -197,7 +197,7 @@ sub start() {
   $needtosort = $japiver le "0.8" || $forcesort;
   print STDERR "Converting $outfile (japi v$japiver)...";
   STDERR->autoflush;
-  print OUT "%\%japi 0.9\n";
+  print OUT "%\%japi 0.9.1\n";
 }
 
 sub finish() {
@@ -277,14 +277,19 @@ sub to_new() {
   }
   if ($japiver eq "0.9" or $older) {
     $older = 1;
-    # Do nothing - 0.9 is as far as we can get right now...
+    my ($class, $rest) = split /%/, $_, 2;
+    $_ = "$class!$rest";
+  }
+  if ($japiver eq "0.9.1" or $older) {
+    $older = 1;
+    # Do nothing - 0.9.1 is as far as we can get right now...
   }
   return $_;
 }
 
 sub jcmp() {
-  $ajlo = ($a =~ /^java\.lang,Object%/) ? -1 : 0;
-  $bjlo = ($b =~ /^java\.lang,Object%/) ? -1 : 0;
+  $ajlo = ($a =~ /^java\.lang,Object!/) ? -1 : 0;
+  $bjlo = ($b =~ /^java\.lang,Object!/) ? -1 : 0;
   return $ajlo - $bjlo if $ajlo != $bjlo;
   $ajl = ($a =~ /^java\.lang[\.,]/) ? -1 : 0;
   $bjl = ($b =~ /^java\.lang[\.,]/) ? -1 : 0;

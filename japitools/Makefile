@@ -1,9 +1,11 @@
-all: src/net/wuffies/japi/*.java
-	cd src && jikes -d .. net/wuffies/japi/*.java
+all: jar
 
-jar: all
-	jar -0cvf japitools.jar net/
+classes: src/net/wuffies/japi/*.java
+	cd src && jikes -d .. -classpath $(BOOT_CLASSPATH):$(CLASSPATH):../share/java/jode-1.1.1.jar net/wuffies/japi/*.java
+
+jar: classes
+	jar -0cvf share/java/japitools.jar net/wuffies/japi/*.class
 
 tarball: jar
-	tar zcvf ../japitools.tar.gz *
+	cd .. && tar zcvf japitools.tar.gz japi/
 

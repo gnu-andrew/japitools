@@ -1,0 +1,25 @@
+This document specifies the format of a .japi file, version 0.9.1. The actual
+implementations of japize, japifix and japicompat may not honor this spec
+exactly. If they do not, it is generally a bug or missing feature in the tool;
+this spec notes such bugs when they are known.
+
+The first line of any japi file since version 0.8.1 is as follows:
+%%japi <version>[ <info>]
+<version> indicates the version number of the japi file format. While this
+version number vaguely correlates with the version number of japitools releases,
+it is not the same number. Often japitools releases do not require a file format
+change, and sometimes I mess with the file version number for other reasons,
+with mixed results. <info> is currently reserved for future expansion and should
+be omitted when creating japi files, but should be parsed and ignored when
+reading a japi file. The format of this line is guaranteed to remain the same
+through all future japi versions.
+
+For completeness, I should mention file format versions prior to 0.8.1. Version
+0.7 can be recognized by the following regular expression:
+  /^[^ ]+#[^ ]* (public|protected) (abstract|concrete) (static|instance) (final|nonfinal) /
+Version 0.8 can be recognized by the following regular expression:
+  /^[^ ]+#[^ ]* [Pp][ac][si][fn] /
+These version numbers were invented retroactively, of course :)
+
+The format of all other lines in a japi file is as follows:
+<pkg>,<class>[$<innerclass>]!<member> <modifiers> <typeinfo>

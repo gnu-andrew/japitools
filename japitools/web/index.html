@@ -6,7 +6,7 @@ between Java APIs. They were originally designed for testing free
 implementations of Java itself for compatibility with Sun's JDK, but they can
 also be used for testing backward compatibility between versions of any API.</p>
 <p>The tools are <a href="#japize">japize</a>
-and <a href="#japicompat">japicompat</a>. Japize is a java program which
+and <a href="#japicompat">japicompat</a>. Japize is a Java program which
 uses the jode.bytecode library to emit a listing of an API in a machine-readable
 format. Japicompat then takes two such listings and compares them for binary
 compatibility, as defined by Sun in the
@@ -15,6 +15,14 @@ compatibility, as defined by Sun in the
 <a href="http://java.sun.com/docs/books/jls/clarify.html">here</a>).</p>
 <h3>News</h3>
 <ul>
+  <li>18 September 2002: Released japitools-0.8.6, fixing an ordering problem
+      related to inner classes (serve me right for having a machine that can
+      only handle japizing JDK1.1, which has no inner classes). This release
+      also includes some cruft-removal, including the unreliable "reflect"
+      option and japicompat-old, and makes zipped output the default. I added
+      Jode to the tarball itself and restructured a bit so that japize can find
+      its own libraries, so you no longer need to set CLASSPATH (or download
+      Jode separately).</li>
   <li>10 September 2002: Released japitools-0.8.5. This fixes numerous problems
       in the files produced by japize, bringing it finally back to parity with
       release 0.8 or so. Japicompat will now abort on mis-ordered files, so that
@@ -75,14 +83,19 @@ compatibility, as defined by Sun in the
 </ul>
 
 <h3>Installation</h3>
-<p>You can download <a href="japitools-0.8.5.tar.gz">japitools-0.8.5.tar.gz</a>
-here. This tarball contains japitools.jar which should be placed in your
-CLASSPATH, and a bin/ directory containing all the tools for working with japi
-files. It also contains sources for everything in case you want to do
-development.  You will need Jode 1.1.1, available
-from <a href="http://jode.sourceforge.net/">here</a>
-(<a href="jode-1.1.1.jar">local mirror of jode jarball</a>).
-<p>The tools in the bin directory assume that perl is /usr/bin/perl.</p>
+<p>You can download <a href="japitools-0.8.6.tar.gz">japitools-0.8.6.tar.gz</a>
+here. This tarball contains a bin/ directory containing all the japi tools, a
+share/ directory containing the java runtime libraries, and a src/ directory
+containing all the sources in case you want to do development. It should be
+unnecessary to set your CLASSPATH, since japitools can figure out the path to
+its runtime libraries by relative directory structures.</p>
+<p>The tarball also contains a <a href="http://jode.sourceforge.net/">Jode</a>
+jarball (also mirrored <a href="jode-1.1.1.jar">here</a>). By including this
+in the tarball, japitools is completely self-sufficient (except for perl and
+Java)</p>
+<p>The tools in the bin directory assume that perl is /usr/bin/perl and that
+your prefered Java runtime is "java" in your PATH. If you're working with
+zipped japi files, you must also have "gzip" in your path.</p>
 
 <h3>Usage</h3>
 <p>Using japitools is a two-step process:</p>
@@ -92,9 +105,8 @@ to compare.</li>
 other</li></ul>
 <h4><a name="japize">japize</a></h4>
 <p>The general usage of japize is as follows:</p>
-<pre>$ japize zip|unzip [as &lt;name&gt;] apis &lt;zipfile&gt; | &lt;dir&gt; ... +|-&lt;pkgpath&gt; ...</pre>
-<p>At least one +&lt;pkgpath&gt; is required. The word "reflect" can appear
-before "apis", but this is unreliable and deprecated. &lt;name&gt; will have
+<pre>$ japize [unzip] [as &lt;name&gt;] apis &lt;zipfile&gt; | &lt;dir&gt; ... +|-&lt;pkgpath&gt; ...</pre>
+<p>At least one +&lt;pkgpath&gt; is required. &lt;name&gt; will have
 ".japi" and/or ".gz" appended as appropriate.</p>
 <p>The word "apis" can be replaced by "explicitly", "byname", "packages" or
 "classes". These options indicate whether something of the form "a.b.C" should
@@ -103,9 +115,9 @@ one of the forms "a.b.cpackage," or "a.b,CClass".</p>
 <p>That's the one-paragraph overview, pretty much equivalent to what you get if
 you type "japize" with no arguments. In detail, the options available are as
 follows:</p>
-<h4>zip|unzip</h4>
-<p>Specifying the "zip" option indicates that japize should gzip its output.
-Specifying "unzip" indicates that it shouldn't. Zipping the output is highly
+<h4>[unzip]</h4>
+<p>Specifying the "unzip" option indicates that japize should not gzip its
+output. Zipping the output is highly
 recommended since it saves huge amounts of space (japi files are
 large but extremely compressable because they contain large numbers of duplicate
 strings. Factor-of-ten compression seems to be typical). The only situations
@@ -116,10 +128,8 @@ an issue, though) or if your JVM does not implement GZIPOutputStream correctly
 (in which case you might still want to gzip the resulting file manually).</p>
 <p>In previous releases "zip" was an option and "unzip" was not available as
 an option, because it was the implicit default. Since zipping is the recommended
-mode of operation, "zip" will become the implicit default in future versions.
-Japitools 0.8.5 requires an explicit selection of this option to avoid surprises
-caused by silently changing the default. Japitools 0.9 will accept "zip" as a
-no-op; future versions will refuse it entirely.</p>
+mode of operation, "zip" is now the implicit default, although it is accepted as
+a no-op. Future versions will refuse it entirely.</p>
 <h4>as &lt;name&gt;</h4>
 <p>Specifying this option tells japize to write its output to a file with the
 specified name. If this option is omitted, japize will write to standard output.
@@ -127,23 +137,9 @@ When writing to a file, japize insists on writing to a filename ending in .japi
 for uncompressed files, or .japi.gz for compressed files. If the filename you
 specify doesn't have the right extension, japize will add parts to it to ensure
 that it does.</p>
-<h4>reflect</h4>
-<p>This option is unreliable in several common scenarios, and therefore
-considered deprecated. It tells japize to use reflection to look up API
-information, instead of using Jode to parse the class files. Reflection does
-not provide access to information about whether a static final field is constant
-or not, and also uses far more memory. I have a hard time imagining any
-legitimate use for this option.</p>
-<p>As if that weren't enough reason for you to steer clear, bear in mind too
-that when invoked in this way, japize cannot load classes from the zipfiles
-or directories that you specify. Instead it will scan the paths you give it for
-class <b>names</b>, but use a regular Class.forName() call to actually look at
-the class contents. This means that to get API information for a given Java
-implementation with this option, you must use that JVM to run japize. The japize
-executable uses whatever is "java" in your system path.</p>
 <h4>apis | explicitly | byname | packages | classes</h4>
 <p>This option has a dual role: it indicates the boundary between japize options
-(zip, as, reflect) and other arguments (files and packages), but also tells
+(unzip, as) and other arguments (files and packages), but also tells
 japize how to deal with ambiguously specified arguments. See
 "+|-&lt;pkgpath&gt;" below for details on the behavior of each option. If you
 are unsure which to specify, "apis" is a safe choice.</p>
@@ -197,14 +193,14 @@ JDK 1.1 includes classes in java.awt.peer and in java.text.resources that are
 not part of the public API, even though they are public classes; however, every
 other class in the java.* package hierarchy is part of the public API. The
 syntax to construct a useful jdk11.japi.gz would therefore be:</p>
-<pre>$ japize zip as jdk11 apis classes.zip +java -java.awt.peer -java.text.resources</pre>
+<pre>$ japize as jdk11 apis classes.zip +java -java.awt.peer -java.text.resources</pre>
 <p>Note that since all pkgpath arguments here are packages, you could save a
 small amount of processing by doing this instead:</p>
-<pre>$ japize zip as jdk11 packages classes.zip +java -java.awt.peer -java.text.resources</pre>
+<pre>$ japize as jdk11 packages classes.zip +java -java.awt.peer -java.text.resources</pre>
 <p>or even this:</p>
-<pre>$ japize zip as jdk11 explicitly classes.zip +java, -java.awt.peer, -java.text.resources,</pre>
+<pre>$ japize as jdk11 explicitly classes.zip +java, -java.awt.peer, -java.text.resources,</pre>
 <p>Another example, this time doing the same thing for kaffe:</p>
-<pre>$ japize zip as kaffe packages $KAFFEHOME/share/kaffe/Klasses.jar $KAFFEHOME/share/kaffe/rmi.jar +java -java.awt.peer -java.text.resources</pre>
+<pre>$ japize as kaffe packages $KAFFEHOME/share/kaffe/Klasses.jar $KAFFEHOME/share/kaffe/rmi.jar +java -java.awt.peer -java.text.resources</pre>
 <h4><a name="japicompat">japicompat</a></h4>
 <p>Next, you can perform the test for compatibility between these two files:
 <pre>
@@ -284,8 +280,8 @@ version 2 or later.</p>
 <p>Here is an incomplete list of what still needs to be done:</p>
 <ul>
 <li>Figure out a way to ignore errors that are present in Sun's implementation
-    too - that is, if <tt>japicompat.pl jdk11.japi.gz jdk12.japi.gz</tt>
-    produces a given error, then ignore it when running <tt>japicompat.pl
+    too - that is, if <tt>japicompat jdk11.japi.gz jdk12.japi.gz</tt>
+    produces a given error, then ignore it when running <tt>japicompat
     jdk11.japi.gz kaffe.japi.gz</tt>.
 <li>Construct jdk10.japi.gz, jdk11.japi.gz, jdk12.japi.gz and jdk13.japi.gz
     using the latest japize, and publish a tarball of them.</li>
