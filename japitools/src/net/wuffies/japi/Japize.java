@@ -229,7 +229,7 @@ public class Japize {
     // find classes in the correct location.
     StringBuffer cp = new StringBuffer();
     for (Iterator j = path.iterator(); j.hasNext(); ) {
-      if (cp.length() > 0) cp.append(':');
+      if (cp.length() > 0) cp.append(File.pathSeparatorChar);
       cp.append(j.next());
     }
     JodeClass.setClassPath(cp.toString());
