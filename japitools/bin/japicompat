@@ -100,30 +100,6 @@ if (!defined $newfile) {
 $orig = open_japi($origfile);
 $new = open_japi($newfile);
 
-# Open the appropriate thing for output. If we will be piping to japiohtml or
-# japiotext, we first redirect STDOUT to whatever was given as "-o".
-if ($outprog) {
-  if ($opts{"o"}) {
-    close STDOUT;
-    open STDOUT, ">$opts{o}";
-  }
-  my $ct = 0; my $prog = $0;
-  $prog = readlink $prog while -l $prog && $ct++ < 5;
-  $progdir = $1 if $prog =~ /^(.*)\/[^\/]+$/;
-  if ($progdir) {
-    $progdir .= "/";
-  } else {
-    $progdir = $1 if $prog =~ /^(.*)\\[^\\]+$/;
-    $progdir .= "\\" if $progdir;
-  }
-  open OUT, "|$^X \"$progdir$outprog\"";
-} else {
-  if ($opts{"o"}) {
-    open OUT, ">$opts{o}";
-  } else {
-    open OUT, ">-";
-  }
-}
 
 # Loop through the two files and compare them.
 my $counts = compare_japis($orig, $new);
@@ -137,7 +113,6 @@ merge_results($counts);
 
 # Print a summary of what was found.
 print_summary();
-
 
 ## SUBROUTINES ##
 
@@ -385,6 +360,31 @@ sub short_summary($$) {
 sub dump_output($) {
   my ($c) = @_;
 
+  # Open the appropriate thing for output. If we will be piping to japiohtml or
+  # japiotext, we first redirect STDOUT to whatever was given as "-o".
+  if ($outprog) {
+    if ($opts{"o"}) {
+      close STDOUT;
+      open STDOUT, ">$opts{o}";
+    }
+    my $ct = 0; my $prog = $0;
+    $prog = readlink $prog while -l $prog && $ct++ < 5;
+    $progdir = $1 if $prog =~ /^(.*)\/[^\/]+$/;
+    if ($progdir) {
+      $progdir .= "/";
+    } else {
+      $progdir = $1 if $prog =~ /^(.*)\\[^\\]+$/;
+      $progdir .= "\\" if $progdir;
+    }
+    open OUT, "|$^X \"$progdir$outprog\"";
+  } else {
+    if ($opts{"o"}) {
+      open OUT, ">$opts{o}";
+    } else {
+      open OUT, ">-";
+    }
+  }
+
   my $origname = $origfile;
   my $newname = $newfile;
   my $origsname = $origname; $origsname =~ s/\.japi(?:\.gz)?$//;
@@ -427,6 +427,8 @@ sub dump_output($) {
   foreach my $errline (@allerrors) {
     print OUT "$errline\n";
   }
+  print OUT "end japio\n";
+  close OUT;
 }
 
 # Loop through all the packages in the original API and process them.
@@ -659,7 +661,23 @@ sub compare_japi_item($$$$) {
 sub load_ignore_file() {
   my $ign = {};
   if ($ignorefile) {
-    open IGN, "<$ignorefile" or die "Could not open ignore file $ignorefile";
+    if ($ignorefile =~ /\.japi(?:\.gz)?$/) {
+      my $ct = 0; my $prog = $0;
+      $prog = readlink $prog while -l $prog && $ct++ < 5;
+      $progdir = $1 if $prog =~ /^(.*)\/[^\/]+$/;
+      if ($progdir) {
+        $progdir .= "/";
+      } else {
+        $progdir = $1 if $prog =~ /^(.*)\\[^\\]+$/;
+        $progdir .= "\\" if $progdir;
+      }
+      my $opts = "-j";
+      $opts .= "v" if $svuid_errors;
+      $opts .= "s" if $sun_only;
+      open IGN, "$^X \"${progdir}japicompat\" $opts \"$origfile\" \"$ignorefile\"|";
+    } else {
+      open IGN, "<$ignorefile" or die "Could not open ignore file $ignorefile";
+    }
     my $japioline = <IGN>;
     die "Ignore file $ignorefile does not look like a japio file" if $japioline !~ /^\%\%japio /;
     die "Ignore file $ignorefile is not japio version 0.9.2" if $japioline !~ /^\%\%japio 0.9.2 ([^ \@]+)(?:\@[^ ]+) ([^ \@]+)(?:\@[^ ]+)/;
@@ -727,7 +745,7 @@ sub merge_results($) {
           $totalerrors++;
           inc($sc, $pkg, $isa, $etype);
         }
-	$lastmember = "$dotclass\!$member";
+        $lastmember = "$dotclass\!$member";
       }
       $fh->close();
       undef $fh;
