@@ -77,10 +77,16 @@
   * Include serialize, serialcompat, build.xml and new runner scripts from
     Brian Jones.
 - For 0.9:
-  - Any bug fixes reported in 0.8.7
-  - Make sure all relevant files carry the GPL
-  - Prepare a nice-looking announcement
-  - This is intended as a vaguely stable milestone before everything breaks
+  * Make japifix prune exceptions correctly for the same-throws-clause case.
+  * Bump file format version to force users to update their japis in case
+    they're wrong.
+  * Make japicompat include the per-package and overall summaries on stdout as
+    well as stderr, so that "-q" and a redirect of stdout only gives decent
+    results.
+  - Incorporate patch from Brian Jones to runner scripts and index.html
+  * Make sure all relevant files carry the GPL, and include COPYING
+  * Prepare a nice-looking announcement
+  * This is intended as a vaguely stable milestone before everything breaks
     again.
 - For 0.9.1:
   - Bump the file format version again...

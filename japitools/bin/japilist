@@ -1,4 +1,23 @@
 #!/usr/bin/perl
+###############################################################################
+# japilist - List the contents of japi files.
+# Copyright (C) 2000-2002  Stuart Ballard <sballard@netreach.net>
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+###############################################################################
+
 
 use Getopt::Std;
 
@@ -24,10 +43,10 @@ foreach (@ARGV) {
   chomp $hdr;
   my $ver = $1 if $hdr =~ /^\%\%japi ([^ ]*)(?: .*)?$/;
   $ver = "0.8 or earlier (or\nnot a japi file at all)" unless $ver;
-  if ($ver ne "0.9.2") {
+  if ($ver ne "0.9.3") {
     print STDERR <<EOF;
 $_ is a japi file of version $ver.
-This version of japipkgs only knows how to deal with version 0.9.2 japis. Use
+This version of japipkgs only knows how to deal with version 0.9.3 japis. Use
 japifix if your japi file is too old, or get a new version of japipkgs if it
 is too new.
 EOF

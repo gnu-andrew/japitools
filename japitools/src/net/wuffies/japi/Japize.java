@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Japize - Output a machine-readable description of a Java API.
-// Copyright (C) 2000  Stuart Ballard <sballard@wuffies.net>
+// Copyright (C) 2000-2002  Stuart Ballard <sballard@netreach.net>
 // 
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -15,9 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-//
-// A link to the GNU General Public License is available at the
-// japitools homepage, http://stuart.wuffies.net/japi/
 ///////////////////////////////////////////////////////////////////////////////
 
 package net.wuffies.japi;
@@ -313,7 +310,7 @@ public class Japize {
     // Print the header identifier. The syntax is "%%japi ver anything". Right
     // now we don't use the 'anything', and in that case the space after the
     // version is optional.
-    out.println("%%japi 0.9.2");
+    out.println("%%japi 0.9.3");
 
     // Identify whether java.lang,Object fits into our list of things to
     // process. If it does, process it first, then add it to the list of

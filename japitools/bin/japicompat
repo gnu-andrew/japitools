@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ###############################################################################
 # japicompat - Test Java APIs for binary backwards compatibility.
-# Copyright (C) 2000-2002  Stuart Ballard <sballard@wuffies.net>
+# Copyright (C) 2000-2002  Stuart Ballard <sballard@netreach.net>
 # 
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,9 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-# 
-# A link to the GNU General Public License is available at the
-# japitools homepage, http://stuart.wuffies.net/japi/
 ###############################################################################
 
 # Recent changes:
@@ -55,7 +52,7 @@
 ## GLOBAL VARIABLES ##
 
 # Some global variables used for displaying stuff.
-$japiver = "0.9.2";
+$japiver = "0.9.3";
 $javatypes = {Z=>'boolean', B=>'byte', C=>'char', D=>'double', F=>'float',
                   I=>'int', J=>'long', S=>'short', V=>'void'};
 @static = ('instance', 'static');
@@ -88,7 +85,7 @@ sub print_summary();
 getopts("svq", \%opts);
 my $sun_only = 1 if $opts{"s"};
 my $svuid_errors = 1 if $opts{"v"};
-my $dot = "." unless $opts{"q"};
+my $dot = $opts{"q"} ? "" : ".";
 my ($origfile, $newfile) = @ARGV;
 if (!defined $newfile) {
   print "Usage: japicompat [-svq] <original api> <api to check>\n";
@@ -357,14 +354,13 @@ sub short_summary($$) {
     $pkgn .= "e" if $pkgn =~ /[sx]$/;
     $pkgn .= "s";
   }
-  if ($dot) {
-    print STDERR "\r$pkgn: ";
-    my $res = pct($c, $pkg, "good", "");
-    $res = pct($c, $pkg, "bad", $res);
-    $res = pct($c, $pkg, "missing", $res);
-    $res = pct($c, $pkg, "abs.add.", $res);
-    print STDERR "$res \n";
-  }
+  my $summ = pct($c, $pkg, "good", "");
+  $summ = pct($c, $pkg, "bad", $summ);
+  $summ = pct($c, $pkg, "missing", $summ);
+  $summ = pct($c, $pkg, "abs.add.", $summ);
+  print "$pkgn: $summ\n";
+  print "\n" unless $pkg;
+  print STDERR "\r$pkgn: $summ\n" if $dot;
 }
 
 # Loop through all the packages in the original API and process them.
@@ -398,9 +394,9 @@ sub compare_japis($$) {
       $first = 0;
       $nitem = read_japi_item($new);
     }
-    if ($isnewpkg && $dot) {
+    if ($isnewpkg) {
       short_summary($c, $pkg) if $pkg;
-      print STDERR $oitem->{package};
+      print STDERR $oitem->{package} if $dot;
     }
     print STDERR $dot if $isnewclass;
     $pkg = $oitem->{package};
@@ -462,10 +458,8 @@ sub compare_japis($$) {
     $first = 0;
     $nitem = read_japi_item($new);
   }
-  if ($dot) {
-    short_summary($c, $pkg) if $pkg;
-    short_summary($c, "");
-  }
+  short_summary($c, $pkg) if $pkg;
+  short_summary($c, "");
 }
 
 sub compare_japi_item($$$$) {
@@ -626,27 +620,24 @@ sub count_summary($$) {
     $pkgn .= "e" if $pkgn =~ /[sx]$/;
     $pkgn .= "s";
   }
-  if ($dot) {
-    print STDERR "\r$pkgn: ";
-    my $res = ct($c, $pkg, "good", "");
-    $res = ct($c, $pkg, "bad", $res);
-    $res = ct($c, $pkg, "missing", $res);
-    $res = ct($c, $pkg, "abs.add.", $res);
-    $res = "All good" unless $res;
-    print STDERR "$res \n";
-  }
+  my $summ = ct($c, $pkg, "good", "");
+  $summ = ct($c, $pkg, "bad", $summ);
+  $summ = ct($c, $pkg, "missing", $summ);
+  $summ = ct($c, $pkg, "abs.add.", $summ);
+  $summ = "All good" unless $summ;
+  print "$pkgn: $summ\n";
+  print STDERR "\r$pkgn: $summ \n" if $dot;
 }
 # Print summary information.
 sub print_summary() {
-  STDOUT->autoflush();
-  if ($dot) {
-    print STDERR "\n";
-    count_summary($sc, "#package");
-    count_summary($sc, "#class");
-    count_summary($sc, "#interface");
-    count_summary($sc, "#field");
-    count_summary($sc, "#constructor");
-    count_summary($sc, "#method");
-    print STDERR "$totalerrors unique errors found.\n";
-  }
+  print "\n";
+  print STDERR "\n" if $dot;
+  count_summary($sc, "#package");
+  count_summary($sc, "#class");
+  count_summary($sc, "#interface");
+  count_summary($sc, "#field");
+  count_summary($sc, "#constructor");
+  count_summary($sc, "#method");
+  print "$totalerrors unique errors found.\n";
+  print STDERR "$totalerrors unique errors found.\n" if $dot;
 }

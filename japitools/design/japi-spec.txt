@@ -1,4 +1,4 @@
-This document specifies the format of a .japi file, version 0.9.2. The actual
+This document specifies the format of a .japi file, version 0.9.3. The actual
 implementations of japize, japifix and japicompat may not honor this spec
 exactly. If they do not, it is generally a bug or missing feature in the tool;
 this spec notes such bugs when they are known.
@@ -136,7 +136,7 @@ guaranteed to follow the same format for all future releases. Thus, this section
 (only!) of the spec covers all japi file format versions, past and future. With
 this information you can identify whether a file is a japi file, and which
 version it is. However, this spec does not provide any information about the
-content of the rest of the file for any version other than 0.9.2. Both past and
+content of the rest of the file for any version other than 0.9.3. Both past and
 future versions can be assumed to be entirely incompatible with this spec from
 the second line onwards.
 

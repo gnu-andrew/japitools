@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Japize - Output a machine-readable description of a Java API.
-// Copyright (C) 2000  Stuart Ballard <sballard@wuffies.net>
+// Copyright (C) 2000-2002  Stuart Ballard <sballard@netreach.net>
 // 
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -15,9 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-//
-// A link to the GNU General Public License is available at the
-// japitools homepage, http://stuart.wuffies.net/japi/
 ///////////////////////////////////////////////////////////////////////////////
 
 package net.wuffies.japi;
