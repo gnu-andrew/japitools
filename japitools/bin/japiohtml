@@ -140,9 +140,11 @@ EOF
       } elsif ($extra->{$key}) {
         $val = (int($extra->{$key} * 10000 / $total)/100) . "%";
       }
-      if ($val && $pkg ne "#" && $key ne "good") {
-        my $errl = $key; $errl =~ s/\./_/g;
-        $val = "<a href=\"#err_${errl}_$pkgl\">$val</a>";
+      if ($val) {
+        if ($pkg ne "#" && $key ne "good") {
+          my $errl = $key; $errl =~ s/\./_/g;
+          $val = "<a href=\"#err_${errl}_$pkgl\">$val</a>";
+        }
       } else {
         $val = "&nbsp;";
       }
