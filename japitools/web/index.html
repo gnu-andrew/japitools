@@ -13,8 +13,13 @@ compatibility, as defined by Sun in the
 <a href="http://java.sun.com/docs/books/jls/html/13.doc.html">Java Language Specification</a>
 (and as amended
 <a href="http://java.sun.com/docs/books/jls/clarify.html">here</a>).</p>
-<h3>Author</h3>
-<p>japitools was written primarily by <a href="http://sab39.dev.netreach.com/">Stuart Ballard (sab39)</a>. Contributions have been made by various people including Brian Jones, Tom Tromey and Michael Koch. It incorporates part of Jode by Jochen Hoenicke. If I forgot anyone, <a href="mailto:stuart.a.ballard@gmail.com">let me know</a>.</p>
+<h3>Authors</h3>
+<p>japitools was written primarily by
+<a href="http://sab39.dev.netreach.com/">Stuart Ballard (sab39)</a>.
+Contributions have been made by various people including Brian Jones,
+Tom Tromey, Michael Koch and Jeroen Frijters. It incorporates part of Jode by
+Jochen Hoenicke. If I forgot anyone,
+<a href="mailto:stuart.a.ballard@gmail.com">let me know</a>.</p>
 <h3>Results</h3>
 <p>(in alphabetical order to avoid arguments... ;) )</p>
 <ul>
@@ -59,24 +64,32 @@ compatibility, as defined by Sun in the
       (same as Kaffe but including JacORB for the org.omg stuff).
 </li>
 </ul>
-<p>
-Previously, the <a href="http://wonka.acunia.com/wonka.html">Wonka</a> VM was
+<p>Previously, the <a href="http://wonka.acunia.com/wonka.html">Wonka</a> VM was
 also included in this list, but they seem to have stopped providing japi files
-some time ago, so they have been removed.
-
-<!--a href="http://wonka.acunia.com/wonka.html">Wonka</a>:
-      <a href="htmlout/h-jdk10-wonka.html">vs JDK1.0</a>,
-      <a href="htmlout/h-jdk11-wonka.html">vs JDK1.1</a>,
-      <a href="htmlout/h-jdk12-wonka.html">vs JDK1.2</a>,
-      <a href="htmlout/h-jdk13-wonka.html">vs JDK1.3</a>,
-      <a href="htmlout/h-jdk14-wonka.html">vs JDK1.4</a>,
-      <a href="htmlout/h-wonka-jdk14.html">JDK1.4 vs it</a>
-      (updated nightly).-->
-</p>
+some time ago, so they have been removed.</p>
 <p>A tarball of the JDK japi files used to generate this output can be
-downloaded from <a href="jdkjapis.tar">here</a>.</p>
+downloaded from <a href="jdkjapis.tar">here</a>. These japi files were
+created by running japize over the rt.jar (or equivalent) files from each
+JDK release.</p>
 <h3>News</h3>
 <ul>
+  <li>XX November 2004: Released japitools-0.9.5. This release adds a
+      much-requested feature: the ability to ignore differences when reporting
+	  compatibility with an early API release, if those differences are
+	  required for compatibility with a later release. See the description of
+	  the -i flag below for more information. This new code has been running
+	  nightly for a while producing the results linked above, without any known
+	  problems. It reveals that the free implementations are much closer to full
+	  coverage of 1.0 and 1.1 than was previously apparent - in fact missing only
+	  three fields from java.awt.Font for 1.0 coverage and only slightly more for
+	  1.1.<br>
+	  Thanks to Michael Koch for the key insight that enabled this feature to
+	  finally be written, after four years of me saying it was needed.<br>
+	  Also in this release is a fix from Jeroen Frijters for methods in final
+	  classes that were not explicitly marked final themselves, and the
+	  serialize and serialcompat tools have been removed (they are now a module
+	  in the <a href="?">Mauve</a> project).
+	  </li>
   <li>30 September 2004: Released japitools-0.9.4. This is a bugfix release
       that addresses two issues:
       <ul>
@@ -186,7 +199,7 @@ downloaded from <a href="jdkjapis.tar">here</a>.</p>
       This release is currently considered stable and suitable for widespread
       use. Barring the discovery of major problems, the next few releases will
       be potentially unstable new-feature releases leading up to an eventual
-      1.0.
+      1.0.</li>
   <li>24 September 2002: Released japitools-0.8.7, which is a "release
       candidate" for a hopefully stable and widely-announced 0.9. Quite a bit
       new in this release:
@@ -285,7 +298,7 @@ downloaded from <a href="jdkjapis.tar">here</a>.</p>
 </ul>
 
 <h3>Installation</h3>
-<p>You can download <a href="japitools-0.9.4.tar.gz">japitools-0.9.4.tar.gz</a>
+<p>You can download <a href="japitools-0.9.5.tar.gz">japitools-0.9.5.tar.gz</a>
 here. This tarball contains a bin/ directory containing all the japi tools, a
 share/ directory containing the java runtime libraries, and a src/ directory
 containing all the sources in case you want to do development. It should be
@@ -294,12 +307,8 @@ its runtime libraries by relative directory structures.</p>
 <p>The tarball contains code extracted from
 <a href="http://jode.sourceforge.net/">Jode</a>
 (a jarball of which is mirrored <a href="jode-1.1.1.jar">here</a>).
-To compile all of the sources you will need to also download 
-<a href="http://www.csse.monash.edu.au/~bren/JSX/">JSX</a> and 
-<a href="http://www.urbanophile.com/arenn/hacking/download.html">gnu.getopt</a>.
-After placing these packages in <code>share/java</code>, japitools 
-is completely self-sufficient (except for perl and Java)</p>
-<p>The tools in the bin directory assume that perl is /usr/bin/perl and that
+japitools is completely self-sufficient (except for perl, Java, and optionally
+gzip). The tools in the bin directory assume that perl is /usr/bin/perl and that
 your prefered Java runtime is "java" in your PATH. If you're working with
 zipped japi files, you must also have "gzip" in your path.</p>
 
@@ -408,18 +417,14 @@ small amount of processing by doing this instead:</p>
 <p>Another example, this time doing the same thing for kaffe:</p>
 <pre>$ japize as kaffe packages $KAFFEHOME/share/kaffe/Klasses.jar $KAFFEHOME/share/kaffe/rmi.jar +java -java.awt.peer -java.text.resources</pre>
 <h4><a name="japicompat">japicompat</a></h4>
-<p>Next, you can perform the test for compatibility between these two files:
+<p>Next, you can perform the test for compatibility between these two files:</p>
 <pre>
 $ japicompat jdk11.japi.gz kaffe.japi.gz
 </pre>
-<p>Either compressed (.japi.gz) or uncompressed (.japi) files can be passed to
-japicompat: The file extension is used to determine whether or not to pipe input
-through gzip or not. japicompat reports its progress to standard error and
-the specific errors to standard output, so you can redirect standard output
-to watch the progress without getting spammed by verbose error messages.
-However, the output should happen in a sensible order even if this is not
-done. Future versions of japicompat will support more flexible output,
-including HTML.</p>
+<p>The full list of flags supported by japicompat is as follows:</p>
+<pre>japicompat [-svqhtj] [-o &lt;outfile&gt;] [-i &lt;ignorefile&gt;] &lt;original api&gt; &lt;api to check&gt;</pre>
+<p>The meanings of these options are as follows:</p>
+<h4>-s</h4>
 <p>By default, japicompat tests for binary compatibility as defined by the JLS,
 plus a couple of additions (see below for details). You can turn off these
 additions by passing the -s flag to japicompat, for example:</p>
@@ -427,15 +432,91 @@ additions by passing the -s flag to japicompat, for example:</p>
 $ japicompat -s jdk11.japi.gz kaffe.japi.gz
 </pre>
 <p>The s stands for "sun", "standard", "specification", or if you like more
-colorful language, "single-buttocked" (one buttock=half an...)</p>
-<p>japicompat can also check that Serializable classes have the same
-SerialVersionUID number from one release to the next. Because in most cases
-this is likely to produce lots of errors, it needs to be explicitly turned on
-by passing the -v flag to japicompat, for example:</p>
+colorful language, "single-buttocked" (one buttock=half an...). See "What exactly
+does japicompat test?" below for exactly what tests get turned off by this
+flag.</p>
+
+<h4>-v</h4>
+<p>By default, japicompat only checks for errors that break binary compatibility.
+However, japicompat can also check for some "minor" compatibility problems. To
+activate these additional checks, use the "-v" flag. The v stands for "verbose".</p>
 <pre>
 $ japicompat -v jdk11.japi.gz kaffe.japi.gz
 </pre>
-<p>The v stands for serial "version" or "verbose".</p>
+<p>Specifically, the -v flag enables the following additional checks:</p>
+<ul>
+  <li>SerialVersionUID checking: japicompat reports a minor error if a Serializable
+      class has a different SerialVersionUID between the two releases.</li>
+  <li>Deprecation checking: japicompat reports a minor error if a class or member
+      was deprecated in the original API but is not deprecated in the API being
+      checked.</li>
+</ul>
+
+<h4>-q</h4>
+<p>By default, japicompat provides progress reports as it runs. In unix
+terminology, these are sent to stderr (the actual results are sent to
+stdout unless the -o flag is used). The -q flag turns off these
+progress reports - only real errors will be sent to stderr.</p>
+
+<h4>-h</h4>
+<p>Generate output in HTML format. The HTML files produced depend on the
+japi.css file in the design directory to get attractive presentation.</h>
+
+<h4>-t</h4>
+<p>Generate output in text format. This is the default.</p>
+
+<h4>-j</h4>
+<p>Generate output in raw machine readable form. The format produced is called
+"japio" format, and by convention should be saved with a ".japio" file extension.
+The standalone japiotext and japiohtml utilities can be used to convert this
+format into html or text (actually, japicompat calls japiotext or japiohtml
+internally if the -h or -t flags are used). Japio files can also be used with
+the -i flag to support ignoring errors caused by incompatibilities between
+JDK versions.</p>
+
+<h4>-o &lt;outfile&gt;</h4>
+<p>Send the output to &lt;outfile&gt; instead of stdout. The format of this file
+depends on the -h, -t and -j flags.</p>
+
+<h4>-i &lt;ignorefile&gt;</h4>
+<p>Suppose you are attempting to implement the Java API. You have (pretty much)
+completed coverage of the early JDK versions (1.0 and 1.1) but still have some distance
+to achieve full coverage of 1.4 (this is an accurate description of all Free
+Software Java implementations at the time of writing). Using japicompat to compare
+your implementation with JDK 1.4 gives accurate results, but you might also want to
+show your coverage of the earlier versions.</p>
+<p>Unfortunately Sun has not followed their own binary compatibility rules between
+JDK releases, let alone the expanded rules that japicompat tests for. So when you
+run a comparison between JDK 1.1 and your implementation, you will get spurious
+error reports when you're compatible with 1.4 but not 1.1.</p>
+<p>Obviously what you really want is to ignore errors like this, and japicompat
+provides a way to do so. First, run a comparison between 1.1 and 1.4 using the
+-j switch. Then run the comparison between 1.1 and your implementation, passing
+the "-i" option with the output of the previous run. For example:</p>
+<pre>
+$ japicompat -jvo ignore-11-14.japio jdk11.japi.gz jdk14.japi.gz
+$ japicompat -hvo jdk11-myimpl.html -i ignore-11-14.japio jdk11.japi.gz myimpl.japi.gz
+</pre>
+<p>(In this example I also passed the -v flag but didn't pass -s. You should use
+the same combination of these two flags for both runs of japicompat to avoid getting
+bad results)</p>
+<h4>&lt;original api&gt; &lt;api to check&gt;</h4>
+<p>The japi files corresponding to the APIs to be compared.</p>
+<p>japicompat specifically tests that the second argument is
+backwardly-compatible with the first. Therefore, a perfect implementation of
+JDK 1.1 would produce no errors regardless of the order of the arguments, but a
+perfect implementation of JDK1.1 plus <em>parts</em> of JDK1.2 should be tested as
+follows:</p>
+<pre>$ japicompat jdk11.japi.gz myimpl.japi.gz
+$ japicompat myimpl.japi.gz jdk12.japi.gz</pre>
+<p>It is probably impossible to make an implementation that passes both these
+tests, since Sun's own JDK1.2 produces numerous errors when tested against
+JDK1.1. See the discussion of the -i option above for a way to cope with this
+situation.</p>
+<p>Either compressed (.japi.gz) or uncompressed (.japi) files can be passed to
+japicompat: The file extension is used to determine whether or not to pipe input
+through gzip or not.</p>
+
 <h3>What exactly does japicompat test?</h3>
 <p>As mentioned above, japicompat tests for binary compatibility as defined
 by Sun in the JLS. A full summary of what does and does not break binary
@@ -466,38 +547,6 @@ I'm not sure why you would want to...</p>
     version may not provide a concrete implementation of the new method.
 </ul>
 
-<p>japicompat specifically tests that the second argument is
-backwardly-compatible with the first. Therefore, a perfect implementation of
-JDK 1.1 would produce no errors regardless of the order of the arguments, but a
-perfect implementation of JDK1.1 plus *parts* of JDK1.2 should be tested as
-follows:</p>
-<pre>$ japicompat jdk11.japi.gz kaffe.japi.gz
-$ japicompat kaffe.japi.gz jdk12.japi.gz</pre>
-<p>It is probably impossible to make an implementation that passes both these
-tests, since Sun's own JDK1.2 produces numerous errors when tested against
-JDK1.1.</p>
-
-<h3><a name="serialize">serialize</a></h3>
-<p>The <code>serialize</code> program can be used to automatically create 
-serialized objects from the JVM and class library currently in use through 
-reflection.</p>
-<pre>
-$ serialize -d jdk12 classes
-$ serialize -d tmp java.util.Vector java.util.HashMap
-$ serialize -x -d jdk12 classes
-</pre>
-<p>The XML serialization allows for simpler inspection of the serialized 
-object where specifications and code are lacking.</p>
-<p>The <code>serialcompat</code> script compares binary files created by
-the <code>serialize</code> program and lists the classes in the new or to 
-check directory tree that exist in the old tree and are different.  If you
-want to compare the XML files, some XML diff utilities aready exist but
-serialcompat doesn't yet make use of or require this.  An example is a 
-python script called xmldiff.</p>
-<pre>
-$ serialcompat jdk12 jdk13
-$ serialcompat jdk12 classpath
-</pre>
 
 <h3>File format</h3>
 <p>The file format of .japi files is described in full in
@@ -514,21 +563,11 @@ version 2 or later.</p>
 <h3>To do</h3>
 <p>Here is an incomplete list of what still needs to be done:</p>
 <ul>
-<li>Figure out a way to ignore errors that are present in Sun's implementation
-    too - that is, if <tt>japicompat jdk11.japi.gz jdk12.japi.gz</tt>
-    produces a given error, then ignore it when running <tt>japicompat
-    jdk11.japi.gz kaffe.japi.gz</tt>.
-<li>Construct jdk10.japi.gz, jdk11.japi.gz, jdk12.japi.gz and jdk13.japi.gz
-    using the latest japize, and publish a tarball of them.</li>
-<li>Set up a nightly checkout of Kaffe, Classpath and libgcj, if possible, and
-    run automated japicompat tests against all the jdk versions.</li>
+<li>Handle the new constructs in JDK 1.5 (or 5.0 or whatever it's called),
+    particularly generics.</li>
 <li>Fix any bugs that anyone finds...</li>
 <li>Handle APIs containing international characters in class/member names, and
     also international characters in final constant Strings.</li>
 <li>Make a "1.0" release.</li>
-<li>Write a japi2java tool, just because I can...</li>
 </ul>
-<p>Another to-do list with most of these same todos broken down by hypothetical
-future release number can be found in the tarball in design/TODO.</p>
 </body></html>
-

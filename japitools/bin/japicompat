@@ -83,15 +83,16 @@ sub sig2type($);
 ## MAIN LOOP ##
 
 # Parse cmdline and give a usage message.
-getopts("svqhtjo:i:", \%opts);
+getopts("svqhtjwo:i:", \%opts);
 my $sun_only = 1 if $opts{"s"};
 my $svuid_errors = 1 if $opts{"v"};
+my $buggywarn = 1 unless $opts{"w"};
 my $dot = $opts{"q"} ? "" : ".";
 my $outprog = $opts{"h"} ? "japiohtml" : $opts{"j"} ? undef : "japiotext";
 my $ignorefile = $opts{"i"};
 my ($origfile, $newfile) = @ARGV;
 if (!defined $newfile) {
-  print STDERR "Usage: japicompat [-svqhtj] [-o outfile] [-i ignorefile] <original api> <api to check>\n";
+  print STDERR "Usage: japicompat [-svqhtjw] [-o outfile] [-i ignorefile] <original api> <api to check>\n";
   exit 1;
 }
 
@@ -390,12 +391,14 @@ sub dump_output($) {
     print OUT "notify Differences due to incompatibility between $ignore_orig and $ignore_new have been ignored. Since these differences are not counted as good OR bad, they may cause percentages not to add up to 100%.\n";
     print OUT "notify Warning: this may not make sense, because normally differences between $origsname and something should be ignored instead.\n" unless $ignore_orig eq $origsname;
   }
-# if ($orig->{"origver"} && $orig->{"origver"} le $buggyver) {
-#   print OUT "notify Warning: $origsname API may have been read by a version of japitools that contained known bugs that cause inaccuracies in the output.\n";
-# }
-# if ($new->{"origver"} && $new->{"origver"} le $buggyver) {
-#   print OUT "notify Warning: $newsname API may have been read by a version of japitools that contained known bugs that cause inaccuracies in the output.\n";
-# }
+  if ($buggywarn) {
+    if ($orig->{"origver"} && $orig->{"origver"} le $buggyver) {
+      print OUT "notify Warning: $origsname API may have been read by a version of japitools that contained known bugs that cause inaccuracies in the output.\n";
+    }
+    if ($new->{"origver"} && $new->{"origver"} le $buggyver) {
+      print OUT "notify Warning: $newsname API may have been read by a version of japitools that contained known bugs that cause inaccuracies in the output.\n";
+    }
+  }
   print OUT "categories =good ";
   print OUT "=mi_nor " if $svuid_errors;
   print OUT "bad missing";
@@ -429,6 +432,7 @@ sub compare_japis($$) {
   my $c = {}; # counts
   my $oitem = read_japi_item($orig);
   my $nitem = read_japi_item($new);
+  my $class_has_ctors = 0;
   my ($oclitem, $nclitem);
   print STDERR "Comparing...\n" if $dot;
   while (defined $oitem) {
@@ -443,7 +447,7 @@ sub compare_japis($$) {
       # Keep an eye out for members that are abstract that are also not in
       # the original. This check is not in the JLS, so only do it if sun_only
       # is false.
-      if (!$sun_only && !$first && $nitem->{abstract} &&
+      if (!$sun_only && !$first && $class_has_ctors && $nitem->{abstract} &&
           $nitem->{package} eq $pkg && $nitem->{class} eq $class) {
         my $mtype = $nclitem->{isa} eq "class" ? "abstract" : $nclitem->{isa};
         output_error($nitem, $nitem, $oclitem, $c, "abs.add",
@@ -460,6 +464,8 @@ sub compare_japis($$) {
     $pkg = $oitem->{package};
     $class = $oitem->{class};
     $oclitem = $oitem if $isnewclass;
+    $class_has_ctors = 0 if $isnewclass;
+    $class_has_ctors = 1 if $oitem->{isa} eq "constructor";
     $errhere = 0;
     if ($cmp) {
       my $ecount = 1;
@@ -502,7 +508,7 @@ sub compare_japis($$) {
   # New abstract members in a class might show up even at the end of the file,
   # after the last item in orig.
   my $first = 1;
-  while (!$sun_only && defined $nitem &&
+  while (!$sun_only && defined $nitem && $class_has_ctors &&
          $nitem->{package} eq $pkg && $nitem->{class} eq $class) {
     $errhere = 0;
 

@@ -30,8 +30,6 @@
         <echo message=""/>
 
         <path id="base.path">
-            <pathelement location="${lib.dir}/java-getopt-1.0.9.jar" />
-            <pathelement location="${lib.dir}/JSX1.0.5.3.jar" />
             <pathelement location="${build.classes.dir}" />
         </path>
     </target>

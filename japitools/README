@@ -20,13 +20,8 @@ Japitools assumes that perl is /usr/bin/perl, "gzip" is in your path, and your
 preferred java runtime is "java" in your path. gzip is not required if you
 work with uncompressed japi files (see the "unzip" option in the japize
 documentation). Japize requires a Java runtime with some JDK1.2 features: mostly
-the Collections classes. At the time of writing, Kaffe is not sufficient (it
-fails to implement TreeSet.subSet) but there have been reports of varying
-degrees of success using Kissme and gcc's gij.
-
-Compilation and running of the serialize tool requires GNU getopt,
-http://www.urbanophile.com/arenn/hacking/download.html, GPL, and
-JSX, http://www.csse.monash.edu.au/~bren/JSX/, GPL.
+the Collections classes. Success has been reported with Free runtimes including
+Kaffe and gcj/gij.
 
 Fixes are welcomed, and I'll be improving the docs over time.
 
