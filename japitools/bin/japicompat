@@ -571,7 +571,7 @@ sub compare_japi_item($$$$) {
       $oconstant .= " (0x$oitem->{constbits})" if defined $oitem->{constbits};
       if (!defined $nitem->{constant}) {
         output_error($oitem, $nitem, $oclitem, $c, "bad",
-                     "constant [$oconstant}]", "not constant");
+                     "constant [$oconstant]", "not constant");
       } else {
         my $nconstant = $nitem->{constant};
         $nconstant .= " (0x$nitem->{constbits})" if defined $nitem->{constbits};
