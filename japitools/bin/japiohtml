@@ -22,6 +22,8 @@
 
 # Some global variables used for displaying stuff.
 $japiover = "0.9.1";
+@categories = ();
+@packages = ();
 
 # Requirements
 #use IO::Handle;
@@ -109,31 +111,44 @@ EOF
       }
     }
     my $pkgn = $pkg;
+    my $pkga;
+    my $pkgl;
     if ($pkg eq "#") {
       print "\n";
-      $pkgn = "Total";
+      $pkga = $pkgn = "Total";
     } elsif ($pkg =~ /^#(.)(.*)$/) {
       $pkgn = uc($1) . $2;
       $pkgn .= "e" if $pkgn =~ /[sx]$/;
       $pkgn .= "s";
+      $pkga = $pkgn;
+    } else {
+      $pkgl = $pkg; $pkgl =~ s/\./_/g;
+      $pkga = "<a href=\"#pkg_$pkgl\">$pkgn</a>";
+      push @packages, $pkg;
     }
     my $pctclass = "none";
     $pctclass = (int($oktotal * 10 / $etotal) * 10)."pct" if $oktotal;
     print <<EOF;
       <tr class="alternating-$alt">
-        <th class="ok-$pctclass">$pkgn:</th>
+        <th class="ok-$pctclass">$pkga:</th>
 EOF
     $alt = 3 - $alt;
     foreach my $key (@categories) {
-      my $val = "&nbsp;";
+      my $val;
       if ($values->{$key}) {
         $val = (int($values->{$key} * 10000 / $total)/100) . "%";
       } elsif ($extra->{$key}) {
         $val = (int($extra->{$key} * 10000 / $total)/100) . "%";
       }
+      if ($val && $pkg ne "#" && $key ne "good") {
+        my $errl = $key; $errl =~ s/\./_/g;
+        $val = "<a href=\"#err_${errl}_$pkgl\">$val</a>";
+      } else {
+        $val = "&nbsp;";
+      }
       my $class = $key; $class =~ s/\./-/g;
       print <<EOF;
-        <td class="$class">$val</td>
+        <td class="$class" title="$pkg $key">$val</td>
 EOF
     }
 
@@ -230,7 +245,7 @@ EOF
         my $alt = $altc x ($percent->{$item} / 5);
         $alt = $altc unless $alt;
         print <<EOF if $pct;
-              <td width="$pct" class="$class-bar">
+              <td width="$pct" class="$class-bar" title="$pkg $item">
                 <img src="1x1.gif" width="1" height="1" alt="$alt">
               </td>
 EOF
@@ -243,26 +258,52 @@ EOF
       </tr>
 EOF
   } elsif (/^error (.*)$/) {
-    print <<EOF unless $finishedsummary;
-    </table>
-    <h2>Errors</h2>
-    <ul>
-EOF
-    $finishedsummary = 1;
-    my ($etype, $isa, $item, $sups, $rest) = split / /, $1, 5;
-    my ($was, $is) = split /\//, $rest;
-    $etype =~ s/\./-/g;
-    my $msg = $was ? "$was in $orig, but" : "";
-    print <<EOF;
-      <li class="$etype">$isa $item: $msg $is in $new</li>
-EOF
+    my $line = $1;
+    my ($etype, $isa, $item, $sups, $rest) = split / /, $line, 5;
+    my ($pkg, $cmember) = split /,/, $item;
+    push @{$errors->{"$pkg/$etype"}}, $line;
   } else {
     die "Line not understood in japio file:\n$_";
   }
 }
 print <<EOF;
-    </ul>
+    </table>
+    <h2>Errors</h2>
+EOF
+foreach my $pkg (@packages) {
+  my $pkgl = $pkg; $pkgl =~ s/\./_/g;
+  my $catlinks = "";
+  foreach my $cat (@categories) {
+    my $catl = $cat; $catl =~ s/\./_/g;
+    $catlinks .= "<a name=\"err_${catl}_$pkgl\"></a>"
+      unless $cat eq "good" || $errors->{"$pkg/$cat"};
+  }
+  print <<EOF;
+    <h3><a name="pkg_$pkgl"></a>$catlinks$pkg</h3>
+EOF
+  foreach my $cat (@categories) {
+    if ($errors->{"$pkg/$cat"}) {
+      my $catl = $cat; $catl =~ s/\./_/g;
+      my $catc = $cat; $catc =~ s/\./-/g;
+      print <<EOF;
+    <h4><a name="err_${catl}_$pkgl"></a>$cat</h4>
+    <ul class="$catc">
+EOF
+      foreach my $line (@{$errors->{"$pkg/$cat"}}) {
+        my ($etype, $isa, $item, $sups, $rest) = split / /, $line, 5;
+        my ($was, $is) = split /\//, $rest;
+        my $msg = $was ? "$was in $orig, but" : "";
+        print <<EOF;
+        <li>$isa $item: $msg $is in $new</li>
+EOF
+      }
+      print <<EOF;
+      </ul>
+EOF
+    }
+  }
+}
+print <<EOF;
   </body>
 </html>
 EOF
-exit 0;

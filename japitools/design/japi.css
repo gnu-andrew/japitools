@@ -24,9 +24,10 @@
 .abs-add-bar { background-color: #8800aa }
 
 /* Layout properties */
-.bar { empty-cells: show }
 th { font-size: 12px; text-align: right }
 .colhead th { text-align: center }
 .alternating-1 { background-color: #ddddff }
 .alternating-2 { background-color: #eeeeee }
 .datestamp { text-align: right; color: #bbbbbb }
+a { color: inherit; text-decoration: none }
+a:hover { text-decoration: underline }
