@@ -202,7 +202,7 @@ EOF
   print STDERR ".\n" if $dot;
   $japi->{fh} = $fh;
   foreach my $infitem (split / /, $info) {
-    my ($infname, $infvalue) = split /=/, $infitem, 1;
+    my ($infname, $infvalue) = split /=/, $infitem, 2;
     $japi->{$infname} = $infvalue;
   }
   return $japi;
@@ -397,7 +397,7 @@ sub compare_japis($$) {
   $origname .= "\@$orig->{date}" if $orig->{date};
   $newname .= "\@$new->{date}" if $new->{date};
 
-  print OUT "%\%japio 0.9.1 $origfile $newfile\n";
+  print OUT "%\%japio 0.9.1 $origname $newname\n";
   print OUT "categories =good ";
   print OUT "=svuid " if $svuid_errors;
   print OUT "bad missing";

@@ -24,6 +24,8 @@
 $japiover = "0.9.1";
 @categories = ();
 @packages = ();
+# Would be nice not to hardcode this - maybe later...
+@things = ("package", "class", "interface", "field", "method", "constructor");
 
 # Requirements
 #use IO::Handle;
@@ -40,14 +42,16 @@ EOF
 }
 if ($filever ne $japiover) {
   print STDERR <<EOF;
-This japio file claims to be version $filever, but this version of japiotext
+This japio file claims to be version $filever, but this version of japiohtml
 only supports version $japiover.
 EOF
   exit 1;
 }
 
-($orig,$origdate)=($1, $2) if $origfile =~ /^([^@]*)(?:\.japi(?:\.gz))?(?:@(.*))?$/;
-($new, $newdate) = ($1, $2) if $newfile =~ /^([^@]*)(?:\.japi(?:\.gz))?(?:@(.*))?$/;
+($orig,$origdate) = ($1, $2)
+    if $origfile =~ /^([^@]*?)(?:\.japi(?:\.gz))?(?:@(.*))?$/;
+($new, $newdate) = ($1, $2)
+    if $newfile =~ /^([^@]*?)(?:\.japi(?:\.gz))?(?:@(.*))?$/;
 $origdate =~ s/_/ /g if $origdate;
 $newdate =~ s/_/ /g if $newdate;
 
@@ -76,6 +80,21 @@ print <<EOF;
     <p>Note that summary information is calculated prior to filtering the
        results (for duplicates, etc). It is possible to show a non-zero "bad" or
        "missing" score without any actual errors being listed.</p>
+    <h3>Legend</h3>
+    <table class="legend" border="0" cellspacing="0" cellpadding="3">
+      <tr>
+        <th>All correct -</th>
+EOF
+for (my $i = 100; $i >= 0; $i -= 10) {
+  print <<EOF;
+        <td class="ok-${i}pct">&nbsp;</td>
+EOF
+}
+print <<EOF;
+        <td class="ok-none">&nbsp;</td>
+        <th>- None correct</th>
+      </tr>
+    </table>
     <table class="summary" border="0" cellspacing="0" cellpadding="3">
 EOF
 
@@ -273,6 +292,8 @@ EOF
     my ($etype, $isa, $item, $sups, $rest) = split / /, $line, 5;
     my ($pkg, $cmember) = split /,/, $item;
     push @{$errors->{"$pkg/$etype"}}, $line;
+    $totals->{"$etype/$isa"}++;
+    $totals->{"$etype/$isa/$pkg"}++;
   } else {
     die "Line not understood in japio file:\n$_";
   }
@@ -280,6 +301,39 @@ EOF
 print <<EOF;
     </table>
     <h2>Errors</h2>
+    <table class="phead">
+      <tr>
+        <td>
+          <h3>Total</h3>
+EOF
+my $ct = 0;
+foreach my $cat (@categories) {
+  next if $cat eq "good";
+  my $cap = uc($1).$2 if $cat =~ /^(.)(.*)$/;
+  my $catn = $cat; $catn =~ s/\./-/g;
+  my $scol = ($ct++ == $#categories ? "" : ";");
+  my $vals = "";
+  foreach my $thing (@things) {
+    my $tot = $totals->{"$cat/$thing"};
+    if ($tot) {
+      my $th = $thing;
+      if ($tot > 1) {
+        $th .= "e" if $th =~ /[sx]$/;
+        $th .= "s";
+      }
+      $vals .= "," if $vals;
+      $vals .= "&nbsp;$tot&nbsp;$th";
+    }
+  }
+  $vals = "&nbsp;None" unless $vals;
+  print <<EOF;
+          <span class="$catn">$cap:$vals.</span>$scol
+EOF
+}
+print <<EOF;
+        </td>
+      </tr>
+    </table>
 EOF
 foreach my $pkg (@packages) {
   my $pkgl = $pkg; $pkgl =~ s/\./_/g;
@@ -295,11 +349,47 @@ foreach my $pkg (@packages) {
       }
     }
   }
-  print $anyerrors ? <<EOF1 : <<EOF;
-    <h3><a name="pkg_$pkgl"></a>$catlinks$pkg</h3>
-EOF1
-    $catlinks
+  if ($anyerrors) {
+    print <<EOF;
+    <table class="phead">
+      <tr>
+        <td>
+          <h3><a name="pkg_$pkgl"></a>$catlinks$pkg</h3>
 EOF
+    my $ct = 0;
+    foreach my $cat (@categories) {
+      next if $cat eq "good";
+      my $cap = uc($1).$2 if $cat =~ /^(.)(.*)$/;
+      my $catn = $cat; $catn =~ s/\./-/g;
+      my $catl = $cat; $catl =~ s/\./_/g;
+      my $scol = ($ct++ == $#categories ? "" : ";");
+      my $vals = "";
+      foreach my $thing (@things) {
+        my $tot = $totals->{"$cat/$thing/$pkg"};
+        if ($tot) {
+          my $th = $thing;
+          if ($tot > 1) {
+            $th .= "e" if $th =~ /[sx]$/;
+            $th .= "s";
+          }
+          $vals .= "," if $vals;
+          $vals .= "&nbsp;$tot&nbsp;$th";
+        }
+      }
+      print <<EOF if $vals;
+          <a class="$catn" href="#err_${catl}_$pkgl">$cap:$vals.</a>$scol
+EOF
+    }
+    print <<EOF;
+        </td>
+      </tr>
+    </table>
+EOF
+  } else {
+    print <<EOF;
+    <a name="pkg_$pkgl"></a>$catlinks
+EOF
+  }
   foreach my $cat (@categories) {
     if ($errors->{"$pkg/$cat"}) {
       my $catl = $cat; $catl =~ s/\./_/g;

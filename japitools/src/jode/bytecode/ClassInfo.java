@@ -91,6 +91,7 @@ public class ClassInfo extends BinaryInfo {
     private InnerClassInfo[] innerClasses;
     private InnerClassInfo[] extraClasses;
     private String sourceFile;
+    private boolean deprecatedFlag = false;
 
     public final static ClassInfo javaLangObject = forName("java.lang.Object");
 
@@ -172,6 +173,11 @@ public class ClassInfo extends BinaryInfo {
 		throw new ClassFormatException("SourceFile attribute"
 					       + " has wrong length");
 	    sourceFile = cp.getUTF8(input.readUnsignedShort());
+	} else if ((howMuch & KNOWNATTRIBS) != 0 && name.equals("Deprecated")) {
+	    deprecatedFlag = true;
+	    if (length != 0)
+		throw new ClassFormatException
+		    ("Deprecated attribute has wrong length");
 	} else if ((howMuch & (OUTERCLASSES | INNERCLASSES)) != 0
 		   && name.equals("InnerClasses")) {
 	    int count = input.readUnsignedShort();
@@ -752,6 +758,12 @@ public class ClassInfo extends BinaryInfo {
         if ((status & HIERARCHY) == 0)
             loadInfo(HIERARCHY);
         return modifiers;
+    }
+
+    public boolean isDeprecated() {
+        if ((status & KNOWNATTRIBS) == 0)
+            throw new RuntimeException("Can't test deprecatedness without KNOWNATTRIBS loaded");
+	return deprecatedFlag;
     }
 
     public boolean isInterface() {
