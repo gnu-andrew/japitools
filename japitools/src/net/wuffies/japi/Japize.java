@@ -239,8 +239,12 @@ public class Japize {
     // Figure out what output writer to use.
     if (fileName == null) {
       if (zipIt) {
+        System.err.println("Note: for correct operation of tools that read japi files, it is strongly");
+        System.err.println("recommended to use a filename ending in japi.gz for a compressed japi file.");
         out = new PrintWriter(new GZIPOutputStream(System.out));
       } else {
+        System.err.println("Note: for correct operation of tools that read japi files, it is strongly");
+        System.err.println("recommended to use a filename ending in japi for an uncompressed japi file.");
         out = new PrintWriter(System.out);
       }
     } else {
@@ -253,7 +257,7 @@ public class Japize {
       if (fileName.endsWith(".gz")) {
         if (!zipIt) {
           System.err.println("Filename ending in .gz specified without zip output enabled.");
-          System.err.println("Please either specify 'zip' or specify a different filename (did you");
+          System.err.println("Please either omit 'unzip' or specify a different filename (did you");
           System.err.println("mean '" + fileName + ".japi'?)");
           System.exit(1);
         }

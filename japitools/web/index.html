@@ -15,6 +15,26 @@ compatibility, as defined by Sun in the
 <a href="http://java.sun.com/docs/books/jls/clarify.html">here</a>).</p>
 <h3>News</h3>
 <ul>
+  <li>5 November 2002: Released japitools-0.9, and dared to announce it on a few
+      mailing lists that I thought might be interested. This release only has
+      minor changes and cleanups over 0.8.7:
+      <ul>
+        <li>Japifix was missing a case in the exception-pruning algorithm
+            (thanks to Brian Jones for catching this).</li>
+        <li>Fixes to serialize from Brian Jones, including addition of the
+            line that actually runs it, which I somehow missed last time.</li>
+        <li>Print a warning from japize about the importance of using the right
+            filename, if "as" isn't used (thanks to Dalibor Topic for pointing
+            out that this isn't obvious). Updated the docs, too.</li>
+        <li>Cleaner separation of japicompat output between stdout and stderr,
+            to make it easier to redirect what you actually want. Recommended
+            usage is now to redirect stdout only, and use the "-q" option if
+            running non-interactively.</li>
+      </ul>
+      This release is currently considered stable and suitable for widespread
+      use. Barring the discovery of major problems, the next few releases will
+      be potentially unstable new-feature releases leading up to an eventual
+      1.0.
   <li>24 September 2002: Released japitools-0.8.7, which is a "release
       candidate" for a hopefully stable and widely-announced 0.9. Quite a bit
       new in this release:
@@ -161,11 +181,15 @@ an issue, though) or if your JVM does not implement GZIPOutputStream correctly
 (in which case you might still want to gzip the resulting file manually).</p>
 <h4>as &lt;name&gt;</h4>
 <p>Specifying this option tells japize to write its output to a file with the
-specified name. If this option is omitted, japize will write to standard output.
-When writing to a file, japize insists on writing to a filename ending in .japi
-for uncompressed files, or .japi.gz for compressed files. If the filename you
-specify doesn't have the right extension, japize will add parts to it to ensure
-that it does.</p>
+specified name. When writing to a file with the "as" option, japize insists on
+writing to a file name ending in .japi.gz for compressed files, or .japi for
+uncompressed files. If the filename you specify doesn't have the right
+extension, japize will add parts to it to ensure that it does.</p>
+<p>If the "as" option is omitted, japize will write to standard output. In this
+case japize has no control over the filename you use, but it is strongly
+recommended to use a filename with the correct extension (".japi.gz" unless the
+"unzip" option was specified). If you use any other extension, japicompat and
+other tools may be unable to recognize the format.</p>
 <h4>apis | explicitly | byname | packages | classes</h4>
 <p>This option has a dual role: it indicates the boundary between japize options
 (unzip, as) and other arguments (files and packages), but also tells
