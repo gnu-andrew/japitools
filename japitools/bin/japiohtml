@@ -80,10 +80,10 @@ print <<EOF;
     <p>Note that summary information is calculated prior to filtering the
        results (for duplicates, etc). It is possible to show a non-zero "bad" or
        "missing" score without any actual errors being listed.</p>
-    <h3>Legend</h3>
-    <table class="legend" border="0" cellspacing="0" cellpadding="3">
+    <table class="legend" align="right" border="0" cellspacing="0" cellpadding="3">
       <tr>
-        <th>All correct -</th>
+        <th>Legend:</th>
+        <td>All correct -</td>
 EOF
 for (my $i = 100; $i >= 0; $i -= 10) {
   print <<EOF;
@@ -92,7 +92,7 @@ EOF
 }
 print <<EOF;
         <td class="ok-none">&nbsp;</td>
-        <th>- None correct</th>
+        <td>- None correct</td>
       </tr>
     </table>
     <table class="summary" border="0" cellspacing="0" cellpadding="3">
@@ -301,7 +301,7 @@ EOF
 print <<EOF;
     </table>
     <h2>Errors</h2>
-    <table class="phead">
+    <table class="phead" width="100%">
       <tr>
         <td>
           <h3>Total</h3>
@@ -334,6 +334,7 @@ print <<EOF;
         </td>
       </tr>
     </table>
+    <hr>
 EOF
 foreach my $pkg (@packages) {
   my $pkgl = $pkg; $pkgl =~ s/\./_/g;

@@ -139,7 +139,7 @@ sub begin() {
   my $unzippit = 1 if $opts{u};
   my $backup = 1 unless $opts{b};
   my $force = 1 if $opts{f};
-  my $quiet = 1 if $opts{q};
+  $quiet = 1 if $opts{q};
 
   if ($firsttime && $opts{e}) {
     my @excpfiles = split /,/, $opts{e};
