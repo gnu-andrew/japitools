@@ -34,18 +34,11 @@ class JodeMethod implements CallWrapper {
     return m.getModifiers();
   }
   public String[] getParameterTypes() {
-    String[] res = TypeSignature.getParameterTypes(m.getType());
-    for (int i = 0; i < res.length; i++) {
-      res[i] = JodeClass.typeFor(res[i]);
-    }
-    return res;
+    return TypeSignature.getParameterTypes(m.getType());
   }
   public String[] getExceptionTypes() {
     String[] res = m.getExceptions();
     if (res == null) return new String[0];
-//  for (int i = 0; i < res.length; i++) {
-//    res[i] = JodeClass.typeFor(res[i]);
-//  }
     return res;
   }
   public String getName() {
@@ -55,7 +48,7 @@ class JodeMethod implements CallWrapper {
   public String getReturnType() {
     String name = m.getName();
     return "<init>".equals(name) ? "constructor" :
-                                   JodeClass.typeFor(TypeSignature.getReturnType(m.getType()));
+                                   TypeSignature.getReturnType(m.getType());
   }
   public ClassWrapper getDeclaringClass() {
     return jc;
@@ -65,15 +58,32 @@ class JodeMethod implements CallWrapper {
   }
   public boolean equals(Object o) {
     if (!(o instanceof JodeMethod)) return false;
-    JodeMethod jm = (JodeMethod)o;
-    if (!jm.getName().equals(getName())) return false;
-    String[] p = getParameterTypes();
-    String[] op = jm.getParameterTypes();
-    if (p.length != op.length) return false;
-    for (int i = 0; i < p.length; i++) {
-      if (!p[i].equals(op[i])) return false;
+    return getSig().equals(((JodeMethod) o).getSig());
+//  JodeMethod jm = (JodeMethod)o;
+//  if (!jm.getName().equals(getName())) return false;
+//  String[] p = getParameterTypes();
+//  String[] op = jm.getParameterTypes();
+//  if (p.length != op.length) return false;
+//  for (int i = 0; i < p.length; i++) {
+//    if (!p[i].equals(op[i])) return false;
+//  }
+//  return true;
+  }
+  public int compareTo(Object o) {
+    return getSig().compareTo(((JodeMethod) o).getSig());
+  }
+  private String sig;
+  private String getSig() {
+    if (sig == null) {
+      sig = getName() + "(";
+      String[] params = getParameterTypes();
+      String comma = "";
+      for (int j = 0; j < params.length; j++) {
+        sig += comma + params[j];
+        comma = ",";
+      }
+      sig += ")";
     }
-    return true;
+    return sig;
   }
 }
-

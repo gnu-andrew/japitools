@@ -38,7 +38,7 @@ class JodeField implements FieldWrapper {
     return f.getName();
   }
   public String getType() {
-    return JodeClass.typeFor(f.getType());
+    return f.getType();
   }
   public boolean isPrimitiveConstant() {
     int mods = f.getModifiers();
@@ -58,6 +58,9 @@ class JodeField implements FieldWrapper {
   }
   public boolean equals(Object o) {
     return o instanceof JodeField && ((JodeField)o).getName().equals(getName());
+  }
+  public int compareTo(Object o) {
+    return getName().compareTo(((JodeField) o).getName());
   }
 }
 

@@ -1,7 +1,7 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 ###############################################################################
 # japicompat - Test Java APIs for binary backwards compatibility.
-# Copyright (C) 2000  Stuart Ballard <sballard@wuffies.net>
+# Copyright (C) 2000-2002  Stuart Ballard <sballard@wuffies.net>
 # 
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,6 +22,13 @@
 ###############################################################################
 
 # Recent changes:
+# - 2002/06/27: Support new file format produced by japize 0.8.1. Remove ".pl"
+#               from the end of the filename. Automatically pipe through gzip
+#               if the filename ends with .gz.
+# - 2000/06/30: Detect old-style japis and give a useful error. Make this
+#   program -w clean. A few performance enhancements. Count abstract methods
+#   added to classes/interfaces if -s is off.
+# - 2000/06/29: Changes to support slight changes to file format.
 # - 2000/06/26: Added progress indicators. Turn them off with -q.
 # - 2000/06/23: Made compiletime-constants actually be understood, rather than
 #   just treated as part of the type. Added Meaningless, Arbitrary Percentage
@@ -32,16 +39,116 @@
 # - 2000/06/16: Finished the dup-removal code (Kaffe now shows 140 errors
 #   instead of 429).
 
+
+## GLOBAL VARIABLES ##
+
+# Some global variables used for displaying stuff.
+$japiver = "0.8.1";
+$javatypes = {Z=>'boolean', B=>'byte', C=>'char', D=>'double', F=>'float',
+                  I=>'int', J=>'long', S=>'short', V=>'void'};
+@static = ('instance', 'static');
+
+# Function prototypes
+sub sig2type($);
+sub dispmember($);
+sub read_japi($);
+sub report_error($$$$$$$$$);
+sub process_class($$$$);
+
+
+## MAIN LOOP ##
+
 # Parse cmdline and give a usage message.
 use Getopt::Std;
-getopts("svq");
-my $sun_only = 1 if $opt_s;
-my $svuid_errors = 1 if $opt_v;
-my $dot = "." unless $opt_q;
+getopts("svq", \%opts);
+my $sun_only = 1 if $opts{"s"};
+my $svuid_errors = 1 if $opts{"v"};
+my $dot = "." unless $opts{"q"};
 my ($origfile, $newfile) = @ARGV;
 if (!defined $newfile) {
   print "Usage: japicompat.pl [-svq] <original api> <api to check>\n";
   exit 1;
+}
+
+# Read in the old and new APIs.
+$orig = read_japi($origfile);
+$new = read_japi($newfile);
+$errs=0; %missing=(); %bad=(); %good=(); $absadd=0;
+$total=0; $misstotal=0; $goodtotal=0; $badtotal=0;
+
+# Loop through all the packages in the original API and process them.
+foreach my $pkg (sort keys(%$orig)) {
+  print STDERR "Comparing $pkg" if $dot;
+
+  # If a whole package is missing, don't waste time generating missing class
+  # errors for every single class.
+  unless ($new->{$pkg}) {
+    print "package $pkg defined in $origfile but not in $newfile\n";
+    $missing{packages}++;
+    foreach my $class (keys %{$new->{pkg}}) {
+      $total += keys %{$new->{$pkg}->{$class}};
+      $misstotal += keys %{$new->{$pkg}->{$class}};
+    }
+  } else {
+    $good{packages}++;
+
+    # Loop through the classes in the original package and process them.
+    foreach my $class (keys %{$orig->{$pkg}}) {
+      process_class($orig, $new, $pkg, $class);
+      print STDERR $dot;
+    }
+  }
+  print STDERR "\n" if $dot;
+}
+
+# Print summary information.
+foreach my $x (qw(packages class interface field constructor method)) {
+  foreach my $ct (\%missing, \%bad, \%good) {
+    $ct->{$x} = "none" unless $ct->{$x};
+  }
+}
+$absadd = "none" unless $absadd;
+$mpct = $1 if (0.005 + 100*$misstotal/$total) =~ /^([0-9]+(?:\.[0-9]{1,2})?)/;
+$bpct = $1 if (0.005 + 100*$badtotal/$total) =~ /^([0-9]+(?:\.[0-9]{1,2})?)/;
+$gpct = $1 if (0.005 + 100*$goodtotal/$total) =~ /^([0-9]+(?:\.[0-9]{1,2})?)/;
+print <<EOF;
+Packages: $missing{packages} missing, $good{packages} good.
+Classes: $missing{class} missing, $bad{class} bad, $good{class} good.
+Interfaces: $missing{interface} missing, $bad{interface} bad, $good{interface} good.
+Fields: $missing{field} missing, $bad{field} bad, $good{field} good.
+Constructors: $missing{constructor} missing, $bad{constructor} bad, $good{constructor} good.
+Methods: $missing{method} missing, $bad{method} bad, $good{method} good.
+EOF
+print "Abstract methods added: $absadd.\n" unless $sun_only;
+print <<EOF;
+Total Errors: $errs.
+Meaningless API coverage score: $mpct% missing, $bpct% bad, $gpct% good.
+EOF
+
+
+## SUBROUTINES ##
+
+# Convert a type signature as used in a japi file to a displayable type.
+sub sig2type($) {
+  my ($sig) = @_;
+  return sig2type($1) . '[]' if $sig =~ /^\[(.*)$/;
+  return $javatypes->{$sig} if $javatypes->{$sig};
+  if ($sig =~ /^L(.*);$/) {
+    $sig = $1; $sig =~ s-/-.-g;
+  }
+  $sig;
+}
+
+# Convert all the type signatures in a method name...
+sub dispmember($) {
+  my ($member) = @_;
+  if ($member =~ /^(.*)\((.*)\)$/) {
+    my ($name, $params) = ($1, $2);
+    my @params = split /,/, $2;
+    $params = join(',', map {sig2type($_)} @params);
+    $member = "$name($params)";
+  }
+  $member;
 }
 
 # Read a japi file into a huge enormous frikkin' hash.
@@ -51,17 +158,43 @@ if (!defined $newfile) {
 sub read_japi($) {
   my ($filename) = @_;
   my $japi = {};
-  open IN, $filename or die "Could not open $filename";
+  if ($filename =~ /\.gz$/) {
+    open(IN, "-|") || exec 'gzip', '-dc', $filename
+        or die "Could not gunzip $filename";
+  } else {
+    open IN, $filename or die "Could not open $filename";
+  }
   print STDERR "Loading $filename" if $dot;
+  my $japiline = <IN>;
+  chomp $japiline;
+  die <<EOF unless $japiline =~ /^%\%japi ([^ ]*) /;
+
+This looks like an old-style japi file. The format was changed since version
+0.7 to save disk space and avoid a theoretically possible ambiguity. Most
+new japis are approx. 30% smaller than the coresponding old-style ones. It was
+changed again since version 0.8 to allow japicompat to use smarter algorithms.
+You can use japi2new.pl to convert to the new format.
+EOF
+  my $filever = $1;
+  die <<EOF if $filever lt $japiver;
+
+This japi file claims to be version $filever, but this version of japicompat
+only understands version $japiver. You can use japi2new to upgrade old japi
+files to version $japiver.
+EOF
+  die <<EOF if $filever gt $japiver;
+
+This japi file claims to be version $filever, but this version of japicompat
+only understands version $japiver. Either the japi file is incorrect or you need
+a new version of japicompat.
+EOF
   while (<IN>) {
     chomp;
   
     # Parse and interpret the entry.
-    my ($item, $access, $abstract, $static, $final, $type) = split / /, $_, 6;
-    my ($class, $member) = split /#/, $item, 2;
-    my @comps = split /\./, $class;
-    my $class = pop @comps;
-    $pkg = join ".", @comps;
+    my ($item, $flags, $type) = split / /, $_, 3;
+    my ($fqcn, $member) = split /%/, $item, 2;
+    my ($pkg, $class) = split /,/, $fqcn, 2;
     my $isa;
     if ($member eq "") {
       $isa = $type =~ /class/ ? "class" : "interface";
@@ -69,19 +202,32 @@ sub read_japi($) {
       $isa = "constructor";
     } elsif ($member =~ /\(.*\)$/) {
       $isa = "method";
-    } else {
+    } elsif ($member =~ /^#(.*)$/) {
       $isa = "field";
+      $member = $1;
+    } else {
+      die <<EOF;
+
+Could not interpret item in japi file:
+$_
+Either this japi file is corrupt or you have uncovered a bug in japicompat.
+Please email this error message in full to sballard\@netreach.net.
+EOF
     }
 
     # Store information about the entry in $japi->{$pkg}->{$class}->{$member}.
     print STDERR $dot unless defined $japi->{$pkg}->{$class};
-    $japi->{$pkg}->{$class}->{$member}->{isa} = $isa;
-    $japi->{$pkg}->{$class}->{$member}->{class} = $class;
-    $japi->{$pkg}->{$class}->{$member}->{member} = $member;
-    $japi->{$pkg}->{$class}->{$member}->{access} = $access;
-    $japi->{$pkg}->{$class}->{$member}->{abstract} = $abstract;
-    $japi->{$pkg}->{$class}->{$member}->{static} = $static;
-    $japi->{$pkg}->{$class}->{$member}->{final} = $final;
+    my $mitem = {};
+    $japi->{$pkg}->{$class}->{$member} = $mitem;
+    $mitem->{processed} = '';
+    $mitem->{isa} = $isa;
+    $mitem->{class} = $class;
+    $mitem->{member} = $member;
+    my ($public, $abstract, $static, $final) = split //, $flags;
+    $mitem->{public} = ($public eq 'P' || 0);
+    $mitem->{abstract} = ($abstract eq 'a' || 0);
+    $mitem->{static} = ($static eq 's' || 0);
+    $mitem->{final} = ($final eq 'f' || 0);
 
     # Classes and interfaces have superclasses and implemented interfaces tacked
     # on to the "type" field. We store this information in the $japi hash also.
@@ -91,7 +237,7 @@ sub read_japi($) {
       my @ifaces = split(/\*/, $type);
       $type = shift @ifaces;
       foreach my $iface (@ifaces) {
-        $japi->{$pkg}->{$class}->{$member}->{ifaces}->{$iface} = 1;
+        $mitem->{ifaces}->{$iface} = 1;
       }
 
       # Get the class's superclasses, which are separated by ':'s.
@@ -99,13 +245,13 @@ sub read_japi($) {
       $type = shift @supers;
       my $ct = 0;
       foreach my $super (@supers) {
-        $japi->{$pkg}->{$class}->{$member}->{superset}->{$super} = 1;
-        $japi->{$pkg}->{$class}->{$member}->{supers}->[$ct++] = $super;
+        $mitem->{superset}->{$super} = 1;
+        $mitem->{supers}->[$ct++] = $super;
       }
 
       my $svuid;
       ($type, $svuid) = split(/#/, $type, 2);
-      $japi->{$pkg}->{$class}->{$member}->{svuid} = $svuid;
+      $mitem->{svuid} = $svuid if defined $svuid;
 
     # Methods and constructors have exceptions that can be thrown separated by
     # '*'s from the typename. These also need to get stored in the $japi hash.
@@ -113,20 +259,18 @@ sub read_japi($) {
       my @excps = split(/\*/, $type);
       $type = shift @excps;
       foreach my $excp (@excps) {
-        $japi->{$pkg}->{$class}->{$member}->{excps}->{$excp} = 1;
+        $mitem->{excps}->{$excp} = 1;
       }
     # Fields can have their value separated by a : from the typename, if they
     # are constant.
     } else {
       my $val;
       ($type, $val) = split(/:/, $type, 2);
-      if (defined $val) {
-        $japi->{$pkg}->{$class}->{$member}->{constant} = $val;
-      }
+      $mitem->{constant} = $val if defined $val;
     }
 
     # Store what's left of the type after parsing off all of those parts.
-    $japi->{$pkg}->{$class}->{$member}->{type} = $type;
+    $mitem->{type} = $type;
   }
   close IN;
   print STDERR "\n" if $dot;
@@ -138,11 +282,8 @@ sub read_japi($) {
 # Print out an error for a given class. Errors on fields and methods that
 # also exist identically in the superclass or an interface are skipped. This
 # function also keeps track of the problem counts.
-sub report_error($$$$$$) {
-  my ($old, $new, $pkg, $class, $member, $error) = @_;
-  my $clitem = $old->{$pkg}->{$class};
-  my $mitem = $clitem->{$member};
-  my $nitem = $new->{$pkg}->{$class}->{$member};
+sub report_error($$$$$$$$$) {
+  my ($old, $new, $pkg, $class, $member, $clitem, $mitem, $nitem, $error) = @_;
   my $dup = 0;
 
   # Scan superclass and all superinterfaces for the same error...
@@ -179,6 +320,7 @@ sub report_error($$$$$$) {
   }
 
   # If it wasn't a duplicate, report and output it...
+  $member = dispmember($member);
   print "$mitem->{isa} $pkg.$class#$member $error\n";
   $errs++; $errhere++;
   1;
@@ -243,12 +385,10 @@ sub process_class($$$$) {
       unless ($sun_only) {
         foreach my $member (keys %$nclitem) {
           my $nitem = $nclitem->{$member};
-          if ($nitem->{isa} eq "method" && $nitem->{abstract} eq "abstract" &&
+          if ($nitem->{isa} eq "method" && $nitem->{abstract} &&
               !defined $clitem->{$member}) {
-            $clitem->{$member} = $nitem;
-            report_error($old, $new, $pkg, $class, $member, 
+            $absadd += report_error($old, $new, $pkg, $class, $member, $clitem, $nitem, $nitem,
                          "abstract method added to $clitem->{''}->{isa} in $newfile");
-            delete $clitem->{$member};
           }
         }
       }
@@ -268,35 +408,35 @@ sub process_class($$$$) {
 
         # Check that the item is actually defined in $new.
         unless (defined($nitem)) {
-          $missing{$isa} += report_error($old, $new, $pkg, $class, $member,
+          $missing{$isa} += report_error($old, $new, $pkg, $class, $member, $clitem, $mitem, $nitem,
                                          "not defined in $newfile");
           $misstotal++; $total++;
           next;
         }
 
         # Check that access to the item hasn't been reduced.
-        if ($mitem->{access} eq "public" && $nitem->{access} ne "public") {
-          report_error($old, $new, $pkg, $class, $member,
+        if ($mitem->{public} && !$nitem->{public}) {
+          report_error($old, $new, $pkg, $class, $member, $clitem, $mitem, $nitem,
                        "is public in $origfile but protected in $newfile");
         }
 
         # Check that the item hasn't changed from concrete to abstract.
-        if ($mitem->{abstract} eq "concrete" && $nitem->{abstract} ne "concrete") {
-          report_error($old, $new, $pkg, $class, $member,
+        if (!$mitem->{abstract} && $nitem->{abstract}) {
+          report_error($old, $new, $pkg, $class, $member, $clitem, $mitem, $nitem,
                        "is concrete in $origfile but abstract in $newfile");
         }
 
         # Check that the staticness of the item hasn't changed
-        if ($mitem->{static} ne $nitem->{static}) {
-          report_error($old, $new, $pkg, $class, $member,
-                       "is $mitem->{static} in $origfile but $nitem->{static} in $newfile");
+        if ($mitem->{static} != $nitem->{static}) {
+          report_error($old, $new, $pkg, $class, $member, $clitem, $mitem, $nitem,
+                       "is $static[$mitem->{static}] in $origfile but $static[$nitem->{static}] in $newfile");
         }
 
         # Check that the item hasn't gone from nonfinal to final, except
         # for static methods.
-        if ($mitem->{final} eq "nonfinal" && $nitem->{final} ne "nonfinal" &&
-            ($mitem->{isa} ne "method" || $mitem->{static} ne "static")) {
-          report_error($old, $new, $pkg, $class, $member,
+        if (!$mitem->{final} && $nitem->{final} &&
+            ($mitem->{isa} ne "method" || !$mitem->{static})) {
+          report_error($old, $new, $pkg, $class, $member, $clitem, $mitem, $nitem,
                        "is nonfinal in $origfile but final in $newfile");
         }
 
@@ -305,23 +445,23 @@ sub process_class($$$$) {
         if ($member eq "") {
           foreach my $iface (keys %{$mitem->{ifaces}}) {
             unless ($nitem->{ifaces}->{$iface}) {
-              report_error($old, $new, $pkg, $class, $member,
+              report_error($old, $new, $pkg, $class, $member, $clitem, $mitem, $nitem,
                            "implements $iface in $origfile but not in $newfile");
             }
           }
           my $super = $mitem->{supers}->[0];
           if (defined $super and !$nitem->{superset}->{$super}) {
-            report_error($old, $new, $pkg, $class, $member,
+            report_error($old, $new, $pkg, $class, $member, $clitem, $mitem, $nitem,
                          "'s superclass $super in $origfile is not its superclass in $newfile");
           }
 
           # Also check the SerialVersionUID if that is turned on.
           if ($svuid_errors && defined $mitem->{svuid}) {
             if (!defined $nitem->{svuid}) {
-              report_error($old, $new, $pkg, $class, $member,
+              report_error($old, $new, $pkg, $class, $member, $clitem, $mitem, $nitem,
                            "has SerialVersionUID $mitem->{svuid} in $origfile but no SVUID in $newfile");
             } elsif ($nitem->{svuid} ne $mitem->{svuid}) {
-              report_error($old, $new, $pkg, $class, $member,
+              report_error($old, $new, $pkg, $class, $member, $clitem, $mitem, $nitem,
                            "has SerialVersionUID $mitem->{svuid} in $origfile but $nitem->{svuid} in $newfile");
             }
           }
@@ -332,13 +472,13 @@ sub process_class($$$$) {
         } elsif ($member =~ /\(.*\)/ && !$sun_only) {
           foreach my $excp (keys %{$mitem->{excps}}) {
             unless ($nitem->{excps}->{$excp}) {
-              report_error($old, $new, $pkg, $class, $member,
+              report_error($old, $new, $pkg, $class, $member, $clitem, $mitem, $nitem,
                            "throws $excp in $origfile but not in $newfile");
             }
           }
           foreach my $excp (keys %{$nitem->{excps}}) {
             unless ($mitem->{excps}->{$excp}) {
-              report_error($old, $new, $pkg, $class, $member,
+              report_error($old, $new, $pkg, $class, $member, $clitem, $mitem, $nitem,
                            "throws $excp in $newfile but not in $origfile");
             }
           }
@@ -347,11 +487,11 @@ sub process_class($$$$) {
         } else {
           if (defined $mitem->{constant}) {
             if (!defined $nitem->{constant}) {
-              report_error($old, $new, $pkg, $class, $member,
-                           "is constant $mitem->{constant} in $origfile but not in $newfile");
+              report_error($old, $new, $pkg, $class, $member, $clitem, $mitem, $nitem,
+                           "is constant [$mitem->{constant}] in $origfile but nonconstant in $newfile");
             } elsif ($nitem->{constant} ne $mitem->{constant}) {
-              report_error($old, $new, $pkg, $class, $member,
-                           "is constant $mitem->{constant} in $origfile but constant $nitem->{constant} in $newfile");
+              report_error($old, $new, $pkg, $class, $member, $clitem, $mitem, $nitem,
+                           "is constant [$mitem->{constant}] in $origfile but [$nitem->{constant}] in $newfile");
             }
           }
         }
@@ -360,8 +500,9 @@ sub process_class($$$$) {
         if ($mitem->{type} ne $nitem->{type}) {
           unless ($mitem->{isa} eq "field" && $mitem->{type} !~ /:/ &&
                   $nitem->{type} =~ /^\Q$mitem->{type}\E:/) {
-            report_error($old, $new, $pkg, $class, $member,
-                         "'s type in $origfile [$mitem->{type}] does not match $newfile [$nitem->{type}]");
+            report_error($old, $new, $pkg, $class, $member, $clitem, $mitem, $nitem,
+                         "'s type in $origfile [@{[sig2type($mitem->{type})]}] does not match $newfile [@{[sig2type($nitem->{type})]}]");
+            # Do I win the award for "most consecutive close brackets"?
           }
         }
 
@@ -381,54 +522,3 @@ sub process_class($$$$) {
     $clitem->{""}->{processed} = 1;
   }
 }
-
-# Read in the old and new APIs.
-$new = read_japi($newfile);
-$orig = read_japi($origfile);
-$errs=0; %missing=(); %bad=(); %good=();
-$total=0; $misstotal=0; $goodtotal=0; $badtotal=0;
-
-# Loop through all the packages in the original API and process them.
-foreach my $pkg (keys %$orig) {
-  print STDERR "Comparing $pkg" if $dot;
-
-  # If a whole package is missing, don't waste time generating missing class
-  # errors for every single class.
-  unless ($new->{$pkg}) {
-    print "package $pkg defined in $origfile but not in $newfile\n";
-    $missing{package}++;
-    foreach my $class (keys %{$new->{pkg}}) {
-      $total += keys %{$new->{$pkg}->{$class}};
-      $misstotal += keys %{$new->{$pkg}->{$class}};
-    }
-  } else {
-    $good{package}++;
-
-    # Loop through the classes in the original package and process them.
-    foreach my $class (keys %{$orig->{$pkg}}) {
-      process_class($orig, $new, $pkg, $class);
-      print STDERR $dot;
-    }
-  }
-  print STDERR "\n" if $dot;
-}
-
-# Print summary information.
-foreach my $x (qw(package class interface field constructor method)) {
-  foreach my $ct (\%missing, \%bad, \%good) {
-    $ct->{$x} = "none" unless $ct->{$x};
-  }
-}
-$mpct = $1 if (0.005 + 100*$misstotal/$total) =~ /^([0-9]+(?:\.[0-9]{1,2})?)/;
-$bpct = $1 if (0.005 + 100*$badtotal/$total) =~ /^([0-9]+(?:\.[0-9]{1,2})?)/;
-$gpct = $1 if (0.005 + 100*$goodtotal/$total) =~ /^([0-9]+(?:\.[0-9]{1,2})?)/;
-print <<EOF
-Packages: $missing{package} missing, $good{package} good.
-Classes: $missing{class} missing, $bad{class} bad, $good{class} good.
-Interfaces: $missing{interface} missing, $bad{interface} bad, $good{interface} good.
-Fields: $missing{field} missing, $bad{field} bad, $good{field} good.
-Constructors: $missing{constructor} missing, $bad{constructor} bad, $good{constructor} good.
-Methods: $missing{method} missing, $bad{method} bad, $good{method} good.
-Total Errors: $errs.
-Meaningless API coverage score: $mpct% missing, $bpct% bad, $gpct% good.
-EOF

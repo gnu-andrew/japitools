@@ -22,7 +22,7 @@
 
 package net.wuffies.japi;
 
-interface FieldWrapper extends Wrapper {
+interface FieldWrapper extends Wrapper, Comparable {
   String getName();
   String getType();
   boolean isPrimitiveConstant();

@@ -35,7 +35,7 @@ class ReflectField implements FieldWrapper {
     return f.getName();
   }
   public String getType() {
-    return f.getType().getName();
+    return ReflectClass.typeSig(f.getType());
   }
   public boolean isPrimitiveConstant() {
     int mods = f.getModifiers();
@@ -59,5 +59,11 @@ class ReflectField implements FieldWrapper {
   public ClassWrapper getDeclaringClass() {
     return new ReflectClass(f.getDeclaringClass());
   }
+  public boolean equals(Object o) {
+    return o instanceof ReflectField &&
+          ((ReflectField) o).getName().equals(getName());
+  }
+  public int compareTo(Object o) {
+    return getName().compareTo(((ReflectField) o).getName());
+  }
 }
-

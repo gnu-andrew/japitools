@@ -28,8 +28,19 @@ import java.util.zip.ZipFile;
 import java.io.File;
 import java.io.IOException;
 import java.util.Enumeration;
-import java.util.Hashtable;
-import java.io.ObjectStreamClass;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.io.Writer;
+import java.util.Iterator;
+import java.io.PrintWriter;
+import java.io.BufferedWriter;
+import java.io.BufferedOutputStream;
+import java.io.OutputStreamWriter;
+import java.util.zip.GZIPOutputStream;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
 
 /**
  * Process a Java API and emit a machine-readable description of the API,
@@ -37,6 +48,13 @@ import java.io.ObjectStreamClass;
  * japicompat.pl can test APIs for source/binary compatibility with each other.
  * <p>
  * Recent changes:<br>
+ * - 2002/03/29: After a long hiatus, I got some motivation to hack on this
+ *   again. Changed commandline options to default to jode, also allow use of
+ *   GZIPOutputStream if available. Sort the output in a way that should help
+ *   a future japicompat implementation be much more efficient.
+ * - 2000/xx/xx: At some point soon after the last entry, the svuid code was
+ *   added to the jode implementation. The code is part of this tool and it
+ *   turned out to not be particularly worthwhile to submit it for jode itself.
  * - 2000/06/25: Start supporting jode.bytecode (it suits my needs better than
  *   gnu.bytecode). Everything works except for serialVersionUIDs. I'm hoping
  *   that if I provide Jochen Hoenicke (the author of jode.bytecode) with an
@@ -69,7 +87,35 @@ public class Japize {
   /**
    * True if the jode.bytecode package is being used, false otherwise.
    */
-  private static boolean useJode;
+  private static boolean useJode = true;
+
+  /**
+   * The path to scan for classes in.
+   */
+  private static List path = new ArrayList();
+
+  /**
+   * The package roots to scan in.
+   */
+  private static SortedSet roots = new TreeSet();
+
+  /**
+   * The packages to exclude.
+   */
+  private static SortedSet exclusions = new TreeSet();
+
+  /**
+   * The output writer to write results to.
+   */
+  private static PrintWriter out;
+
+  /* Disambiguation rules */
+  private static final int UNSPECIFIED = 0;
+  private static final int EXPLICITLY = 1;
+  private static final int APIS = 2;
+  private static final int BYNAME = 3;
+  private static final int PACKAGES = 4;
+  private static final int CLASSES = 5;
 
   /**
    * Parse the program's arguments and perform the main processing.
@@ -77,76 +123,425 @@ public class Japize {
   public static void main(String[] args)
       throws NoSuchMethodException, IllegalAccessException, IOException, ClassNotFoundException {
 
-    // If invoked with no args, give a usage message.
-    if (args.length == 0) {
-      System.err.println("Usage: Japize class <classname> ... > output.japi");
-      System.err.println("   or: Japize [packages | jode] [<zipfile> | <dir> | +<pkg> | -<pkg>] ... > output.japi");
+    // Scan the arguments until the end of keywords is reached, interpreting
+    // all the intermediate arguments and dealing with them as appropriate.
+    int i = 0;
+    boolean zipIt = false;
+    String fileName = null;
 
-    // If the first arg is "class", iterate over the remaining args and process
-    // each one as a class name.
-    } else if ("class".equals(args[0])) {
-        System.err.println("WARNING: The 'class' option gives wrong information in some situations.\n");
-        System.err.println("         Consider using the 'jode' option with a zipfile or directory instead.\n");
-      for (int i = 1; i < args.length; i++) {
-        japizeClass(getClassWrapper(args[i]));
-      }
-
-    // If the first arg is "packages", iterate over the arguments two times.
-    } else if ("packages".equals(args[0]) || "jode".equals(args[0])) {
-
-      useJode = "jode".equals(args[0]);
-
-      // The first iteration identifies each argument that's prefixed with + or
-      // - and puts it in a Hashtable with the value "+" or "-".
-      Hashtable pkgs = new Hashtable();
-      for (int i = 1; i < args.length; i++) {
-        if (args[i].startsWith("-") || args[i].startsWith("+")) {
-          pkgs.put(args[i].substring(1), args[i].substring(0, 1));
-        }
-      }
-
-      // If we are using Jode, we need to initialize Jode's classpath to
-      // find classes in the correct location.
-      if (useJode) {
-        StringBuffer cp = new StringBuffer();
-        for (int i = 1; i < args.length; i++) {
-          if (!(args[i].startsWith("-") || args[i].startsWith("+"))) {
-            if (cp.length() > 0) cp.append(':');
-            cp.append(args[i]);
-          }
-        }
-//      cp.append(System.getProperty("java.class.path"));
-        JodeClass.setClassPath(cp.toString());
-      } else {
-        System.err.println("WARNING: The 'packages' option gives wrong information in some situations.\n");
-        System.err.println("         Consider using the 'jode' option instead.\n");
-      }
-
-
-      // The second iteration picks up the remaining args and identifies
-      // whether they are directories or files, then calls the appropriate
-      // method to process them (passing the hashtable as a parameter to let
-      // the processing method include the right stuff).
-      for (int i = 1; i < args.length; i++) {
-        if (!(args[i].startsWith("-") || args[i].startsWith("+"))) {
-          if (new File(args[i]).isDirectory()) {
-            processDir(args[i], pkgs);
-          } else {
-            processZip(args[i], pkgs);
-          }
-        }
-      }
-
-    // Bad args get a usage message.
-    } else {
-      System.err.println("Usage: Japize class <classname> ... > output.japi");
-      System.err.println("   or: Japize [packages | jode] [<zipfile> | <dir> | +<pkg> | -<pkg>] ... > output.japi");
+    if (i < args.length && "zip".equals(args[i])) {
+      zipIt = true;
+      i++;
+    }
+    if (i < args.length && "as".equals(args[i])) {
+      fileName = args[++i];
+      i++;
+    }
+    if (i < args.length && "reflect".equals(args[i])) {
+      useJode = false;
+      System.err.println("WARNING: The 'reflect' option gives wrong information in some situations.\n");
+      i++;
     }
 
+    // The next word indicates the method used to decide whether an ambiguous
+    // argument of the form a.b.c is a class or a package. Any other word is an
+    // error, but checks further down will catch that.
+    int disambig = UNSPECIFIED;
+    if (i < args.length) {
+      if ("explicitly".equals(args[i])) {
+        disambig = EXPLICITLY;
+      } else if ("apis".equals(args[i])) {
+        disambig = APIS;
+      } else if ("byname".equals(args[i])) {
+        disambig = BYNAME;
+      } else if ("packages".equals(args[i])) {
+        disambig = PACKAGES;
+      } else if ("classes".equals(args[i])) {
+        disambig = CLASSES;
+      }
+      i++;
+    }
+
+    // Correct syntax requires that one of the previous cases must have matched,
+    // and also that there be at least one more word. Both these cases, however,
+    // can be errored below because they will result in both the path and the
+    // set of roots being empty.
+    if (i < args.length && disambig != UNSPECIFIED) {
+
+      // Identify each argument that's prefixed with + or - and put it in
+      // either the "roots" or the "exclusions" TreeSet as appropriate. Use
+      // the disambiguation method specified above for arguments that do not
+      // explicitly indicate if they are classes or packages.
+      for (; i < args.length; i++) {
+        char first = args[i].charAt(0);
+        String pkgpath = args[i].substring(1);
+        if (first == '+' || first == '-') {
+          SortedSet setToAddTo = first == '+' ? roots : exclusions;
+
+          // First identify *whether* it's ambiguous - and whether it's legal.
+          int commapos = pkgpath.indexOf(',');
+          
+          // If it contains a comma, and doesn't have a dot or a comma after
+          // that, then it's unambiguous.
+          if (commapos >= 0) {
+            if (pkgpath.indexOf(',', commapos + 1) >= 0 ||
+                pkgpath.indexOf('.', commapos + 1) >= 0) {
+              System.err.println("Illegal package/class name " + pkgpath +
+                                 " - skipping");
+            } else {
+              setToAddTo.add(pkgpath);
+            }
+
+          // Otherwise it's ambiguous. Figure out what to do based on the
+          // disambiguation rule set above.
+          } else {
+            switch (disambig) {
+              case EXPLICITLY:
+                System.err.println("Ambiguous package/class name " + pkgpath +
+                                   " not allowed with 'explicitly' - skipping");
+                break;
+              case APIS:
+                setToAddTo.add(toClassRoot(pkgpath));
+                setToAddTo.add(pkgpath + ",");
+                break;
+              case BYNAME:
+                int dotpos = pkgpath.lastIndexOf('.');
+                if (Character.isUpperCase(pkgpath.charAt(dotpos + 1))) {
+                  setToAddTo.add(toClassRoot(pkgpath));
+                } else {
+                  setToAddTo.add(pkgpath + ",");
+                }
+                break;
+              case PACKAGES:
+                setToAddTo.add(pkgpath + ",");
+                break;
+              case CLASSES:
+                setToAddTo.add(toClassRoot(pkgpath));
+                break;
+            }
+          }
+
+        // If it doesn't start with + or -, it's a path component.
+        } else {
+          path.add(args[i]);
+        }
+      }
+    }
+    if (path.isEmpty() || roots.isEmpty()) printUsage();
+
+    // If we are using Jode, we need to initialize Jode's classpath to
+    // find classes in the correct location.
+    if (useJode) {
+      StringBuffer cp = new StringBuffer();
+      for (Iterator j = path.iterator(); j.hasNext(); ) {
+        if (cp.length() > 0) cp.append(':');
+        cp.append(j.next());
+      }
+      JodeClass.setClassPath(cp.toString());
+    }
+
+    // Figure out what output writer to use.
+    if (fileName == null) {
+      if (zipIt) {
+        out = new PrintWriter(new GZIPOutputStream(System.out));
+      } else {
+        out = new PrintWriter(System.out);
+      }
+    } else {
+
+      // Japize will only create output to files ending in .japi (uncompressed)
+      // or .japi.gz (compressed). It enforces this rule by adding .japi and .gz
+      // to the specified filename if it doesn't already have them. If the user
+      // specifies a .gz extension for uncompressed output, this is flagged as
+      // an error - if it's really what they meant, they can specify x.gz.japi.
+      if (fileName.endsWith(".gz")) {
+        if (!zipIt) {
+          System.err.println("Filename ending in .gz specified without zip output enabled.");
+          System.err.println("Please either specify 'zip' or specify a different filename (did you");
+          System.err.println("mean '" + fileName + ".japi'?)");
+          System.exit(1);
+        }
+
+        // Trim ".gz" off the end. It'll be re-added later, but ".japi" might
+        // be inserted first.
+        fileName = fileName.substring(0, fileName.length() - 3);
+      }
+
+      // Add ".japi" if it's not already there.
+      if (!fileName.endsWith(".japi")) fileName += ".japi";
+
+      // Produce an output writer - compressed or not, as appropriate.
+      if (zipIt) {
+        out = new PrintWriter(new GZIPOutputStream(new BufferedOutputStream(
+              new FileOutputStream(fileName + ".gz"))));
+      } else {
+        out = new PrintWriter(new BufferedWriter(new FileWriter(fileName)));
+      }
+    }
+
+    // Now actually go and japize the classes.
+    doJapize();
+    out.close();
+
     // It seems that doing all of the <clinit>s that happen during asking
-    // for compile time constants causes a Toolkit thread to start, so
-    // we need this to terminate.
-    System.exit(0);
+    // for compile time constants if we use 'reflect' causes a Toolkit thread
+    // to start, so we need this to terminate.
+    if (!useJode) System.exit(0);
+  }
+
+  private static String toClassRoot(String pkgpath) {
+    StringBuffer sb = new StringBuffer(pkgpath);
+    int dotpos = pkgpath.lastIndexOf('.');
+    if (dotpos >= 0) {
+      sb.setCharAt(dotpos, ',');
+    } else {
+      sb.insert(0, ',');
+    }
+    return sb.toString();
+  }
+
+  private static void progress(char ch) {
+    System.err.print(ch);
+    System.err.flush();
+  }
+  private static void progress(String str) {
+    System.err.println();
+    System.err.print(str);
+    System.err.flush();
+  }
+  private static final String J_L_OBJECT = "java.lang,Object";
+
+  private static void doJapize()
+      throws NoSuchMethodException, IllegalAccessException, IOException,
+             ClassNotFoundException {
+
+    // Print the header identifier. The syntax is "%%japi ver anything". Right
+    // now we don't use the 'anything', and in that case the space after the
+    // version is optional.
+    out.println("%%japi 0.8.1");
+
+    // Identify whether java.lang,Object fits into our list of things to
+    // process. If it does, process it first, then add it to the list of
+    // things to avoid (and remove it from the list of roots if it appears
+    // there).
+    if (checkIncluded(J_L_OBJECT)) {
+      processClass(J_L_OBJECT);
+      if (roots.contains(J_L_OBJECT)) roots.remove(J_L_OBJECT);
+      exclusions.add(J_L_OBJECT);
+    }
+
+    // Now process all the roots that are left.
+    processRootSet(roots);
+  }
+
+  private static void processRootSet(SortedSet rootSet) 
+      throws NoSuchMethodException, IllegalAccessException,
+             ClassNotFoundException, IOException {
+
+    // Process all roots in alphabetical order (note that the ordering is
+    // implied by the use of a SortedSet).
+    String skipping = null;
+    for (Iterator i = rootSet.iterator(); i.hasNext(); ) {
+      String root = (String) i.next();
+      if (skipping != null) {
+        if (root.compareTo(skipping) < 0) continue;
+        skipping = null;
+      }
+      if (root.indexOf(',') < root.length() - 1) {
+        processClass(root);
+      } else {
+        processPackage(root);
+        skipping = root.substring(0, root.length() - 1) + "/";
+      }
+    }
+  }
+//- Sort all "plus" items - these will be our "roots".
+//- Identify whether java.lang.Object falls within the scope of things to process.
+  //If it does, process it as a class root and then add "-java.lang,Object" to
+  //the list of exclusions.
+//- Iteratively process each root in order. After processing each root, skip any
+  //following roots that lie between "root" and "root/". Since slash sorts after
+  //comma and period but before alphanumerics, this will exclude any subpackages
+  //and classes but not anything like a.b.CD.
+
+//- "Process" for a package root is a recursive function defined as follows:
+  //- Scan all zips and directories for (a) classes in this package directly, and
+    //(b) immediate subpackages of this package. Store everything that is found.
+  //- Sort and then iterate over the items found in (a):
+    //- Skip the class if there is an exclusion ("-" form) for this class
+      //specified on the commandline.
+    //- Otherwise Japize the class.
+  //- Sort and then iterate over the items found in (b):
+    //- If there is an exclusion for this subpackage found on the commandline,
+      //skip it, but also do the following:
+      //- Using SortedSet.subSet(), identify if there are any global roots that
+        //lie between "excludedpkg" and "excludedpkg/". If there are, process
+        //those in order using the appropriate process method for the type.
+    //- If the package is not excluded, process it recursively using this
+      //process method.
+
+  // Process an individual class, by Japizing it.
+  // FIXME: We should scan all zips and directories for this class, and only
+  // Japize it if it's found. Optimization: on the first scan through, compare
+  // all classes to all class roots and remove class roots that aren't found.
+  // Also set a flag to indicate that this has been done - then you can skip
+  // the scan for all subsequent class roots.
+  static void processClass(String cls)
+      throws NoSuchMethodException, IllegalAccessException,
+             ClassNotFoundException {
+    progress("Processing class " + cls + ":");
+    PrintWriter err = jode.GlobalOptions.err;
+    jode.GlobalOptions.err = null;
+    try {
+      japizeClass(cls);
+    } catch (NoClassDefFoundError e) {
+      progress('#');
+    } catch (NullPointerException e) {
+      progress('#');
+    } catch (ClassNotFoundException e) {
+      progress('#');
+    }
+    jode.GlobalOptions.err = err;
+  }
+  static void processPackage(String pkg)
+      throws NoSuchMethodException, IllegalAccessException,
+             ClassNotFoundException, IOException {
+    progress("Processing package " + pkg + ":");
+    SortedSet classes = new TreeSet();
+    SortedSet subpkgs = new TreeSet();
+
+    // Scan the paths for classes and subpackages. Store everything in
+    // classes and subpkgs.
+    for (Iterator i = path.iterator(); i.hasNext(); ) {
+      String pathElem = (String) i.next();
+      scanForPackage(pathElem, pkg, classes, subpkgs);
+    }
+
+    // Iterate over the classes found, and Japize each in turn, unless they are
+    // explicitly excluded.
+    for (Iterator i = classes.iterator(); i.hasNext(); ) {
+      String cls = (String) i.next();
+      if (!exclusions.contains(cls)) japizeClass(cls);
+    }
+
+    // Iterate over the packages found, and process each in turn, unless they
+    // are explicitly excluded. If they *are* explicitly excluded, check for and
+    // process any roots that lie within the excluded package.
+    for (Iterator i = subpkgs.iterator(); i.hasNext(); ) {
+      String subpkg = (String) i.next();
+      if (!exclusions.contains(subpkg)) {
+        processPackage(subpkg);
+      } else {
+        // Identify any roots that lie within the excluded package and process
+        // them. The '/' character sorts after '.' and ',', but before any
+        // alphanumerics, so it covers a.b.c.d and a.b.c,D but not a.b.cd.
+        processRootSet(roots.subSet(subpkg, subpkg + '/'));
+      }
+    }
+  }
+  static void scanForPackage(String pathElem, String pkg, SortedSet classes,
+                             SortedSet subpkgs) throws IOException {
+    if (new File(pathElem).isDirectory()) {
+      scanDirForPackage(pathElem, pkg, classes, subpkgs);
+    } else {
+      scanZipForPackage(pathElem, pkg, classes, subpkgs);
+    }
+    progress('=');
+  }
+
+  /**
+   * Process a directory as entered on the command line (ie, a root of the
+   * class hierarchy - the same thing that would appear in a Classpath).
+   *
+   * @param pathElem The name of the directory to process.
+   * @param pkg The package to scan for.
+   * @param classes A set to add classes found to.
+   * @param subpkgs A set to add subpackages found to.
+   */
+  static void scanDirForPackage(String pathElem, String pkg, SortedSet classes,
+                             SortedSet subpkgs) throws IOException {
+
+    // Replace dot by slash and remove the trailing comma. It's the caller's
+    // responsibility to ensure that the last character is a comma.
+    pkg = pkg.substring(0, pkg.length() - 1);
+    String pkgf = pkg.replace('.', '/');
+
+    // If there is a directory of the appropriate name, recurse over it.
+    File dir = new File(pathElem, pkgf);
+
+    // Iterate over the files and directories within this directory.
+    String[] entries = dir.list();
+    for (int i = 0; i < entries.length; i++) {
+      File f2 = new File(dir, entries[i]);
+
+      // If the entry is another directory, add the package associated with
+      // it to the set of subpackages.
+      // "-" entry for it.
+      if (f2.isDirectory()) {
+        subpkgs.add(pkg + '.' + entries[i] + ',');
+
+      // If the entry is a file ending with ".class", add the class name to
+      // the set of classes.
+      } else if (entries[i].endsWith(".class")) {
+        classes.add(pkg + ',' +
+            entries[i].substring(0, entries[i].length() - 6));
+      }
+    }
+  }
+
+  /**
+   * Process a zipfile as entered on the command line (ie, a root of the
+   * class hierarchy - the same thing that would appear in a Classpath).
+   *
+   * @param pathElem The name of the zipfile to process.
+   * @param pkg The package to scan for.
+   * @param classes A set to add classes found to.
+   * @param subpkgs A set to add subpackages found to.
+   */
+  static void scanZipForPackage(String pathElem, String pkg, SortedSet classes,
+                             SortedSet subpkgs) throws IOException {
+
+    // Replace dot by slash and remove the trailing comma. It's the caller's
+    // responsibility to ensure that the last character is a comma.
+    pkg = pkg.substring(0, pkg.length() - 1);
+    String pkgf = pkg.replace('.', '/') + '/';
+
+    // Iterate over all the entries in the zipfile.
+    ZipFile z = new ZipFile(pathElem);
+    Enumeration ents = z.entries();
+    while (ents.hasMoreElements()) {
+      String ze = ((ZipEntry)ents.nextElement()).getName();
+  
+      // If the entry is a class file and located in the package we are looking
+      // for, process it.
+      if (ze.startsWith(pkgf) && ze.endsWith(".class")) {
+
+        // Trim off the package bit that we already know and the .class suffix.
+        ze = ze.substring(pkgf.length(), ze.length() - 6);
+
+        // If it's directly in the package we're processing, add it to classes.
+        // If it's in a subpackage, add the top-level subpackage to subpkgs.
+        if (ze.indexOf('/') >= 0) {
+          subpkgs.add(pkg + '.' + ze.substring(0, ze.indexOf('/')) + ',');
+        } else {
+          classes.add(pkg + ',' + ze);
+        }
+      }
+    }
+  }
+
+  /**
+   * Print a usage message.
+   */
+  private static void printUsage() {
+    System.err.println("Usage: japize [zip] [as <name>] apis <zipfile>|<dir> ... +|-<pkg> ...");
+    System.err.println("At least one +pkg is required. The word 'reflect' can appear before 'apis'");
+    System.err.println("but this is unreliable and deprecated. 'name' will have .japi and/or .gz");
+    System.err.println("appended if appropriate.");
+    System.err.println("The word 'apis' can be replaced by 'explicitly', 'byname', 'packages' or");
+    System.err.println("'classes'. These values indicate whether something of the form a.b.C should");
+    System.err.println("be treated as a class or a package. Use 'a.b,C' or 'a.b.c,' to be explicit.");
+    System.exit(1);
   }
 
   /**
@@ -189,18 +584,29 @@ public class Japize {
    * Write out API information for a given class. Nothing will be written if
    * the class is not public/protected.
    *
-   * @param c A ClassWrapper of the class to process.
+   * @param n The name of the class to process.
    * @return true if the class was public/protected, false if not.
    */
-  public static boolean japizeClass(ClassWrapper c)
+  public static boolean japizeClass(String n)
       throws NoSuchMethodException, IllegalAccessException, ClassNotFoundException {
+
+    // De-mangle the class name.
+    if (n.charAt(0) == ',') n = n.substring(1);
+    n = n.replace(',', '.');
+
+    // Get a ClassWrapper to work on.
+    ClassWrapper c = getClassWrapper(n);
 
     // Load the class and check its accessibility.
     int mods = c.getModifiers();
-    if (!Modifier.isPublic(mods) && !Modifier.isProtected(mods)) return false;
+    if (!Modifier.isPublic(mods) && !Modifier.isProtected(mods)) {
+      progress('-');
+      return false;
+    }
 
     // Construct the basic strings that will be used in the output.
-    String entry = c.getName() + "#";
+    String entry = toClassRoot(c.getName()) + "%";
+    String classEntry = entry;
     String type = "class";
     if (c.isInterface()) {
       type = "interface";
@@ -226,7 +632,7 @@ public class Japize {
       sup = sup.getSuperclass();
       smods = sup.getModifiers();
       if (!Modifier.isPublic(smods) && !Modifier.isProtected(smods)) {
-        System.err.print("^");
+        progress('^');
       } else {
         type += ":" + sup.getName();
       }
@@ -247,7 +653,7 @@ public class Japize {
       // Skip them.
       int dmods = fields[i].getDeclaringClass().getModifiers();
       if (!Modifier.isPublic(dmods) && !Modifier.isProtected(dmods)) {
-        System.err.print(">");
+        progress('>');
         continue;
       }
 
@@ -262,8 +668,7 @@ public class Japize {
       type = fields[i].getType();
 
       // A static, final field is a primitive constant if it is initialized to
-      // a compile-time constant. We cannot check for being initialized to a
-      // compile time constant, so we just get its value and hope...
+      // a compile-time constant.
       if (fields[i].isPrimitiveConstant()) {
         Object o = fields[i].getPrimitiveValue();
 
@@ -299,7 +704,7 @@ public class Japize {
       }
 
       // Output the japi entry for the field.
-      printEntry(c.getName() + "#" + fields[i].getName(), type, mods);
+      printEntry(classEntry + "#" + fields[i].getName(), type, mods);
     }
 
     // Iterate over the methods and constructors in the class.
@@ -309,7 +714,7 @@ public class Japize {
       // publically accessible. Skip them.
       int dmods = calls[i].getDeclaringClass().getModifiers();
       if (!Modifier.isPublic(dmods) && !Modifier.isProtected(dmods)) {
-        System.err.print("}");
+        progress('}');
         continue;
       }
 
@@ -317,7 +722,7 @@ public class Japize {
       // sometimes. Skip calls called <init> and <clinit>.
       if ("<init>".equals(calls[i].getName()) ||
           "<clinit>".equals(calls[i].getName())) {
-        System.err.print("<");
+        progress('<');
         continue;
       }
 
@@ -327,12 +732,12 @@ public class Japize {
       // superinterface and java.lang.Object). The 1.2 Collections architecture
       // is a wonderful test-bed for this case :)
       if (calls[i].isDup()) {
-        System.err.print("!");
+        progress('!');
         continue;
       }
 
-      // Construct the name of the method, of the form Class#method(params).
-      entry = c.getName() + "#" + calls[i].getName() + "(";
+      // Construct the name of the method, of the form Class%method(params).
+      entry = classEntry + calls[i].getName() + "(";
       String[] params = calls[i].getParameterTypes();
       String comma = "";
       for (int j = 0; j < params.length; j++) {
@@ -361,16 +766,19 @@ public class Japize {
     }
 
     // Return true because we did parse this class.
+    progress('+');
     return true;
   }
 
   /**
    * Print a japi file entry. The format of a japi file entry is space-separated
-   * with 6 fields - the name of the "thing", the accessibility (public or
-   * protected), the abstractness (abstract or concrete), the staticness
-   * (static or instance), the finalness (final or nonfinal), and the type
+   * with 3 fields - the name of the "thing", the modifiers, and the type
    * (which generally includes more information than *just* the type; see the
    * implementation of japizeClass for what actually gets passed in here).
+   * The modifiers are represented as a four-letter string consisting of 1
+   * character each for the accessibility ([P]ublic or [p]rotected), the
+   * abstractness ([a]bstract or [c]oncrete), the staticness ([s]tatic or
+   * [i]nstance) and the finalness ([f]inal or [n]onfinal).
    *
    * @param thing The name of the "thing" (eg class, field, etc) to print.
    * @param type The contents of the "type" field.
@@ -379,140 +787,47 @@ public class Japize {
    */
   public static void printEntry(String thing, String type, int mods) {
     if (!Modifier.isPublic(mods) && !Modifier.isProtected(mods)) return;
-    System.out.print(thing + " ");
-    System.out.print(Modifier.isPublic(mods) ? "public " : "protected ");
-    System.out.print(Modifier.isAbstract(mods) ? "abstract " : "concrete ");
-    System.out.print(Modifier.isStatic(mods) ? "static " : "instance ");
-    System.out.print(Modifier.isFinal(mods) ? "final " : "nonfinal ");
-    System.out.println(type);
-  }
-
-  /**
-   * Recursively process a directory scanning for classes that match the
-   * hashtable constructed in main. As an optimization, this method is called
-   * only on the specific subdirectories that have been marked "+", because
-   * no classes outside these directories are relevant. However it still needs
-   * to be aware of "-" entries and exclude them.
-   *
-   * @param f A File object representing the directory to scan.
-   * @param pkgs The hashtable as constructed in main.
-   * @param prefix The name of the package represented by this directory; for
-   * example, if the root directory being scanned is /usr/local/classes and
-   * f represents /usr/local/classes/java/awt, prefix would be "java.awt".
-   */
-  public static void processPlusDir(File f, Hashtable pkgs, String prefix)
-      throws NoSuchMethodException, IllegalAccessException, IOException, ClassNotFoundException {
-
-    // Iterate over the files and directories within this directory.
-    String[] entries = f.list();
-    for (int i = 0; i < entries.length; i++) {
-      File f2 = new File(f, entries[i]);
-
-      // If the entry is another directory, then scan it unless there is a
-      // "-" entry for it.
-      if (f2.isDirectory()) {
-        String prefix2 = prefix + "." + entries[i];
-        if (!"-".equals(pkgs.get(prefix2))) {
-          processPlusDir(f2, pkgs, prefix2);
-        }
-
-      // If the entry is a file ending with ".class", then process that class
-      // unless there is a "-" entry for it.
-      } else if (entries[i].endsWith(".class")) {
-        String className = prefix + "." +
-            entries[i].substring(0, entries[i].length() - 6);
-        if (!"-".equals(pkgs.get(className))) {
-          if (japizeClass(getClassWrapper(className))) {
-            System.err.print("*");
-          } else {
-            System.err.print("-");
-          }
-        } else {
-          System.err.print("_");
-        }
-      }
-    }
-    System.err.flush();
-  }
-
-  /**
-   * Process a directory as entered on the command line (ie, a root of the
-   * class hierarchy - the same thing that would appear in a Classpath).
-   * The implementation is slightly optimized by only starting recursion at
-   * package names with "+" entries in the hashtable, rather than scanning
-   * the whole tree and filtering.
-   *
-   * @param dname The name of the directory to process.
-   * @param pkgs The hashtable as created in main.
-   */
-  public static void processDir(String dname, Hashtable pkgs)
-      throws NoSuchMethodException, IllegalAccessException, IOException, ClassNotFoundException {
-
-    // Iterate over the entries in the hashtable.
-    Enumeration entries = pkgs.keys();
-    System.err.println("Scanning " + dname);
-    while (entries.hasMoreElements()) {
-      String pkg = (String)entries.nextElement();
-
-      // If the entry is a "+" entry, then process it.
-      if ("+".equals(pkgs.get(pkg))) {
-        System.err.println("...Processing " + pkg);
-        String pkgf = pkg.replace('.', '/');
-
-        // If there is a *file* of the appropriate name, then process that
-        // single class.
-        if (new File(dname, pkgf + ".class").isFile()) {
-          if (japizeClass(getClassWrapper(pkg))) {
-            System.err.print("*");
-          } else {
-            System.err.print("-");
-          }
-        }
-
-        // If there is a directory of the appropriate name, recurse over it.
-        File dir = new File(dname, pkgf);
-        if (dir.isDirectory()) {
-          processPlusDir(dir, pkgs, pkg);
-        }
-        System.err.println("\n...Done processing " + pkg);
-      }
-    }
-    System.err.println("Done scanning " + dname);
+    out.print(thing);
+    out.print(' ');
+    out.print(Modifier.isPublic(mods) ? 'P' : 'p');
+    out.print(Modifier.isAbstract(mods) ? 'a' : 'c');
+    out.print(Modifier.isStatic(mods) ? 's' : 'i');
+    out.print(Modifier.isFinal(mods) ? 'f' : 'n');
+    out.print(' ');
+    out.println(type);
   }
   
   /**
-   * Check a class name against a hashtable like the one constructed in
-   * main() to see if it should be included. A class should be included if
-   * it is inside a package that has a "+" entry, and not inside a deeper
-   * package that has a "-" entry.
+   * Check a class name against the global 'roots' and 'exclusions' sets
+   * to see if it should be included. A class should be included if
+   * it is inside a package that has a roots entry, and not inside a deeper
+   * package that has an exclusions entry.
    *
    * @param cname the name of the class to check.
-   * @param pkgs The hashtable, as constructed in main, of packages to include.
    * @return true if the class should be included, false if not.
    */
-  public static boolean chkClass(String cname, Hashtable pkgs) {
+  public static boolean checkIncluded(String cname) {
 
+    if (roots.contains(cname)) return true;
+    if (exclusions.contains(cname)) return false;
+    
     // Loop backwards over the "."s in the class's name.
-    int i = cname.length();
+    int i = cname.indexOf(',');
     while (i >= 0) {
       cname = cname.substring(0, i);
+      String mangled = cname + ',';
 
       // Check whether there is an entry for the package name up to the ".".
-      String x = (String)pkgs.get(cname);
-
       // If so we know what to do so we return the result; otherwise we
       // continue at the next ".".
-      if ("+".equals(x)) {
-        return true;
-      } else if ("-".equals(x)) {
-        return false;
-      }
+      if (roots.contains(mangled)) return true;
+      if (exclusions.contains(mangled)) return false;
       i = cname.lastIndexOf('.');
     }
 
-    // If we ran out of dots before finding a match, we don't want to include
-    // the class.
-    return false;
+    // If we ran out of dots before finding a match, we need to check the root
+    // package.
+    return roots.contains(",");
   }
 
   /**
@@ -531,41 +846,5 @@ public class Japize {
     } else {
       return new ReflectClass(className);
     }
-  }
-
-  /**
-   * Iterate over a zip file processing all the appropriate classes.
-   *
-   * @param fname The name of the zip file to scan.
-   * @param pkgs the hashtable as created in main.
-   */
-  public static void processZip(String fname, Hashtable pkgs)
-      throws NoSuchMethodException, IllegalAccessException, IOException, ClassNotFoundException {
-
-    // Iterate over all the entries in the zipfile.
-    ZipFile z = new ZipFile(fname);
-    Enumeration ents = z.entries();
-    System.err.println("Scanning " + fname);
-    while (ents.hasMoreElements()) {
-      String ze = ((ZipEntry)ents.nextElement()).getName();
-
-      // If the entry is a class file, then drop the "class" suffix, replace
-      // the "/"s with "."s, and check whether the resulting class name
-      // matches the hashtable. If so, process it. Otherwise skip it.
-      if (ze.endsWith(".class")) {
-        ze = ze.substring(0, ze.length() - 6).replace('/', '.');
-        if (chkClass(ze, pkgs)) {
-          if (japizeClass(getClassWrapper(ze))) {
-            System.err.print("*");
-          } else {
-            System.err.print("-");
-          }
-        } else {
-          System.err.print("_");
-        }
-      }
-      System.err.flush();
-    }
-    System.err.println("\nDone scanning " + fname);
   }
 }

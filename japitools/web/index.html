@@ -1,0 +1,216 @@
+<html><head><title>japitools: Java API compatibility testing</title></head>
+<body bgcolor="#ffffff" text="#000000" link="#0000ff" vlink="#8800ff">
+<h1>japitools: Java API compatibility testing tools</h1>
+<p>japitools consists of two simple tools designed to test for compatibility
+between Java APIs. They were originally designed for testing free
+implementations of Java itself for compatibility with Sun's JDK, but they can
+also be used for testing backward compatibility between versions of any API.</p>
+<p>The tools are <a href="Japize.java">Japize</a>
+and <a href="japicompat.pl">japicompat.pl</a>. Japize is a java program which
+uses reflection to emit a listing of an API in a machine-readable format.
+japicompat then takes two such listings and compares them for binary
+compatibility, as defined by Sun in the
+<a href="http://java.sun.com/docs/books/jls/html/13.doc.html">Java Language Specification</a>
+(and as amended
+<a href="http://java.sun.com/docs/books/jls/clarify.html">here</a>).</p>
+<h3>News</h3>
+<ul>
+  <li>19 March 2002: Updated the website so that the documentation matches the
+      actual current code. Since it's been almost 2 years since I wrote this,
+      I can't be 100% sure that this documentation is all correct, but it's
+      certainly better than it was before!</li>
+  <li>28 June 2000: Finally bundled japitools up into a jarball which I'm
+      calling version 0.8 (which is a good indicator of how close to "complete"
+      I feel it is). It now requires the jode.bytecode package if you want to
+      get good results, although you can still use the old buggy reflection
+      version. See below for details.</li>
+  <li>18 June 2000: At the suggestion of Edouard G. Parmelan, added support
+      for checking SerialVersionUIDs. Since this will generally produce lots
+      of errors and make it harder to identify more important API compatibility
+      errors, it needs to be explicitly turned on in japicompat by passing the
+      -v flag.</li>
+  <li>16 June 2000: Godmar fixed the remaining Kaffe bug, so I've removed the
+      hackaround. I still need to leave part of it in due to a subtlety in the
+      way superinterfaces are defined by the JLS. japicompat now removes
+      duplicates, cutting the number of Kaffe errors to 142, and checks
+      everything in the JLS plus my four additions. Reflection is incapable of
+      telling me if a field is a primitive constant, buggrit, so I have to
+      move to using something like gnu.bytecode.</li>
+  <li>15 June 2000: Japize is now, finally, well commented. Godmar Back kindly
+      fixed one of the Kaffe bugs which will mean that some hackarounds can be
+      removed Real Soon (once another related bug gets fixed). I've been hacking
+      japicompat to allow duplicates to be removed; you can find the code
+      <a href="japicompat2.pl">here</a>. It doesn't actually <b>do</b> the
+      removal yet, but the architecture is in. This will replace japicompat once
+      I'm convinced it's as robust; early signs look good. It's also commented!
+      Certify me on <a href="http://www.advogato.org/person/sab39">Advogato</a>
+      - or don't, but it really is me! I need to figure how I'm going to version
+      japitools - right now, all the links here are to my working copies...</li>
+</ul>
+
+<h3>Installation</h3>
+<p>You can download <a href="japitools-0.8.jar">japitools-0.8.jar</a> here.
+You can use this jar file directly in your classpath for running Japize, and
+just extract bin/japicompat.pl to use that, or you can extract the whole thing
+if you want to do development. You will need Jode 1.0.93 for JDK 1.1, available
+from <a href="http://jode.sourceforge.net/">here</a>.
+<p>japicompat.pl assumes that perl is /usr/bin/perl.</p>
+
+<h3>Usage</h3>
+<p>Using japitools is a two-step process:</p>
+<ul><li>Use Japize to generate a .japi file for each of the versions you want
+to compare.</li>
+<li>Use japicompat to compare one for backwards compatibility with the
+other</li></ul>
+<h4>Japize</h4>
+<p>The general usage of Japize is as follows:</p>
+<pre>$ java net.wuffies.japi.Japize jode [&lt;zipfile&gt; | &lt;dir&gt; | +&lt;package&gt; | -&lt;package&gt;] ... &gt;&lt;japifile&gt;</pre>
+<p>The word "jode" indicates to Japize that it should use the newer, reliable
+jode.bytecode parsing code instead of the older, unreliable reflection based
+code. You may specify as many zip (or jar) files, and directories as you want;
+these are any arguments that do not begin with + or -, space separated but
+otherwise identical to the values you would put in your CLASSPATH to access the
+classes you are parsing.</p>
+<p>To specify which classes are included, use +pkgname to add packages to be
+scanned and -pkgname to exclude sub-packages of these. You MUST specify at least
+one +package option to specify which package to include, otherwise Japize will
+happily scan through all the zipfiles and directories but not actually process
+any of the classes. As an example, Sun's
+JDK 1.1 includes classes in java.awt.peer and in java.text.resources that are
+not part of the public API, even though they are public classes; however, every
+other class in the java.* package hierarchy is part of the public API. The
+syntax to construct a useful jdk11.japi would therefore be:</p>
+<pre>$ java net.wuffies.japi.Japize jode classes.zip +java -java.awt.peer -java.text.resources &gt;jdk11.japi</pre>
+
+<p>Alternatively, there is an older syntax that uses reflection to access the
+information from classes. This is unreliable: there is no way to correctly
+identify compile-time constants, and it also requires that Japize be run using
+the implementation that is being Japized. I don't recommend using this version,
+in case that isn't obvious already :)</p>
+<pre>$ java net.wuffies.japi.Japize class &lt;classname&gt; ... &gt;&lt;japifile&gt;</pre>
+<p>or</p>
+<pre>$ java net.wuffies.japi.Japize packages [&lt;zipfile&gt; | &lt;dir&gt; | +&lt;package&gt; | -&lt;package&gt;] ... &gt;&lt;japifile&gt;</pre>
+<p>The first form just creates a japi file for a given set of classes. The
+second form is essentially identical to the jode-based format, but using the
+reflection code.</p>
+<p>It is important to realize that when using these older syntaxes, Japize does
+<b>not</b> load classes from the zipfiles or directories you specify. It just
+uses them to identify what classes to look at. When Japize finds a .class file
+in one of the zipfiles you specify, it just removes the .class from the name,
+replaces slashes with dots, and then uses Class.forName on the result.</p>
+<p>The result of this is that if you want to compare two APIs, you <b>must</b>
+configure your classpath and your invocation of java so that only the version
+you are interested in is available on each run. <b>You can't just specify
+different zipfiles unless you use the jode implementation</b>. An extension of
+this is that if you are trying to
+compare alternative Java implementations, such as
+<a href="http://www.kaffe.org">Kaffe</a> or
+<a href="http://www.classpath.org">GNU Classpath</a>, you will need to use
+the implementation you are interested in to produce the japi file for it (or
+better yet, use jode :) ).</p>
+<p>An example of generating japi files for kaffe vs Sun's JDK 1.1 would look
+like:</p>
+<pre>
+$ java net.wuffies.japi.Japize jode $JAVA_HOME/lib/classes.zip +java -java.awt.peer -java.text.resources &gt;jdk11.japi
+$ java net.wuffies.japi.Japize jode $KAFFEHOME/share/kaffe/Klasses.jar $KAFFEHOME/share/kaffe/rmi.jar +java -java.awt.peer -java.text.resources &gt;kaffe.japi
+</pre>
+<h4>japicompat</h4>
+<p>Next, you can perform the test for compatibility between these two files:
+<pre>
+$ japicompat.pl jdk11.japi kaffe.japi
+</pre>
+<p>By default, japicompat tests for binary compatibility as defined by the JLS,
+plus a couple of additions (see below for details). You can turn off these
+additions by passing the -s flag to japicompat, for example:</p>
+<pre>
+$ japicompat.pl -s jdk11.japi kaffe.japi
+</pre>
+<p>The s stands for "sun", "standard", "specification", or if you like more
+colorful language, "single-buttocked" (one buttock=half an...)</p>
+<p>japicompat can also check that Serializable classes have the same
+SerialVersionUID number from one release to the next. Because in most cases
+this is likely to produce lots of errors, it needs to be explicitly turned on
+by passing the -v flag to japicompat, for example:</p>
+<pre>
+$ japicompat.pl -v jdk11.japi kaffe.japi
+</pre>
+<p>The v stands for serial "version" or "verbose".</p>
+<p>If you are interested, you can see <a href="jdk11.japi">jdk11.japi</a>,
+<a href="kaffe.japi">kaffe.japi</a> and <a href="results-jdk11-kaffe.txt">the
+results of this comparison</a>, as of Kaffe CVS June 15 2000. Here are
+<a href="s-results-jdk11-kaffe.txt">the results with -s turned on</a> and
+<a href="v-results-jdk11-kaffe.txt">the results with -v turned on</a>.</p>
+<h3>What exactly does japicompat test?</h3>
+<p>As mentioned above, japicompat tests for binary compatibility as defined
+by Sun in the JLS. A full summary of what does and does not break binary
+compatibility according to Sun is <a href="jcompat.txt">here</a>.</p>
+<p>However, japicompat also performs some checks that are not specified by the
+JLS, for the simple reason that I believe the JLS is wrong to omit them. You can
+omit these four extra checks by passing the "-s" flag to japicompat, although
+I'm not sure why you would want to...</p>
+<p>The specific checks that I believe the JLS should include are:</p>
+<ul>
+<li><i>Adding an exception to the throws clause of a method or constructor
+    violates binary compatibility</i>, because a class calling that method may
+    not catch or specify the newly thrown exception. The JLS claims that the
+    VM does not perform any checks on thrown exceptions; I hope this has
+    changed because it makes it trivially easy to write a method that throws
+    any exception you like without specifying it.</li>
+<li><i>Removing an exception from the throws clause of a method or constructor
+    violates binary compatibility</i>, because a subclass may be overriding
+    the method and throwing the exception. This only applies to non-final
+    methods, but it is worth enforcing this rule for all methods and
+    constructors because otherwise it is possible to break source code
+    compatibility by rendering code in a catch block unreachable.</li>
+<li><i>Adding a method to an interface violates binary compatibility</i>,
+    because a class that implemented the original version of the interface
+    may not implement the newly added method.</li>
+<li><i>Adding an abstract method to an abstract class violates binary
+    compatibility</i>, because a concrete class derived from the original
+    version may not provide a concrete implementation of the new method.
+</ul>
+
+<p>japicompat specifically tests that the second argument is
+backwardly-compatible with the first. Therefore, a perfect implementation of
+JDK 1.1 would produce no errors regardless of the order of the arguments, but a
+perfect implementation of JDK1.1 plus *parts* of JDK1.2 should be tested as
+follows:</p>
+<pre>japicompat.pl jdk11.japi kaffe.japi
+japicompat.pl kaffe.japi jdk12.japi</pre>
+<p>It is probably impossible to make an implementation that passes both these
+tests, since Sun's own JDK1.2 produces numerous errors when tested against
+JDK1.1.</p>
+
+<h3>License</h3>
+<p>These programs are made available under the
+<a href="http://www.gnu.org/copyleft/gpl.html"</a>GNU General Public License</a>,
+version 2 or later.</p>
+
+<h3>To do</h3>
+<p>Here is an incomplete list of what still needs to be done:</p>
+<ul>
+<li>Find someone else to maintain this, since it seems unlikely that I'll have
+    time to. There are a lot of loose ends, and some parts could use a complete
+    rewrite (especially with regard to memory usage). I don't have much
+    enthusiasm for these tasks any more, as you can tell by the 2 years between
+    updates. Maybe a fresh maintainer would.</li>
+<li>Figure out a way to keep the memory usage down. Java versions 1.2 and above
+    are so huge that Japize has to be done in sections, and japicompat uses the
+    full resources of my machine for a long time (long enough that I just
+    killed it, in fact). Beware of this!</li>
+<li>Figure out a way to ignore errors that are present in Sun's implementation
+    too - that is, if <tt>japicompat.pl jdk11.japi jdk12.japi</tt> produces a
+    given error, then ignore it when running <tt>japicompat.pl jdk11.japi
+    kaffe.japi</tt>.
+<li>Construct jdk10.japi, jdk11.japi, jdk12.japi and jdk13.japi using the latest
+    Japize, and publish a tarball of them.</li>
+<li>Set up a nightly checkout of Kaffe, Classpath and libgcj, if possible, and
+    run automated japicompat tests against all the jdk versions.</li>
+<li>Change the output for compiletime-constant differences so that it says
+    specifically that the value is different, rather than that the type is.</li>
+<li>Fix any bugs that anyone finds...</li>
+<li>Make a "1.0" release.</li>
+<li>Write a japi2java tool, just because I can...</li>
+</ul>
+</body></html>
+

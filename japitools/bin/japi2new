@@ -1,0 +1,152 @@
+#!/usr/bin/perl
+
+use IO::Handle;
+
+%sigs = (boolean=>'Z', byte=>'B', char=>'C', double=>'D', float=>'F', int=>'I',
+         long=>'J', short=>'S', void=>'V',
+         class=>'class', interface=>'interface', constructor=>'constructor');
+
+sub out($);
+sub start();
+sub finish();
+sub to_new();
+sub scmp(&;&);
+
+my @out = ();
+
+$_ = <>; chomp;
+if (/^[^ ]+#[^ ]* (public|protected) (abstract|concrete) (static|instance) (final|nonfinal) /) {
+  $japiver = "0.7";
+  start;
+  out to_new;
+} elsif (/^[^ ]+#[^ ]* [Pp][ac][si][fn] /) {
+  $japiver = "0.8";
+  start;
+  out to_new;
+} elsif (/^\%\%japi ([^ ]*) /) {
+  $japiver = $1;
+  if ($japiver ne "0.8.1") {
+    print STDERR <<EOF;
+This japi file claims to be version $japiver, but this version of japi2new only
+understands version 0.8.1 and older versions that did not carry a version
+number. Either this japi file is incorrect or you need a newer version of
+japi2new.
+EOF
+    exit 1;
+  }
+  start;
+} else {
+  print STDERR <<EOF;
+This does not appear to be a japi file. japi2new can only update old japis,
+not create them from scratch.
+EOF
+  exit 1;
+}
+
+while(<>) {
+  chomp;
+  out to_new;
+}
+finish;
+  
+sub out($) {
+  if ($needtosort) {
+    push @out, "$_[0]\n";
+  } else {
+    print "$_[0]\n";
+  }
+}
+
+sub start() {
+  $needtosort = $japiver le "0.8";
+  print STDERR "Converting from japi version $japiver...";
+  STDERR->autoflush;
+  print "%\%japi 0.8.1 \n";
+}
+
+sub finish() {
+  if ($needtosort) {
+    print STDERR " sorting...";
+    print (sort {scmp {/^java\.lang,Object%/}} @out);
+  }
+  print STDERR " done.\n";
+}
+sub to_new() {
+
+  my $older = 0;
+  if ($japiver == "0.7" or $older) {
+    $older = 1;
+
+    # Parse and interpret the entry.
+    my ($item, $access, $abstract, $static, $final, $type) = split / /, $_, 6;
+
+    # We need to convert the modifier string and all the type signatures to
+    # japi v0.8 format.
+
+    # If it's a method or constructor, convert the typesigs and store the result
+    # in $class and $member.
+    my ($class, $member) = split /#/, $item, 2;
+    if ($member =~ /^(.*)\((.*)\)$/) {
+      my ($nm, $params) = ($1, $2);
+      my @params = split(/,/, $2);
+      $params = join(',', map { type2sig($_) } @params);
+      $member = "$nm($params)";
+    }
+
+    # Extract the parts of 'type' that actually do constitute the type, convert
+    # its typesig and then put it back together with the other information.
+    my ($tp, $bits) = ($1, $2) if $type =~ /^([^#:*]+)((?:[#:*].*)?)$/;
+    $type = type2sig($tp) . $bits;
+
+    # Convert the modifiers into the shortened, 4 character (instead of 4 word)
+    # string.
+    my $flags = ($access eq 'public' ? 'P' : 'p');
+    $flags .= ($abstract eq 'abstract' ? 'a' : 'c');
+    $flags .= ($static eq 'static' ? 's' : 'i');
+    $flags .= ($final eq 'final' ? 'f' : 'n');
+
+    # Put it all back together into a japi entry and push it.
+    $_ = "$class#$member $flags $type";
+  }
+  if ($japiver eq "0.8" or $older) {
+    $older = 1;
+    if (
+      /^(?:((?:[a-zA-Z0-9_]+\.)*[a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+)#([^ ]*) (.*)$/
+        ) {
+      my ($pkg, $class, $member, $rest) = ($1, $2, $3, $4);
+      $member = "#$member" if $member =~ /^[^()]+$/;
+      $_ = "$pkg,$class%$member $rest";
+    } else {
+      print STDERR "Unknown line: $_\n";
+      exit 1;
+    }
+  }
+  if ($japiver eq "0.8.1" or $older) {
+    $older = 1;
+    # Do nothing - 0.8.1 is as far as we can get right now...
+  }
+  return $_;
+}
+
+# Function for doing complicated comparisons. Returns a value equivalent to
+# that returned by cmp. Takes 2 arguments: a function which tests whether $_ is
+# in the 'preferred' set and a function to fall back on if neither or both are
+# in the preferred set. The fallback function is called using a and b, as usual,
+# and defaults to {$a cmp $b}.
+sub scmp(&;&) {
+  my ($prf, $flbk) = (@_, sub {$a cmp $b});
+  $_ = $a; my $aprf = &$prf();
+  $_ = $b; my $bprf = &$prf();
+  $aprf && !$bprf ? -1 :
+  $bprf && !$aprf ? 1 :
+  &$flbk();
+}
+
+# Convert a pre-0.8 semi-human-readable typename into a 0.8-and-above JVM-style
+# type signature.
+sub type2sig($) {
+  my ($type) = @_;
+  return $sigs{$type} if $sigs{$type};
+  $type =~ s-\.-/-g;
+  $type =~ /^\[/ ? $type : "L$type;";
+}

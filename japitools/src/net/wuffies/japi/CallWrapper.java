@@ -22,7 +22,7 @@
 
 package net.wuffies.japi;
 
-interface CallWrapper extends Wrapper {
+interface CallWrapper extends Wrapper, Comparable {
   String[] getParameterTypes();
   String[] getExceptionTypes();
   String getName();

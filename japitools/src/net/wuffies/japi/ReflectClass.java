@@ -23,6 +23,7 @@
 package net.wuffies.japi;
 import java.lang.reflect.*;
 import java.io.ObjectStreamClass;
+import java.util.Arrays;
 
 class ReflectClass implements ClassWrapper {
   private Class c;
@@ -62,9 +63,9 @@ class ReflectClass implements ClassWrapper {
     Field[] fields = c.getFields();
     FieldWrapper[] res = new FieldWrapper[fields.length];
     for (int i = 0; i < fields.length; i++) {
-      System.out.println(fields[i]);
       res[i] = new ReflectField(fields[i]);
     }
+    Arrays.sort(res);
     return res;
   }
   public CallWrapper[] getCalls() {
@@ -77,10 +78,34 @@ class ReflectClass implements ClassWrapper {
     for (int i = 0; i < methods.length; i++) {
       res[i + constructors.length] = new ReflectMethod(methods[i], c);
     }
+    Arrays.sort(res);
     return res;
   }
   public boolean isInterface() {
     return c.isInterface();
   }
-}
+  // This is taken from GNU Classpath and is (c) FSF, licensed under the GPL
+  // with an exception clause.
+  public static String typeSig(Class cl) {
+    if (cl.isPrimitive()) {
+      if (cl == Boolean.TYPE) return "Z";
+      if (cl == Byte.TYPE) return "B";
+      if (cl == Character.TYPE) return "C";
+      if (cl == Double.TYPE) return "D";
+      if (cl == Float.TYPE) return "F";
+      if (cl == Integer.TYPE) return "I";
+      if (cl == Long.TYPE) return "J";
+      if (cl == Short.TYPE) return "S";
+      if (cl == Void.TYPE) return "V";
+      throw new RuntimeException( "Unknown primitive class " + cl );
 
+    } else if( cl.isArray() ) {
+      return '[' + typeSig(cl.getComponentType());
+
+    } else {
+      String classname = cl.getName();
+      int name_len = classname.length();
+      return "L" + cl.getName().replace('.', '/') + ";";
+    }
+  }
+}

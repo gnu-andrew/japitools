@@ -1,0 +1,63 @@
+#!/usr/bin/perl
+
+# Wrapper script for Japize. Checks argument syntax to avoid wasting time
+# starting a JVM just to print an error message, then launches the Japize class.
+
+sub printusage() {
+  print STDERR <<EOF;
+Usage: japize [zip] [as <name>] apis <zipfile>|<dir> ... +|-<pkg> ...
+At least one +pkg is required. The word 'reflect' can appear before 'apis'
+but this is unreliable and deprecated. 'name' will have .japi and/or .gz
+appended if appropriate.
+The word 'apis' can be replaced by 'explicitly', 'byname', 'packages' or
+'classes'. These values indicate whether something of the form a.b.C should
+be treated as a class or a package. Use 'a.b,C' or 'a.b.c,' to be explicit.
+EOF
+  exit(1);
+}
+sub illegalpkgpath() {
+  $errarg =~ s/^[+-]//;
+  print STDERR <<EOF;
+Specified package path $errarg is not a valid package path.
+Legal paths are of the form 'pkg.sub.Class' or 'pkg.sub', or use the
+explicit forms 'pkg.sub,Class' or 'pkg.sub,'.
+EOF
+  exit(1);
+}
+sub zipfnerror() {
+  print STDERR <<EOF;
+Filename ending in .gz specified without zip output enabled.
+Please either specify 'zip' or specify a different filename (did you
+mean '$errarg.japi'?)
+EOF
+  exit(1);
+}
+
+my @args = @ARGV;
+my $fn = "";
+my $zip = 0;
+do { shift @args; $zip = 1 } if @args[0] eq 'zip';
+do { shift @args; $fn = shift @args } if @args[0] eq 'as';
+shift @args if @args[0] eq 'reflect';
+printusage
+  unless {explicitly=>1,apis=>1,byname=>1,packages=>1,classes=>1}->{@args[0]};
+shift @args;
+my $plusses = 0;
+my $paths = 0;
+foreach my $arg (@args) {
+  if ($arg =~ /^[+-]/) {
+    $errarg = $arg;
+    illegalpkgpath
+      unless $arg =~ /^[+-](?:(?:[a-zA-Z_]+\.)*[a-zA-Z_]+)?(?:,[a-zA-Z_]*)?$/;
+    $plusses++ if $arg =~ /^\+/;
+  } else {
+    $paths++;
+  }
+}
+printusage unless $plusses && $paths;
+$errarg = $fn;
+zipfnerror if !$zip && $fn =~ /\.gz$/;
+
+$ENV{CLASSPATH} .= ":/usr/lib/japitools:/usr/lib/japitools/jode-1.1.1.jar";
+print STDERR "...\n";
+exec('java', 'net.wuffies.japi.Japize', @ARGV);

@@ -35,7 +35,7 @@ class ReflectConstructor implements CallWrapper {
     Class[] params = c.getParameterTypes();
     String[] res = new String[params.length];
     for (int i = 0; i < params.length; i++) {
-      res[i] = params[i].getName();
+      res[i] = ReflectClass.typeSig(params[i]);
     }
     return res;
   }
@@ -58,5 +58,23 @@ class ReflectConstructor implements CallWrapper {
   }
   public ClassWrapper getDeclaringClass() {
     return new ReflectClass(c.getDeclaringClass());
+  }
+  public int compareTo(Object o) {
+    return o instanceof ReflectMethod ? -1 :
+           getSig().compareTo(((ReflectConstructor) o).getSig());
+  }
+  private String sig;
+  private String getSig() {
+    if (sig == null) {
+      sig = getName() + "(";
+      String[] params = getParameterTypes();
+      String comma = "";
+      for (int j = 0; j < params.length; j++) {
+        sig += comma + params[j];
+        comma = ",";
+      }
+      sig += ")";
+    }
+    return sig;
   }
 }
