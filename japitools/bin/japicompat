@@ -384,7 +384,9 @@ sub compare_japis($$) {
   print "%\%japio 0.9.1 $origfile $newfile\n";
   print "categories =good ";
   print "=svuid " if $svuid_errors;
-  print "bad missing abs.add\n";
+  print "bad missing";
+  print " abs.add" unless $sun_only;
+  print "\n";
   my $pkg = "";
   my $class = "";
   my $c = {}; # counts

@@ -11,8 +11,8 @@
 .good, .good-bar { color: #00cc00 }
 .good-bar { background-color: #00cc00 }
 
-.svuid, .svuid-bar { color: #00cc99 }
-.svuid-bar { background-color: #00cc99 }
+.svuid, .svuid-bar { color: #009999 }
+.svuid-bar { background-color: #009999 }
 
 .bad, .bad-bar { color: #0000ff }
 .bad-bar { background-color: #0000ff }
@@ -25,7 +25,7 @@
 
 /* Layout properties */
 .bar { empty-cells: show }
-th { text-align: right }
+th { font-size: 12px; text-align: right }
 .colhead th { text-align: center }
 .alternating-1 { background-color: #ddddff }
 .alternating-2 { background-color: #eeeeee }
