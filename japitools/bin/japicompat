@@ -126,8 +126,11 @@ sub scmp(&;&) {
 sub japicmp($$) {
   my ($ia, $ib) = @_;
   return -1 unless defined $ib;
-  $a = $ia->{item};
-  $b = $ib->{item};
+  japitemcmp($ia->{item}, $ib->{item});
+}
+
+sub japitemcmp($$) {
+  ($a, $b) = @_;
   scmp {/^java\.lang,Object%/};
 }
 
@@ -158,6 +161,8 @@ sub readable_member($) {
 
 sub open_japi($) {
   my ($filename) = @_;
+  my $japi;
+  $japi->{name} = $filename;
   my $fh;
   if ($filename =~ /\.gz$/) {
     $fh = new IO::Pipe()->reader("gzip", "-dc", $filename);
@@ -191,17 +196,26 @@ only understands version $japiver. Either the japi file is incorrect or you need
 a new version of japicompat.
 EOF
   print STDERR ".\n" if $dot;
-  return $fh;
+  $japi->{fh} = $fh;
+  return $japi;
 }
 
 sub read_japi_item($) {
-  my ($fh) = @_;
+  my ($japi) = @_;
+  my $fh = $japi->{fh};
   my $line = $fh->getline;
   return undef unless $line;
   chomp $line;
   
   # Parse and interpret the entry.
   my ($item, $flags, $type) = split / /, $line, 3;
+
+  # Ensure that this item is correctly ordered.
+  die "Incorrect ordering of $japi->{name} on line for:\n$item"
+    if defined($japi->{last_item}) &&
+       japitemcmp($japi->{last_item}, $item) >= 0;
+  $japi->{last_item} = $item;
+
   my ($fqcn, $member) = split /%/, $item, 2;
   my ($pkg, $class) = split /,/, $fqcn, 2;
   my $isa;
@@ -287,7 +301,8 @@ EOF
 }
 
 sub close_japi($) {
-  my ($fh) = @_;
+  my ($japi) = @_;
+  my $fh = $japi->{fh};
   close $fh;
 }
 

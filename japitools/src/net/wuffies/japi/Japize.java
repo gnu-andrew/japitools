@@ -28,6 +28,7 @@ import java.util.zip.ZipFile;
 import java.io.File;
 import java.io.IOException;
 import java.util.Enumeration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.SortedSet;
@@ -646,6 +647,8 @@ public class Japize {
     // Get the class's members.
     FieldWrapper[] fields = c.getFields();
     CallWrapper[] calls = c.getCalls();
+    Arrays.sort(fields);
+    Arrays.sort(calls);
 
     // Iterate over the fields in the class.
     for (int i = 0; i < fields.length; i++) {
