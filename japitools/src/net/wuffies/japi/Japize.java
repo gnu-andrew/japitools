@@ -85,6 +85,8 @@ public class Japize {
     // If the first arg is "class", iterate over the remaining args and process
     // each one as a class name.
     } else if ("class".equals(args[0])) {
+        System.err.println("WARNING: The 'class' option gives wrong information in some situations.\n");
+        System.err.println("         Consider using the 'jode' option with a zipfile or directory instead.\n");
       for (int i = 1; i < args.length; i++) {
         japizeClass(getClassWrapper(args[i]));
       }
@@ -115,7 +117,11 @@ public class Japize {
         }
 //      cp.append(System.getProperty("java.class.path"));
         JodeClass.setClassPath(cp.toString());
+      } else {
+        System.err.println("WARNING: The 'packages' option gives wrong information in some situations.\n");
+        System.err.println("         Consider using the 'jode' option instead.\n");
       }
+
 
       // The second iteration picks up the remaining args and identifies
       // whether they are directories or files, then calls the appropriate
