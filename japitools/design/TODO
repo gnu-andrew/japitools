@@ -128,32 +128,45 @@
   * "-q" flag to japifix to supress messages.
   * Add "legend" to the top of HTML output indicating the colors for "perfect"
     thru "completely wrong".
-  * Add class-deprecation support to Jode code, currently unused.
+  * Add class-deprecation support to Jode code.
   * Add summary totals in both japiotext and japiohtml that appear *before* the
     full listing of errors.
   * Add per-package summary of errors in japiohtml, again *before* the actual
     error listing. Minimize the size of it by putting it in spans using &nbsp;
     instead of space, all on one "line", and letting the browser wrap as
     appropriate.
-  - Do something like readable_member on item names to make them human-readable.
-  - Order the errors in japiotext in the same way japiohtml does. In fact,
-    redo japiotext entirely as a stripped-down version of japiohtml.
-  - Remove readable_member and anything else that's now japio*'s responsibility
+  * Do something like readable_member on item names to make them human-readable.
+  * Remove readable_member and anything else that's now japio*'s responsibility
     from japicompat.
+  * Order the errors in japiotext in the same way japiohtml does. In fact,
+    redo japiotext entirely as a stripped-down version of japiohtml.
+  * Use "minor" instead of "svuid"
+  * Add deprecation testing (it's an error to *un*deprecate an API)
+    * Bump file version and add info to output in japize
+    * Bump version in japifix and add "?" if not present
+    * Bump version in japilist
+    * Bump version in japicompat and test the new field
+  * Add rawbits support in float and double constants (but don't test it, yet).
+    * Include both the bits and the readable number in japize
+    * Have japicompat ignore the bits completely, for now, and not require
+      them to be present.
+  * Support specifying the letter to alt-ify to (eg mi_nor).
+  * Update spec to cover new changes.
 - For 0.9.3:
+  - Compare rawbits values if both are present, otherwise compare strings as
+    now. Make the output always include both if present.
   - Add more filtering options to japilist: -s superclass, -t throwabletype,
     -f (public|protected|abstract|concrete|static|instance|final|nonfinal|
         constant|variable)
   - Document japilist better.
   - ./configure;make;make install?
   - Bump the file format version.
-  - Use "minor" instead of "svuid".
-  - Support specifying the letter to alt-ify to (eg mi_nor, minor/n or _nminor)
-  - Deprecation support (it's an error to *un*deprecate an API...)
   - Convert all non-"a-zA-Z0-9_$" characters in class and method names into
     "\uXXXX". Do the same with characters in constant strings, only use a wider
     range (eg everything in the ascii charset from space to the end).
-- For 0.9.4:
+- For 0.10.0:
+  - Any bug fixes reported against 0.9.3.
+- For 0.10.1:
   - Support for comparisons against multiple JDK versions. One possible way
     would be an argument syntax something like the following, but I'm getting
     ever less sure that it's the way to go. For starters, you want the
@@ -169,15 +182,15 @@
       other -a and -f args are still allowed).
   - Test by generating jdkxx-jdkyy.japio for all yy > xx and then compare kaffe
     to jdkxx filtering out all those japios.
-- For 0.9.5:
-  - Fallout from 0.9.4, since it's a big change and will probably break stuff,
+- For 0.10.2:
+  - Fallout from 0.10.1, since it's a big change and will probably break stuff,
     including its own new functionality.
   - Anything else needed by kaffe or any other free java project for creating
     nightly results output.
   - This is 1.0 "release candidate"
   - ?? bump file format version to 1.0 with no changes?
-- For 0.9.6:
-  - If there's any fallout from 0.9.5, do a second release candidate. Otherwise
+- For 0.10.3:
+  - If there's any fallout from 0.10.2, do a second release candidate. Otherwise
     skip this and go straight to 1.0.
 - For 1.0.0:
   - Minor bugfixes only.
@@ -185,3 +198,4 @@
 - For 1.1 etc:
   - New features, if I can think of any (everything I've thought of so far is
     on the roadmap for 1.0...)
+  - Profiling support as suggested by Dalibor?

@@ -27,6 +27,9 @@ $japiover = "0.9.1";
 # Would be nice not to hardcode this - maybe later...
 @things = ("package", "class", "interface", "field", "method", "constructor");
 
+$javatypes = {Z=>'boolean', B=>'byte', C=>'char', D=>'double', F=>'float',
+                  I=>'int', J=>'long', S=>'short', V=>'void'};
+
 # Requirements
 #use IO::Handle;
 
@@ -110,10 +113,16 @@ EOF
     my @bits = split / /, $1;
     foreach my $bit (@bits) {
       if ($bit =~ /^(=?)(.)(.*)/) {
-        push @categories, "$2$3";
-        $okcats->{"$2$3"} = 1 if $1;
+        my $cat = "$2$3";
         my $capegory = uc($2).$3;
-        my $cat = "$2$3"; $cat =~ s/\./-/g;
+        my $letter = $2;
+        $letter = $1 if $cat =~ /_(.)/;
+        $cat =~ s/_//;
+        $letters->{$cat} = $letter;
+        $capegory =~ s/_//;
+        push @categories, $cat;
+        $okcats->{$cat} = 1 if $1;
+        $cat =~ s/\./-/g;
         print <<EOF;
         <th class="$cat">$capegory</th>
 EOF
@@ -152,7 +161,9 @@ EOF
       $pkga = $pkgn;
     } else {
       $pkgl = $pkg; $pkgl =~ s/\./_/g;
-      $pkga = "<a href=\"#pkg_$pkgl\">$pkgn</a>";
+      $pkga = $pkgn;
+      $pkga =~ s/\./.<span class="sp"> <\/span>/;
+      $pkga = "<a href=\"#pkg_$pkgl\">$pkga</a>";
       push @packages, $pkg;
     }
     my $pctclass = "none";
@@ -272,7 +283,7 @@ EOF
       if (exists $percent->{$item}) {
         my $pct = $percent->{$item};
         my $class = $item; $class =~ s/\./-/g;
-        my $altc = uc(substr($item,0,1));
+        my $altc = uc($letters->{$item});
         my $alt = $altc x ($percent->{$item} / 5);
         $alt = $altc unless $alt;
         print <<EOF if $pct;
@@ -403,8 +414,9 @@ EOF
         my ($etype, $isa, $item, $sups, $rest) = split / /, $line, 5;
         my ($was, $is) = split /\//, $rest;
         my $msg = $was ? "$was in $orig, but" : "";
+        my $ritem = readable_item($item);
         print <<EOF;
-        <li>$isa $item: $msg $is in $new</li>
+        <li>$isa $ritem: $msg $is in $new</li>
 EOF
       }
       print <<EOF;
@@ -417,3 +429,42 @@ print <<EOF;
   </body>
 </html>
 EOF
+
+sub readable_item($) {
+  my ($item) = @_;
+  my ($fqclass, $member) = split /!/, $item, 2;
+  my ($pkg, $class) = split /,/, $fqclass, 2;
+  my $ritem = $pkg;
+  if ($class) {
+    $class =~ s/\$/./;
+    $ritem .= ".$class";
+  }
+  $ritem .= "." . readable_member($member) if $member;
+  return $ritem;
+}
+
+# Convert a type signature as used in a japi file to a displayable type.
+sub sig2type($) {
+  my ($sig) = @_;
+  return sig2type($1) . '[]' if $sig =~ /^\[(.*)$/;
+  return $javatypes->{$sig} if $javatypes->{$sig};
+  if ($sig =~ /^L(.*);$/) {
+    $sig = $1; $sig =~ s-/-.-g;
+  }
+  $sig;
+}
+
+# Convert all the type signatures in a method name...
+sub readable_member($) {
+  my ($member) = @_;
+  if ($member =~ /^(.*)\((.*)\)$/) {
+    my ($name, $params) = ($1, $2);
+    my @params = split /,/, $2;
+    $params = join(", ", map {sig2type($_)} @params);
+    $member = "$name($params)";
+  } elsif ($member =~ /^#(.*)$/) {
+    $member = $1;
+  }
+  $member;
+}
+

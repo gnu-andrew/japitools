@@ -1,4 +1,4 @@
-This document specifies the format of a .japi file, version 0.9.4. The actual
+This document specifies the format of a .japi file, version 0.9.5. The actual
 implementations of japize, japifix and japicompat may not honor this spec
 exactly. If they do not, it is generally a bug or missing feature in the tool;
 this spec notes such bugs when they are known.
@@ -133,7 +133,7 @@ guaranteed to follow the same format for all future releases. Thus, this section
 (only!) of the spec covers all japi file format versions, past and future. With
 this information you can identify whether a file is a japi file, and which
 version it is. However, this spec does not provide any information about the
-content of the rest of the file for any version other than 0.9.4. Both past and
+content of the rest of the file for any version other than 0.9.5. Both past and
 future versions can be assumed to be entirely incompatible with this spec from
 the second line onwards.
 
@@ -192,7 +192,7 @@ represented:
 "toString". <argtypes> is a comma-separated list of argument types, with each
 one listed in Type Signature representation, eg "[B,I,I,Ljava/lang/String;".
 
-<modifiers> is a four-character string indicating the modifiers of the item:
+<modifiers> is a five-character string indicating the modifiers of the item:
 
 - The first character is either "P" for public or "p" for protected.
   Package-private (default access) and private items do not appear in japi
@@ -203,10 +203,14 @@ one listed in Type Signature representation, eg "[B,I,I,Ljava/lang/String;".
   abstract regardless of whether they are explicitly set as such.
 
 - The third character is either "s" for static or "i" for instance (non-static).
+  Top-level classes are always considered static.
 
 - The fourth character is either "f" for final or "n" for nonfinal. Methods on
   final classes are always considered final regardless of whether they are
   explicitly set as such.
+
+- The fifth character is either "d" for deprecated, "u" for undeprecated, or
+  "?" if the deprecation status is unknown.
 
 <typeinfo> is a catch-all for general information about the item. What exactly
 appears here depends on what type of item this is.
@@ -239,7 +243,12 @@ appears here depends on what type of item this is.
     by the value of the field. In the case of a char value, this is the integer
     value of the character; in the case of a string, it is the character '"'
     followed by the escaped string. For all other values it is the result of
-    Java's default conversion of that type to a string.
+    Java's default conversion of that type to a string. For float and double
+    constants, the stringified value may be followed by "/" and the result of
+    toHexString() called on the result of floatToRawIntBits() or
+    doubleToRawLongBits(), respectively. This is unambigous since there is no
+    way for the stringified value of a float or double to contain "/". This
+    hex string is optional but it is recommended to include it if possible.
 
 - For constructors, the <typeinfo> field consists of the following parts:
   - The word "constructor".

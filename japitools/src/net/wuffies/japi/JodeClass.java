@@ -74,8 +74,13 @@ class JodeClass implements ClassWrapper {
     if (c.getOuterClasses() != null && c.getOuterClasses().length > 0) {
       modifiers |= (c.getOuterClasses()[0].modifiers &
                      (Modifier.PROTECTED | Modifier.PRIVATE | Modifier.STATIC));
+    } else {
+      modifiers |= Modifier.STATIC;
     }
     return modifiers;
+  }
+  public boolean isDeprecated() {
+    return c.isDeprecated();
   }
   public String getName() {
     return c.getName();

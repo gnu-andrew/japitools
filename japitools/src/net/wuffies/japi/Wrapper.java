@@ -21,5 +21,6 @@ package net.wuffies.japi;
 
 interface Wrapper {
   int getModifiers();
+  boolean isDeprecated();
 }
 

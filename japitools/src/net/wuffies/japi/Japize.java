@@ -312,7 +312,7 @@ public class Japize {
     // Print the header identifier. The syntax is "%%japi ver anything".
     // The "anything" is currently used for name/value pairs indicating the
     // creation date and creation tool.
-    out.println("%%japi 0.9.4 creator=japize date=" +
+    out.println("%%japi 0.9.5 creator=japize date=" +
         new SimpleDateFormat("yyyy/MM/dd_hh:mm:ss_z").format(new Date()));
 
     // Identify whether java.lang,Object fits into our list of things to
@@ -660,7 +660,7 @@ public class Japize {
     type += mkIfaceString(c, "");
 
     // Print out the japi entry for the class itself.
-    printEntry(entry, type, mods);
+    printEntry(entry, type, mods, c.isDeprecated());
 
     // Get the class's members.
     FieldWrapper[] fields = c.getFields();
@@ -716,15 +716,26 @@ public class Japize {
           sb.append(val.substring(p));
           type += ":" + sb;
 
-        // Other types just get output. This means that we are also testing the
-        // ability to turn floats and doubles consistently into Strings.
+        // Floats and doubles get their toRaw*Bits() value printed as well as
+        // their actual value.
+        } else if (o instanceof Float) {
+          type += ':' + o.toString() + '/' +
+              Integer.toHexString(Float.floatToRawIntBits(
+                                  ((Float) o).floatValue()));
+        } else if (o instanceof Double) {
+          type += ':' + o.toString() + '/' +
+              Long.toHexString(Double.doubleToRawLongBits(
+                               ((Double) o).doubleValue()));
+
+        // Other types just get output.
         } else {
           type += ":" + o;
         }
       }
 
       // Output the japi entry for the field.
-      printEntry(classEntry + "#" + fields[i].getName(), type, mods);
+      printEntry(classEntry + "#" + fields[i].getName(), type, mods,
+                 fields[i].isDeprecated());
     }
 
     // Iterate over the methods and constructors in the class.
@@ -782,7 +793,7 @@ public class Japize {
       }
 
       // Print the japi entry for the method.
-      printEntry(entry, type, mmods);
+      printEntry(entry, type, mmods, calls[i].isDeprecated());
     }
 
     // Return true because we did parse this class.
@@ -804,8 +815,10 @@ public class Japize {
    * @param type The contents of the "type" field.
    * @param mods The modifiers of the thing, as returned by {Class, Field,
    * Method, Constructor}.getModifiers().
+   * @param deprecated Whether the thing is deprecated.
    */
-  public static void printEntry(String thing, String type, int mods) {
+  public static void printEntry(String thing, String type, int mods,
+                                boolean deprecated) {
     if (!Modifier.isPublic(mods) && !Modifier.isProtected(mods)) return;
     if (thing.startsWith("java.lang,Object!")) out.print('+');
     if (thing.startsWith("java.lang,") ||
@@ -816,6 +829,7 @@ public class Japize {
     out.print(Modifier.isAbstract(mods) ? 'a' : 'c');
     out.print(Modifier.isStatic(mods) ? 's' : 'i');
     out.print(Modifier.isFinal(mods) ? 'f' : 'n');
+    out.print(deprecated ? 'd' : 'u');
     out.print(' ');
     out.println(type);
   }

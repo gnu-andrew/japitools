@@ -46,6 +46,33 @@ compatibility, as defined by Sun in the
 downloaded from <a href="jdkjapis.tar">here</a>.</p>
 <h3>News</h3>
 <ul>
+  <li>4 December 2002: Released an EXPERIMENTAL, BETA QUALITY japitools-0.9.2.
+      This release is more complete than 0.9.1 and includes some fixes over
+      version 0.9 that make it worth using even if you're not interested in
+      the flashy output. On the other hand, it's still less tested than 0.9
+      was, so be warned. Improvements over 0.9.1 include:
+      <ul>
+        <li>Fix for a problem that caused inner classes to be incorrectly
+            treated as non-static.</li>
+        <li>Deprecation support (<em>un</em>deprecating an API is flagged as a
+            (minor) error).</li>
+        <li>Preparation for toString-independent comparisons of floats and
+            doubles. Since toString on these types seems to be all but
+            impossible to code to the spec (even Sun don't achieve it), this
+            allows japi files to be somewhat independent of the VM producing
+            them. Note that this is not yet implemented in japicompat, but
+            the necessary information is in the japi file so the nightly results
+            will be able to take advantage immediately.</li>
+        <li>The date of japi file creation is now included in the japi file and
+            presented in the output</li>
+        <li>Numerous fixes to the HTML output including better organization of
+            errors, browser compatibility fixes, and a color-legend.</li>
+        <li>Parallel enhancements to the text output.</li>
+        <li>Use -h to get HTML output, no more piping to japiohtml manually.
+            You can still get raw output by specifying -j. Use -o to specify
+            an output filename if you don't want to use shell redirection.</li>
+        <li>Other miscellaneous fixes.</li>
+      </ul></li>
   <li>21 November 2002: Released an EXPERIMENTAL, ALPHA QUALITY japitools-0.9.1.
       Japitools-0.9 is still the recommended version if you plan to do anything
       important with the results. This release includes some nice new features

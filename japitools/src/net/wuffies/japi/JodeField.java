@@ -27,6 +27,7 @@ class JodeField implements FieldWrapper {
   private String name;
   private String type;
   private JodeClass jc;
+  private boolean deprecated;
   JodeField(FieldInfo f, JodeClass jc) {
     modifiers = f.getModifiers();
     constValue = f.getConstant();
@@ -36,10 +37,14 @@ class JodeField implements FieldWrapper {
     }
     name = f.getName();
     type = f.getType();
+    deprecated = f.isDeprecated();
     this.jc = jc;
   }
   public int getModifiers() {
     return modifiers;
+  }
+  public boolean isDeprecated() {
+    return deprecated;
   }
   public String getName() {
     return name;

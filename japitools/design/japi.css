@@ -11,8 +11,8 @@
 .good, .good a { color: #00cc00 }
 .good-bar { background-color: #00cc00 }
 
-.svuid, .svuid a { color: #009999 }
-.svuid-bar { background-color: #009999 }
+.minor, .minor a { color: #009999 }
+.minor-bar { background-color: #009999 }
 
 .bad, .bad a { color: #0000ff }
 .bad-bar { background-color: #0000ff }

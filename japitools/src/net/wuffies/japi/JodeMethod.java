@@ -22,6 +22,7 @@ import jode.bytecode.*;
 
 class JodeMethod implements CallWrapper {
   private int modifiers;
+  private boolean deprecated;
   private String[] parameterTypes;
   private String[] exceptionTypes;
   private String name;
@@ -29,6 +30,7 @@ class JodeMethod implements CallWrapper {
   private JodeClass jc;
   JodeMethod(MethodInfo m, JodeClass jc) {
     modifiers = m.getModifiers();
+    deprecated = m.isDeprecated();
     parameterTypes = TypeSignature.getParameterTypes(m.getType());
     exceptionTypes = m.getExceptions();
     if (exceptionTypes == null) exceptionTypes = new String[0];
@@ -43,6 +45,9 @@ class JodeMethod implements CallWrapper {
   }
   public int getModifiers() {
     return modifiers;
+  }
+  public boolean isDeprecated() {
+    return deprecated;
   }
   public String[] getParameterTypes() {
     return parameterTypes;

@@ -53,9 +53,7 @@
 ## GLOBAL VARIABLES ##
 
 # Some global variables used for displaying stuff.
-$japiver = "0.9.4";
-$javatypes = {Z=>'boolean', B=>'byte', C=>'char', D=>'double', F=>'float',
-                  I=>'int', J=>'long', S=>'short', V=>'void'};
+$japiver = "0.9.5";
 @static = ('instance', 'static');
 @ofhs = ();
 
@@ -66,8 +64,6 @@ use IO::Pipe;
 use Getopt::Std;
 
 # Function prototypes
-sub sig2type($);
-sub readable_member($);
 sub open_japi($);
 sub read_japi_item($);
 sub close_japi($);
@@ -136,31 +132,6 @@ sub japicmp($$) {
   my ($ia, $ib) = @_;
   return -1 unless defined $ib;
   $ia->{rawitem} cmp $ib->{rawitem};
-}
-
-# Convert a type signature as used in a japi file to a displayable type.
-sub sig2type($) {
-  my ($sig) = @_;
-  return sig2type($1) . '[]' if $sig =~ /^\[(.*)$/;
-  return $javatypes->{$sig} if $javatypes->{$sig};
-  if ($sig =~ /^L(.*);$/) {
-    $sig = $1; $sig =~ s-/-.-g;
-  }
-  $sig;
-}
-
-# Convert all the type signatures in a method name...
-sub readable_member($) {
-  my ($member) = @_;
-  if ($member =~ /^(.*)\((.*)\)$/) {
-    my ($name, $params) = ($1, $2);
-    my @params = split /,/, $2;
-    $params = join(',', map {sig2type($_)} @params);
-    $member = "$name($params)";
-  } elsif ($member =~ /^#(.*)$/) {
-    $member = $1;
-  }
-  $member;
 }
 
 sub open_japi($) {
@@ -263,11 +234,13 @@ EOF
   $mitem->{package} = $pkg;
   $mitem->{member} = $member;
   $mitem->{rmember} = readable_member($member);
-  my ($public, $abstract, $static, $final) = split //, $flags;
+  my ($public, $abstract, $static, $final, $deprecated) = split //, $flags;
   $mitem->{public} = ($public eq 'P' || 0);
   $mitem->{abstract} = ($abstract eq 'a' || 0);
   $mitem->{static} = ($static eq 's' || 0);
   $mitem->{final} = ($final eq 'f' || 0);
+  $mitem->{deprecated} = ($deprecated eq 'd' ? 1 :
+                          $deprecated eq 'u' ? 0 : undef);
 
   # Classes and interfaces have superclasses and implemented interfaces tacked
   # on to the "type" field. We store this information in the $japi hash also.
@@ -306,8 +279,11 @@ EOF
   # Fields can have their value separated by a : from the typename, if they
   # are constant.
   } else {
-    my $val;
+    my ($val, $bits);
     ($type, $val) = split(/:/, $type, 2);
+    ($val, $bits) = ($1, $2)
+      if ($type eq 'F' || $type eq 'D') && $val =~ /^(.*)\/(.*)$/;
+    $mitem->{constbits} = $bits if defined $bits;
     $mitem->{constant} = $val if defined $val;
   }
 
@@ -372,13 +348,13 @@ sub short_summary($$) {
     $pkgn .= "s";
   }
   my $summ = pct($c, $pkg, "good", "");
-  $summ = pct($c, $pkg, "svuid", $summ);
+  $summ = pct($c, $pkg, "minor", $summ);
   $summ = pct($c, $pkg, "bad", $summ);
   $summ = pct($c, $pkg, "missing", $summ);
   $summ = pct($c, $pkg, "abs.add", $summ);
   my $pkgc = $pkg || "#";
   print OUT "rawsummary $pkgc";
-  foreach my $item ("good", "svuid", "bad", "missing", "abs.add") {
+  foreach my $item ("good", "minor", "bad", "missing", "abs.add") {
     my $itm = $item;
     $itm = "+abs.add" if $item eq "abs.add";
     my $val = $c->{"$pkg/$item"};
@@ -399,7 +375,7 @@ sub compare_japis($$) {
 
   print OUT "%\%japio 0.9.1 $origname $newname\n";
   print OUT "categories =good ";
-  print OUT "=svuid " if $svuid_errors;
+  print OUT "=mi_nor " if $svuid_errors;
   print OUT "bad missing";
   print OUT " abs.add" unless $sun_only;
   print OUT "\n";
@@ -560,11 +536,18 @@ sub compare_japi_item($$$$) {
     # Also check the SerialVersionUID if that is turned on.
     if ($svuid_errors && defined $oitem->{svuid}) {
       if (!defined $nitem->{svuid}) {
-        output_error($oitem, $nitem, $oclitem, $c, "svuid",
+        output_error($oitem, $nitem, $oclitem, $c, "minor",
                      "SerialVersionUID=$oitem->{svuid}", "no SVUID");
       } elsif ($nitem->{svuid} ne $oitem->{svuid}) {
-        output_error($oitem, $nitem, $oclitem, $c, "svuid",
+        output_error($oitem, $nitem, $oclitem, $c, "minor",
                      "SerialVersionUID=$oitem->{svuid}", "SerialVersionUID=$nitem->{svuid}");
+      }
+    }
+    if ($svuid_errors && defined $oitem->{deprecated} &&
+        defined $nitem->{deprecated}) {
+      if ($oitem->{deprecated} && !$nitem->{deprecated}) {
+        output_error($oitem, $nitem, $oclitem, $c, "minor",
+                     "deprecated", "not deprecated");
       }
     }
 
@@ -661,7 +644,7 @@ sub count_summary($$) {
     $pkgn .= "s";
   }
   my $summ = ct($c, $pkg, "good", "");
-  $summ = ct($c, $pkg, "svuid", $summ);
+  $summ = ct($c, $pkg, "minor", $summ);
   $summ = ct($c, $pkg, "bad", $summ);
   $summ = ct($c, $pkg, "missing", $summ);
   $summ = ct($c, $pkg, "abs.add", $summ);
