@@ -1,0 +1,60 @@
+Requirements:
+
+- Include summary information sufficient to generate output equivalent to what
+  we have now.
+- Include the actual error messages in a form sufficient to filter by them,
+  much like the current internal format.
+
+Format:
+
+%%japio 0.9.1 <origfile> <newfile>
+<linetype> <rest>
+
+Where <linetype> determines the format of the rest of the line. Possibilities
+are:
+
+rawsummary <pkg> <category>:<count> <category>:<count> ...
+  eg:
+  rawsummary java.lang good:934 bad:46 missing:11 +abs.add:3
+  This indicates that of 934+46+11 tested API items in java.lang, 934 were
+  good, 46 bad, and 11 missing, and that additionally, 3 items were "abs.add".
+  The "+" before abs.add indicates that it should not be counted towards the
+  total count, so the totals of good+bad+missing equate to 100% and abs.add is
+  an extra few percent. The file format doesn't insist on the names, but it's
+  recommended to stick with good, bad, missing and abs.add for maximum
+  interoperability. A rawsummary line should be emitted for every package
+  processed, and additionally for the special packages # (everything),
+  #package, #class, #interface, #field, #method and #constructor. These numbers
+  indicate "raw" data: it is not expected that every error should correspond
+  one-to-one with the bad/missing counts. Rather, it is expected that the
+  numbers should be weighted in such a way that interpreting them as percentages
+  is as meaningful as possible.
+
+error <etype> <itemtype> <pkg>,<class>!<member> <sups> <was>/<is>
+  <etype> is one of "bad", "missing" and "abs.add" (or others, but these
+  three are recommended).
+  <itemtype> is one of "package", "class", "interface", "field", "method" or
+  "constructor".
+  <pkg>, <class> and <member> are rendered just like in a japi file, and must
+  correspond to the itemtype given. A package is rendered as java.lang,!
+  <sups> is a list of all superclasses and superinterfaces of the class, colon
+  separated. This field can be omitted entirely, eg for a package or for
+  java.lang.Object, in which case there will be two consecutive spaces between
+  <member> and <was>.
+  <was> and <is> describe the substance of the error, by specifying
+  what the item "is" compared to what it "was" in the old file. For example,
+  a method that has illegally changed from static to instance would have a <was>
+  of "static" and an <is> of "instance". <was> can be left empty for errors
+  where the <is> gives all the information you need (for example, if <is> is
+  "missing"). Both <was> and <is> can contain any character, including spaces,
+  but / and \ need to be backslash-escaped. The only hard-and-fast rules for the
+  choices of <was> and <is> are that <was> and <is> cannot be the same, and that
+  they have to be interchangeable: if the same error would apply in a reverse
+  comparison, the resulting line must be the same with <was> and <is> swapped.
+  Some other examples:
+  instance/static
+  constant [foo]/nonconstant
+  constant [foo]/constant [bar]
+  /a new abstract method
+  nonfinal/final
+  concrete/abstract

@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 ###############################################################################
-# japicompat - Test Java APIs for binary backwards compatibility.
+# japiotext - Convert japicompat output to human-readable text format.
 # Copyright (C) 2000-2002  Stuart Ballard <sballard@netreach.net>
 # 
 # This program is free software; you can redistribute it and/or
@@ -18,52 +18,78 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 ###############################################################################
 
-# Recent changes:
-# - 2002/09/09: Abort on mis-ordered japi files since the results would be
-#   incorrect. Add "interfaces" back into the summary. Treat constructors as
-#   not inherited.
-# - 2002/08/01: Update to handle version 0.9 japi files. Add back the summary
-#   of errors at the end (minus "nnn good" which can't be calculated).
-# - 2002/07/31: Fixed a nasty hang-at-end-of-file bug and a bug that caused
-#   japicompat to think packages were missing when they weren't.
-# - 2002/07/30: Rewritten version works apparently correctly, for the first
-#   time. Summary information printed per-package as well as globally.
-# - 2002/07/08: Beginnings of major rewrite to process japis efficiently.
-#   Instead of loading a whole japi into memory, process the files in parallel.
-#   Defer dup-elimination to a second pass.
-# - 2002/06/27: Support new file format produced by japize 0.8.1. Remove ".pl"
-#   from the end of the filename. Automatically pipe through gzip if the
-#   filename ends with .gz.
-# - 2000/06/30: Detect old-style japis and give a useful error. Make this
-#   program -w clean. A few performance enhancements. Count abstract methods
-#   added to classes/interfaces if -s is off.
-# - 2000/06/29: Changes to support slight changes to file format.
-# - 2000/06/26: Added progress indicators. Turn them off with -q.
-# - 2000/06/23: Made compiletime-constants actually be understood, rather than
-#   just treated as part of the type. Added Meaningless, Arbitrary Percentage
-#   scores.
-# - 2000/06/18: Added support for SerialVersionUIDs, fixed a mis-counting bug
-#   caused by the elimination of duplicate errors ("missing" errors were being
-#   counted even if they were dups). Added getopt support.
-# - 2000/06/16: Finished the dup-removal code (Kaffe now shows 140 errors
-#   instead of 429).
-
-
 ## GLOBAL VARIABLES ##
 
 # Some global variables used for displaying stuff.
-$japiver = "0.9.3";
+$japiover = "0.9.1";
 $javatypes = {Z=>'boolean', B=>'byte', C=>'char', D=>'double', F=>'float',
                   I=>'int', J=>'long', S=>'short', V=>'void'};
 @static = ('instance', 'static');
-@ofhs = ();
 
 # Requirements
 use IO::Handle;
-use IO::File;
-use IO::Pipe;
-use Getopt::Std;
 
+my $verline = <>;
+chomp $verline;
+($filever, $orig, $new) = ($1, $2, $3)
+    if $verline =~ /^%\%japio ([^ ]+) ([^ ]+) ([^ ]+)(?: .*)?$/;
+unless (defined $filever) {
+  print STDERR <<EOF;
+This does not look like a japio file.
+EOF
+  exit 1;
+}
+if ($filever ne $japiover) {
+  print STDERR <<EOF;
+This japio file claims to be version $filever, but this version of japiotext
+only supports version $japiover.
+EOF
+  exit 1;
+}
+
+print "Results of comparison between $orig and $new:\n\n";
+
+while (<>) {
+  chomp;
+  if (/^rawsummary (.*)$/) {
+    my @bits = split / /, $1;
+    my ($extra, $total, $values) = ({}, 0, {});
+    my $pkg = shift @bits;
+    foreach my $bit (@bits) {
+      my ($plus, $key, $value) = ($1, $2, $3)
+        if $bit =~ /^(\+?)([^:+]+):([0-9]+)$/;
+      if ($plus) {
+        $extra->{$key} = $value + 0;
+      } else {
+        $total += $value;
+        $values->{$key} = $value + 0;
+      }
+    }
+    my $pkgn = $pkg;
+    if ($pkg eq "#") {
+      print "\n";
+      $pkgn = "Total";
+    } elsif ($pkg =~ /^#(.)(.*)$/) {
+      $pkgn = uc($1) . $2;
+      $pkgn .= "e" if $pkgn =~ /[sx]$/;
+      $pkgn .= "s";
+    }
+    my $pcts = "";
+    foreach my $key (keys %$values) {
+      $pcts .= ", " if $pcts;
+      $pcts .= (int($values->{$key} * 10000 / $total)/100) . "% $key";
+    }
+    foreach my $key (keys %$extra) {
+      $pcts .= ", " if $pcts;
+      $pcts .= (int($extra->{$key} * 10000 / $total)/100) . "% $key";
+    }
+    print "$pkgn: $pcts\n";
+  } elsif (/^error /) {
+  } else {
+    die "Line not understood in japio file:\n$_";
+  }
+}
+exit 0;
 # Function prototypes
 sub scmp(&;&);
 sub japicmp($$);
@@ -358,17 +384,8 @@ sub short_summary($$) {
   $summ = pct($c, $pkg, "bad", $summ);
   $summ = pct($c, $pkg, "missing", $summ);
   $summ = pct($c, $pkg, "abs.add.", $summ);
-# print "$pkgn: $summ\n";
-# print "\n" unless $pkg;
-  my $pkgc = $pkg || "#";
-  print "rawsummary $pkgc";
-  foreach my $item ("good", "bad", "missing", "abs.add.") {
-    my $itm = $item;
-    $itm = "+abs.add" if $item eq "abs.add";
-    my $val = $c->{"$pkg/$item"};
-    print " $item:$val" if $val;
-  }
-  print "\n";
+  print "$pkgn: $summ\n";
+  print "\n" unless $pkg;
   print STDERR "\r$pkgn: $summ\n" if $dot;
 }
 
@@ -376,7 +393,6 @@ sub short_summary($$) {
 sub compare_japis($$) {
   my ($orig, $new) = @_;
 
-  print "%\%japio 0.9.1 $origfile $newfile\n";
   my $pkg = "";
   my $class = "";
   my $c = {}; # counts
@@ -602,7 +618,7 @@ sub merge_results() {
           my ($pkg, $cls) = split(/,/, $class, 2);
           $class = "$pkg.$cls";
           $errs->{"$class\!$member $rest"} = 1;
-          print "error $isa $class.".readable_member($member)." $rest\n";
+          print "$isa $class.".readable_member($member)." $rest\n";
           $totalerrors++;
           inc($sc, $pkg, $isa, $etype);
         }
@@ -635,12 +651,12 @@ sub count_summary($$) {
   $summ = ct($c, $pkg, "missing", $summ);
   $summ = ct($c, $pkg, "abs.add.", $summ);
   $summ = "All good" unless $summ;
-# print "$pkgn: $summ\n";
+  print "$pkgn: $summ\n";
   print STDERR "\r$pkgn: $summ \n" if $dot;
 }
 # Print summary information.
 sub print_summary() {
-# print "\n";
+  print "\n";
   print STDERR "\n" if $dot;
   count_summary($sc, "#package");
   count_summary($sc, "#class");
@@ -648,6 +664,6 @@ sub print_summary() {
   count_summary($sc, "#field");
   count_summary($sc, "#constructor");
   count_summary($sc, "#method");
-# print "$totalerrors unique errors found.\n";
+  print "$totalerrors unique errors found.\n";
   print STDERR "$totalerrors unique errors found.\n" if $dot;
 }

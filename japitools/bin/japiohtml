@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 ###############################################################################
-# japicompat - Test Java APIs for binary backwards compatibility.
+# japiohtml - Convert japicompat output to pretty html format.
 # Copyright (C) 2000-2002  Stuart Ballard <sballard@netreach.net>
 # 
 # This program is free software; you can redistribute it and/or
@@ -18,52 +18,218 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 ###############################################################################
 
-# Recent changes:
-# - 2002/09/09: Abort on mis-ordered japi files since the results would be
-#   incorrect. Add "interfaces" back into the summary. Treat constructors as
-#   not inherited.
-# - 2002/08/01: Update to handle version 0.9 japi files. Add back the summary
-#   of errors at the end (minus "nnn good" which can't be calculated).
-# - 2002/07/31: Fixed a nasty hang-at-end-of-file bug and a bug that caused
-#   japicompat to think packages were missing when they weren't.
-# - 2002/07/30: Rewritten version works apparently correctly, for the first
-#   time. Summary information printed per-package as well as globally.
-# - 2002/07/08: Beginnings of major rewrite to process japis efficiently.
-#   Instead of loading a whole japi into memory, process the files in parallel.
-#   Defer dup-elimination to a second pass.
-# - 2002/06/27: Support new file format produced by japize 0.8.1. Remove ".pl"
-#   from the end of the filename. Automatically pipe through gzip if the
-#   filename ends with .gz.
-# - 2000/06/30: Detect old-style japis and give a useful error. Make this
-#   program -w clean. A few performance enhancements. Count abstract methods
-#   added to classes/interfaces if -s is off.
-# - 2000/06/29: Changes to support slight changes to file format.
-# - 2000/06/26: Added progress indicators. Turn them off with -q.
-# - 2000/06/23: Made compiletime-constants actually be understood, rather than
-#   just treated as part of the type. Added Meaningless, Arbitrary Percentage
-#   scores.
-# - 2000/06/18: Added support for SerialVersionUIDs, fixed a mis-counting bug
-#   caused by the elimination of duplicate errors ("missing" errors were being
-#   counted even if they were dups). Added getopt support.
-# - 2000/06/16: Finished the dup-removal code (Kaffe now shows 140 errors
-#   instead of 429).
-
-
 ## GLOBAL VARIABLES ##
 
 # Some global variables used for displaying stuff.
-$japiver = "0.9.3";
+$japiover = "0.9.1";
 $javatypes = {Z=>'boolean', B=>'byte', C=>'char', D=>'double', F=>'float',
                   I=>'int', J=>'long', S=>'short', V=>'void'};
 @static = ('instance', 'static');
-@ofhs = ();
 
 # Requirements
 use IO::Handle;
-use IO::File;
-use IO::Pipe;
-use Getopt::Std;
 
+my $verline = <>;
+chomp $verline;
+($filever, $orig, $new) = ($1, $2, $3)
+    if $verline =~ /^%\%japio ([^ ]+) ([^ ]+) ([^ ]+)(?: .*)?$/;
+unless (defined $filever) {
+  print STDERR <<EOF;
+This does not look like a japio file.
+EOF
+  exit 1;
+}
+if ($filever ne $japiover) {
+  print STDERR <<EOF;
+This japio file claims to be version $filever, but this version of japiotext
+only supports version $japiover.
+EOF
+  exit 1;
+}
+
+print <<EOF;
+<html>
+  <head>
+    <title>Results of comparison between $orig and $new</title>
+    <link rel="stylesheet" type="text/css" href="japi.css">
+  </head>
+  <body>
+    <h1>Results of comparison between $orig and $new</h1>
+    <h2>Summary</h2>
+    <p>Note that summary information is calculated prior to filtering the
+       results (for duplicates, etc). It is possible to show a non-zero "bad" or
+       "missing" score without any actual errors being listed.</p>
+    <table class="summary" border="0" cellspacing="0" cellpadding="3">
+      <tr class="colhead">
+        <td></td>
+        <th class="good">Good</th>
+        <th class="bad">Bad</th>
+        <th class="missing">Missing</th>
+        <th class="abs-add">Abs.Add</th>
+      </th>
+EOF
+
+my $alt = 0;
+while (<>) {
+  chomp;
+  if (/^rawsummary (.*)$/) {
+    my @bits = split / /, $1;
+    my ($extra, $total, $values, $etotal) = ({}, 0, {}, 0);
+    my $pkg = shift @bits;
+    foreach my $bit (@bits) {
+      my ($plus, $key, $value) = ($1, $2, $3)
+        if $bit =~ /^(\+?)([^:+]+):([0-9]+)$/;
+      if ($plus) {
+        $etotal += $value;
+        $extra->{$key} = $value + 0;
+      } else {
+        $total += $value;
+        $etotal += $value;
+        $values->{$key} = $value + 0;
+      }
+    }
+    my $pkgn = $pkg;
+    if ($pkg eq "#") {
+      print "\n";
+      $pkgn = "Total";
+    } elsif ($pkg =~ /^#(.)(.*)$/) {
+      $pkgn = uc($1) . $2;
+      $pkgn .= "e" if $pkgn =~ /[sx]$/;
+      $pkgn .= "s";
+    }
+    my $pctclass = 0;
+    $pctclass = int($values->{good} * 10 / $etotal) * 10 if $values->{good};
+    $alt = 1 - $alt;
+    print <<EOF;
+      <tr class="alternating-0">
+        <th class="good-${pctclass}pct">$pkgn:</th>
+EOF
+    foreach my $key ("good", "bad", "missing", "abs.add") {
+      my $val = "";
+      if ($values->{$key}) {
+        $val .= (int($values->{$key} * 10000 / $total)/100) . "%";
+      } elsif ($extra->{$key}) {
+        $val .= (int($extra->{$key} * 10000 / $total)/100) . "%";
+      }
+      my $class = $key; $class =~ s/\./-/g;
+      print <<EOF;
+        <td class="$class">$val</td>
+EOF
+    }
+
+    use integer;
+
+    # Now we need to integerize the percentages so we can emit a table whose
+    # width (minus the "extra" bit) adds up to exactly 100 pixels. We also want
+    # to ensure that *anything* nonzero gets at least a pixel. See the file
+    # design/percent-rounding.txt for a justification of this algorithm.
+
+    # Start off assuming nothing's less than 1%, and iterate until we find
+    # that we're right. m is the number of adjustable (<1%) items, and t is
+    # the total of the non-adjustable items. Lastm keeps track of what we
+    # thought m was last time round. We loop until we do an entire pass without
+    # m ending up different from lastm. Lastm starts off as -1 just so that the
+    # m == lastm test fails first time around.
+    my $t = $total;
+    my $m = 0;
+    my $lastm = -1;
+    my $adjustable = {};
+    until ($m == $lastm) {
+      $lastm = $m;
+
+      # Loop over the items that haven't already been marked adjustable. For
+      # each such item, determine whether it needs to be adjustable based on
+      # the current values of m and t. If it does, mark it as adjustable and
+      # update m and t accordingly.
+      foreach my $item (keys %$values) {
+        if (!$adjustable->{$item}) {
+          if ($values->{$item} * (100-$m) < $t) {
+            $t -= $values->{$item};
+            $m++;
+            $adjustable->{$item} = 1;
+          }
+        }
+      }
+    }
+
+    # Having calculated the final values of m and t, and also knowing exactly
+    # which items are adjustable, we can now calculate the adjusted totals.
+    # Non-adjustable items are scaled up by a constant factor; adjustable
+    # items are all set to exactly 1% of the scaled total.
+    my $adjtotal = 100 * $t;
+    my $adjvalue = {};
+    foreach my $item (keys %$values) {
+      if ($adjustable->{$item}) {
+        $adjvalue->{$item} = $t;
+      } else {
+        $adjvalue->{$item} = $values->{$item} * (100-$m);
+      }
+    }
+       
+    # Calculate the percentage rounded *down* to the nearest integer, and also
+    # calculate the magnitude of the difference between the integer percentage
+    # and the actual percentage. This is still all done in integer math...
+    # While we're at it, sum the percentages so we can see how close we got,
+    # later.
+    my $totalpct = 0;
+    my $percent = {};
+    my $diff = {};
+    foreach my $item (keys %$values) {
+      $percent->{$item} = ($adjvalue->{$item} * 100) / $adjtotal;
+      $diff->{$item} = $adjvalue->{$item} * 100 - $percent->{$item} * $adjtotal;
+      $totalpct += $percent->{$item};
+    }
+
+    # Find the items with the largest differences, and adjust them upwards,
+    # until 100% is reached. No need to reset the difference since we're looping
+    # through the items and will never repeat: it's easy to show that the upper
+    # bound on the number of upwards adjustments needed is smaller than the
+    # number of items.
+    foreach my $item (sort { $diff->{$b} <=> $diff->{$a} } keys %$values) {
+      last if ($totalpct >= 100);
+      $percent->{$item}++;
+      $totalpct++;
+    }
+
+    foreach my $item (keys %$extra) {
+      $percent->{$item} = ($extra->{$item} * 1000 + 5) / ($total * 10);
+      $percent->{$item} = 1 unless $percent->{$item};
+      $totalpct += $percent->{$item};
+    }
+
+    print <<EOF;
+        <td>
+          <table width="$totalpct" cellpadding="0" cellspacing="0" class="bar">
+            <tr>
+EOF
+    foreach my $item ("good", "bad", "missing", "abs.add") {
+      if (exists $percent->{$item}) {
+        my $pct = $percent->{$item};
+        my $class = $item; $class =~ s/\./-/g;
+        print <<EOF if $pct;
+              <td width="$pct" class="$class-bar">
+                <img src="1x1.gif" width="1" height="1">
+              </td>
+EOF
+      }
+    }
+    print <<EOF;
+            </tr>
+          </table>
+        </td>
+      </tr>
+EOF
+  } elsif (/^error /) {
+  } else {
+    die "Line not understood in japio file:\n$_";
+  }
+}
+print <<EOF;
+    </table>
+  </body>
+</html>
+EOF
+exit 0;
 # Function prototypes
 sub scmp(&;&);
 sub japicmp($$);
@@ -358,17 +524,8 @@ sub short_summary($$) {
   $summ = pct($c, $pkg, "bad", $summ);
   $summ = pct($c, $pkg, "missing", $summ);
   $summ = pct($c, $pkg, "abs.add.", $summ);
-# print "$pkgn: $summ\n";
-# print "\n" unless $pkg;
-  my $pkgc = $pkg || "#";
-  print "rawsummary $pkgc";
-  foreach my $item ("good", "bad", "missing", "abs.add.") {
-    my $itm = $item;
-    $itm = "+abs.add" if $item eq "abs.add";
-    my $val = $c->{"$pkg/$item"};
-    print " $item:$val" if $val;
-  }
-  print "\n";
+  print "$pkgn: $summ\n";
+  print "\n" unless $pkg;
   print STDERR "\r$pkgn: $summ\n" if $dot;
 }
 
@@ -376,7 +533,6 @@ sub short_summary($$) {
 sub compare_japis($$) {
   my ($orig, $new) = @_;
 
-  print "%\%japio 0.9.1 $origfile $newfile\n";
   my $pkg = "";
   my $class = "";
   my $c = {}; # counts
@@ -602,7 +758,7 @@ sub merge_results() {
           my ($pkg, $cls) = split(/,/, $class, 2);
           $class = "$pkg.$cls";
           $errs->{"$class\!$member $rest"} = 1;
-          print "error $isa $class.".readable_member($member)." $rest\n";
+          print "$isa $class.".readable_member($member)." $rest\n";
           $totalerrors++;
           inc($sc, $pkg, $isa, $etype);
         }
@@ -635,12 +791,12 @@ sub count_summary($$) {
   $summ = ct($c, $pkg, "missing", $summ);
   $summ = ct($c, $pkg, "abs.add.", $summ);
   $summ = "All good" unless $summ;
-# print "$pkgn: $summ\n";
+  print "$pkgn: $summ\n";
   print STDERR "\r$pkgn: $summ \n" if $dot;
 }
 # Print summary information.
 sub print_summary() {
-# print "\n";
+  print "\n";
   print STDERR "\n" if $dot;
   count_summary($sc, "#package");
   count_summary($sc, "#class");
@@ -648,6 +804,6 @@ sub print_summary() {
   count_summary($sc, "#field");
   count_summary($sc, "#constructor");
   count_summary($sc, "#method");
-# print "$totalerrors unique errors found.\n";
+  print "$totalerrors unique errors found.\n";
   print STDERR "$totalerrors unique errors found.\n" if $dot;
 }

@@ -1,0 +1,26 @@
+/* Percentage goodness colors */
+.good-100pct { background-color: #00cc00 }
+.good-90pct { background-color: #77dd00 }
+.good-70pct, .good-80pct { background-color: #dddd00 }
+.good-30pct, .good-40pct, .good-50pct, .good-60pct { background-color: #cc8800 }
+.good-0pct, .good-10pct, .good-20pct { background-color: #cc0000 }
+
+/* Error category colors */
+.good, .good-bar { color: #00cc00 }
+.good-bar { background-color: #00cc00 }
+
+.bad, .bad-bar { color: #0000ff }
+.bad-bar { background-color: #0000ff }
+
+.missing { color: #555555 }
+.missing-bar { color: #999999; background-color: #999999 }
+
+.abs-add, .abs-add-bar { color: #8800aa }
+.abs-add-bar { background-color: #8800aa }
+
+/* Layout properties */
+.bar { empty-cells: show }
+th { text-align: right }
+.colhead th { text-align: center }
+.alternating-0 { background-color: #ddddff }
+.alternating-1 { background-color: #eeeeee }
