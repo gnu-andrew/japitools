@@ -23,6 +23,8 @@
 package net.wuffies.japi;
 import jode.bytecode.*;
 import java.util.TreeSet;
+import java.util.Map;
+import java.util.HashMap;
 import java.lang.reflect.Modifier;
 import jode.obfuscator.ClassIdentifier;
 import java.util.Arrays;
@@ -34,6 +36,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Comparator;
 
 class JodeClass implements ClassWrapper {
+  private static final Map loaded = new HashMap();
   ClassInfo c;
   private ClassIdentifier ident;
   public JodeClass(String name) {
@@ -41,11 +44,29 @@ class JodeClass implements ClassWrapper {
   }
   JodeClass(ClassInfo c) {
     this.c = c;
+    synchronized (loaded) {
+      Integer refCount = (Integer) loaded.get(c.getName());
+      if (refCount == null) {
+        refCount = new Integer(1);
+      } else {
+        refCount = new Integer(refCount.intValue() + 1);
+      }
+      loaded.put(c.getName(), refCount);
+    }
   }
   public void finalize() {
     if (c != null) {
-      synchronized (c) {
-        c.dropInfo(ClassInfo.FULLINFO);
+      synchronized (loaded) {
+        Integer refCount = (Integer) loaded.get(c.getName());
+        if (refCount == null) refCount = new Integer(1);
+        refCount = new Integer(refCount.intValue() - 1);
+        if (refCount.intValue() < 0) refCount = new Integer(0);
+        loaded.put(c.getName(), refCount);
+        if (refCount.intValue() <= 0) {
+          synchronized (c) {
+            c.dropInfo(ClassInfo.FULLINFO);
+          }
+        }
       }
     }
   }
@@ -216,10 +237,10 @@ class JodeClass implements ClassWrapper {
     synchronized (c) {
       c.loadInfo(ClassInfo.FIELDS);
       fields = c.getFields();
-    }
-    for (int i = 0; i < fields.length; i++) {
-      JodeField jf = new JodeField(fields[i], this);
-      fieldSet.add(jf);
+      for (int i = 0; i < fields.length; i++) {
+        JodeField jf = new JodeField(fields[i], this);
+        fieldSet.add(jf);
+      }
     }
     JodeClass sc = (JodeClass)getSuperclass();
     if (sc != null) sc.addFields(fieldSet);
@@ -240,12 +261,12 @@ class JodeClass implements ClassWrapper {
     synchronized (c) {
       c.loadInfo(ClassInfo.METHODS);
       methods = c.getMethods();
-    }
-    for (int i = 0; i < methods.length; i++) {
-      JodeMethod jm = new JodeMethod(methods[i], this);
-      if (!"<clinit>".equals(jm.getName()) &&
-          (constr || !"".equals(jm.getName()))) {
-        methodSet.add(jm);
+      for (int i = 0; i < methods.length; i++) {
+        JodeMethod jm = new JodeMethod(methods[i], this);
+        if (!"<clinit>".equals(jm.getName()) &&
+            (constr || !"".equals(jm.getName()))) {
+          methodSet.add(jm);
+        }
       }
     }
     JodeClass sc = (JodeClass)getSuperclass();

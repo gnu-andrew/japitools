@@ -24,31 +24,40 @@ package net.wuffies.japi;
 import jode.bytecode.*;
 
 class JodeMethod implements CallWrapper {
-  private MethodInfo m;
+  private int modifiers;
+  private String[] parameterTypes;
+  private String[] exceptionTypes;
+  private String name;
+  private String returnType;
   private JodeClass jc;
   JodeMethod(MethodInfo m, JodeClass jc) {
-    this.m = m;
+    modifiers = m.getModifiers();
+    parameterTypes = TypeSignature.getParameterTypes(m.getType());
+    exceptionTypes = m.getExceptions();
+    if (exceptionTypes == null) exceptionTypes = new String[0];
+    name = m.getName();
+    if ("<init>".equals(name)) {
+      name = "";
+      returnType = "constructor";
+    } else {
+      returnType = TypeSignature.getReturnType(m.getType());
+    }
     this.jc = jc;
   }
   public int getModifiers() {
-    return m.getModifiers();
+    return modifiers;
   }
   public String[] getParameterTypes() {
-    return TypeSignature.getParameterTypes(m.getType());
+    return parameterTypes;
   }
   public String[] getExceptionTypes() {
-    String[] res = m.getExceptions();
-    if (res == null) return new String[0];
-    return res;
+    return exceptionTypes;
   }
   public String getName() {
-    String name = m.getName();
-    return "<init>".equals(name) ? "" : name;
+    return name;
   }
   public String getReturnType() {
-    String name = m.getName();
-    return "<init>".equals(name) ? "constructor" :
-                                   TypeSignature.getReturnType(m.getType());
+    return returnType;
   }
   public ClassWrapper getDeclaringClass() {
     return jc;
@@ -59,31 +68,25 @@ class JodeMethod implements CallWrapper {
   public boolean equals(Object o) {
     if (!(o instanceof JodeMethod)) return false;
     return getSig().equals(((JodeMethod) o).getSig());
-//  JodeMethod jm = (JodeMethod)o;
-//  if (!jm.getName().equals(getName())) return false;
-//  String[] p = getParameterTypes();
-//  String[] op = jm.getParameterTypes();
-//  if (p.length != op.length) return false;
-//  for (int i = 0; i < p.length; i++) {
-//    if (!p[i].equals(op[i])) return false;
-//  }
-//  return true;
   }
   public int compareTo(Object o) {
-    return getSig().compareTo(((JodeMethod) o).getSig());
+    int res = getSig().compareTo(((JodeMethod) o).getSig());
+    return res;
   }
   private String sig;
   private String getSig() {
     if (sig == null) {
       sig = getName() + "(";
-      String[] params = getParameterTypes();
       String comma = "";
-      for (int j = 0; j < params.length; j++) {
-        sig += comma + params[j];
+      for (int j = 0; j < parameterTypes.length; j++) {
+        sig += comma + parameterTypes[j];
         comma = ",";
       }
       sig += ")";
     }
     return sig;
+  }
+  public String toString() {
+    return getSig();
   }
 }

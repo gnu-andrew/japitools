@@ -15,6 +15,12 @@ compatibility, as defined by Sun in the
 <a href="http://java.sun.com/docs/books/jls/clarify.html">here</a>).</p>
 <h3>News</h3>
 <ul>
+  <li>10 September 2002: Released japitools-0.8.5. This fixes numerous problems
+      in the files produced by japize, bringing it finally back to parity with
+      release 0.8 or so. Japicompat will now abort on mis-ordered files, so that
+      errors like this will be caught quicker next time. Japi2new got a facelift
+      and is now called japifix. Much more testing, leading me to conclude that
+      japicompat is now <em>more</em> trustworthy than japicompat-old.</li>
   <li>31 July 2002: Released a brown-paper-bag japitools-0.8.4 with a fix for
       a hang-at-end-of-file bug that showed up whenever the 'orig' file contains
       packages or classes at the end of the file that aren't in the 'new' file.
@@ -69,10 +75,11 @@ compatibility, as defined by Sun in the
 </ul>
 
 <h3>Installation</h3>
-<p>You can download <a href="japitools-0.8.4.jar">japitools-0.8.4.jar</a> here.
-You can use this jar file directly in your classpath for running Japize, and
-just extract bin/* to use the tools, or you can extract the whole thing
-if you want to do development. You will need Jode 1.1.1, available
+<p>You can download <a href="japitools-0.8.5.tar.gz">japitools-0.8.5.tar.gz</a>
+here. This tarball contains japitools.jar which should be placed in your
+CLASSPATH, and a bin/ directory containing all the tools for working with japi
+files. It also contains sources for everything in case you want to do
+development.  You will need Jode 1.1.1, available
 from <a href="http://jode.sourceforge.net/">here</a>
 (<a href="jode-1.1.1.jar">local mirror of jode jarball</a>).
 <p>The tools in the bin directory assume that perl is /usr/bin/perl.</p>

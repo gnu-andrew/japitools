@@ -25,41 +25,36 @@ import jode.bytecode.*;
 import java.lang.reflect.Modifier;
 
 class JodeField implements FieldWrapper {
-  private FieldInfo f;
+  private int modifiers;
+  private Object constValue;
+  private String name;
+  private String type;
   private JodeClass jc;
   JodeField(FieldInfo f, JodeClass jc) {
-    this.f = f;
+    modifiers = f.getModifiers();
+    constValue = f.getConstant();
+    if (!Modifier.isStatic(modifiers) || !Modifier.isFinal(modifiers) ||
+        (!Modifier.isPublic(modifiers) && !Modifier.isProtected(modifiers))) {
+      constValue = null;
+    }
+    name = f.getName();
+    type = f.getType();
     this.jc = jc;
   }
   public int getModifiers() {
-    return f.getModifiers();
+    return modifiers;
   }
   public String getName() {
-    return f.getName();
+    return name;
   }
   public String getType() {
-    return f.getType();
+    return type;
   }
   public boolean isPrimitiveConstant() {
-    int mods = f.getModifiers();
-    Object constVal;
-    synchronized (jc.c) {
-      jc.c.loadInfo(ClassInfo.MOSTINFO);
-      constVal = f.getConstant();
-    }
-    if (Modifier.isStatic(mods) && Modifier.isFinal(mods) &&
-        (Modifier.isPublic(mods) || Modifier.isProtected(mods)) &&
-        constVal != null) {
-      return true;
-    } else {
-      return false;
-    }
+    return constValue != null;
   }
   public Object getPrimitiveValue() {
-    synchronized (jc.c) {
-      jc.c.loadInfo(ClassInfo.MOSTINFO);
-      return f.getConstant();
-    }
+    return constValue;
   }
   public ClassWrapper getDeclaringClass() {
     return jc;

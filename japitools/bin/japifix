@@ -1,0 +1,301 @@
+#!/usr/bin/perl
+
+use IO::Handle;
+use Getopt::Std;
+use integer;
+
+%sigs = (boolean=>'Z', byte=>'B', char=>'C', double=>'D', float=>'F', int=>'I',
+         long=>'J', short=>'S', void=>'V',
+         class=>'class', interface=>'interface', constructor=>'constructor');
+
+sub out($);
+sub begin();
+sub start();
+sub dump_deferred();
+sub finish();
+sub to_new();
+sub jcmp();
+sub printusage();
+
+my @out = ();
+
+my $progname = $1 if $0 =~ /(?:.*\/)?([^\/]+)/;
+while (begin) {
+  while(<IN>) {
+    chomp;
+    out to_new;
+  }
+  finish;
+}
+
+sub out($) {
+  if (!$needtosort && (($defer_output && @out) || defined $last_out)) {
+    if ($defer_output && @out) {
+      $a = $out[$#out];
+    } else {
+      $a = $last_out;
+    }
+    $b = $_[0];
+    die "\nFile $infile not sorted correctly, try the -s flag:\n" .
+        "@{[(split(' ',$last_out))[0]]} >=\n@{[(split(' ',$_[0]))[0]]}"
+          if jcmp >= 0;
+  }
+  if ($needtosort) {
+    # Certain versions of perl use sort algorithms that are subject to
+    # pathological behavior for nearly-sorted data. Since that kind of data
+    # crops up often in japi files, we randomize the order of data being added
+    # to @out.
+    if (@out) {
+      my $rnd = int rand scalar @out;
+      push @out, $out[$rnd];
+      $out[$rnd] = "$_[0]\n";
+    } else {
+      push @out, "$_[0]\n";
+    }
+  } elsif ($defer_output) {
+    push @out, "$_[0]\n";
+  } else {
+    print OUT "$_[0]\n";
+  }
+  $last_out = $_[0] unless $needtosort;
+}
+
+sub dump_deferred() {
+  if (@out && !$needtosort) {
+    print STDERR " (relocated java.lang)";
+    if (defined $last_out) {
+      $a = $last_out;
+      $b = $out[0];
+      die "\nFile $infile not sorted correctly, try the -s flag:\n" .
+          "@{[(split(' ',$last_out))[0]]} >=\n@{[(split(' ',$_[0]))[0]]}"
+            if jcmp >= 0;
+    }
+    print OUT @out;
+    $last_out = @out[$#out];
+    @out = ();
+  }
+}
+
+sub begin() {
+
+  #: check if there's any more to do; return false if not
+  return 0 unless @ARGV || $firsttime;
+  @ARGV = ("-o", "-") unless @ARGV;
+
+  #: parse parameters
+  my $firsttime = 1 unless defined %opts;
+  getopts("hzubso:g:", \%opts) if $firsttime;
+
+  printusage if $opts{h};
+  my $zippit = 1 if $opts{z};
+  my $unzippit = 1 if $opts{u};
+  my $backup = 1 unless $opts{b};
+  $forcesort = 1 if $opts{s};
+
+  printusage if $zippit && $unzippit;
+
+  # $infile and $outfile are global, deliberately
+  $infile = $outfile = undef;
+  my ($zin);
+  if ($firsttime) {
+    my $uzoutfile = $opts{o};
+    my $zoutfile = $opts{g};
+
+    printusage if defined $uzoutfile && defined $zoutfile;
+
+    if (defined $uzoutfile || defined $zoutfile) {
+      $infile = "-";
+      $zin = 1 if defined $zoutfile;
+      $outfile = (defined $uzoutfile) ? $uzoutfile : $zoutfile;
+      $outfile = "-" if $outfile eq "";
+      $outfile = "$1.japi" if $outfile ne "-" &&
+                              $outfile =~ /^(.*?)(?:\.japi)?(?:\.gz)?$/;
+      $backup = 0;
+    }
+  }
+
+  unless (defined $infile) {
+    $infile = shift @ARGV;
+    $zin = 1 if $infile =~ /\.gz$/;
+    $outfile = "$1.japi" if $infile =~ /^(.*?)(?:\.japi)?(?:\.gz)?$/;
+  }
+
+  if ($zin) {
+    if (!open IN, "-|") {
+      exec "gzip", "-dc", $infile or die "Couldn't exec gzip: $!";
+    }
+  } else {
+    open IN, "<$infile" or die "Cannot open $infile: $!";
+  }
+
+  $_ = <IN>; chomp;
+  if (/^[^ ]+#[^ ]* (public|protected) (abstract|concrete) (static|instance) (final|nonfinal) /) {
+    $japiver = "0.7";
+  } elsif (/^[^ ]+#[^ ]* [Pp][ac][si][fn] /) {
+    $japiver = "0.8";
+  } elsif (/^\%\%japi ([^ ]*)(?: .*)?$/) {
+    $japiver = $1;
+    if ($japiver ne "0.8.1" && $japiver ne "0.9") {
+      print STDERR <<EOF;
+This japi file claims to be version $japiver, but this version of $progname only
+understands version 0.8.1, version 0.9, and older versions that did not carry a
+version number. Either this japi file is incorrect or you need a newer version
+of $progname.
+EOF
+      exit 1;
+    }
+  } else {
+    print STDERR <<EOF;
+This does not appear to be a japi file. $progname can only update old japis,
+not create them from scratch.
+EOF
+    exit 1;
+  }
+
+  my $zout = $zippit ? 1 : $unzippit ? 0 : $japiver le "0.8" ? 1 : $zin;
+  $backupfile = $rename = undef;
+  $backupfile = $infile if $backup;
+
+  $outfile = "$outfile.gz" if $zout && $outfile ne "-";
+  my $outfile_new = $rename = "$outfile.new" unless $outfile eq "-";
+
+  if ($zout) {
+    if (!open OUT, "|-") {
+      open STDOUT, ">$outfile_new";
+      exec "gzip", "-c" or die "Couldn't exec gzip: $!";
+    }
+  } else {
+    open OUT, ">$outfile_new" or die "Cannot open $outfile_new: $!";
+  }
+  start;
+  out to_new if $japiver le "0.8";
+
+  return 1;
+}
+
+sub printusage() {
+  print <<EOF;
+Usage: $progname -z|-u -b -s -o[file]|-g[file]|[file1 ...]
+   -h to display this help message.
+   -z to zip output, -u to unzip output (default is to follow the input file
+   unless it's too old to have been zipped itself, in which case zip it)
+   -b to NOT back up the original file with a .bak extension. Original file
+   will be overwritten unless filename is different (eg due to ".gz" extension).
+   Doesn't apply to -o/-g mode.
+   -s to force a full sort of the output, even if the file version indicates
+   this shouldn't be necessary - used for cleaning up bogus japi files.
+   -o to read unzipped input from stdin and output to [file] or stdout
+   -g to read gzipped input from stdin and output to [file] or stdout
+   all other args are japi files to convert; output is to original filename
+   (plus or minus .gz); original will be renamed to .bak.
+   No arguments at all is equivalent to "-o -".
+EOF
+  exit 1;
+}
+
+sub start() {
+  $needtosort = $japiver le "0.8" || $forcesort;
+  print STDERR "Converting $outfile (japi v$japiver)...";
+  STDERR->autoflush;
+  print OUT "%\%japi 0.9\n";
+}
+
+sub finish() {
+  if ($needtosort) {
+    print STDERR " sorting...";
+    print OUT (sort jcmp @out);
+  }
+  close IN;
+  close OUT;
+  if (defined $backupfile) {
+    rename $backupfile, "$backupfile.bak"
+      or die "\nCould not create $backupfile.bak: $!";
+  }
+  if (defined $rename) {
+    rename $rename, $outfile or die "\nCould not rename $rename to $outfile: $!";
+  }
+  print STDERR " done.\n";
+}
+
+sub to_new() {
+
+  my $older = 0;
+  if ($japiver eq "0.7" or $older) {
+    $older = 1;
+
+    # Parse and interpret the entry.
+    my ($item, $access, $abstract, $static, $final, $type) = split / /, $_, 6;
+
+    # We need to convert the modifier string and all the type signatures to
+    # japi v0.8 format.
+
+    # If it's a method or constructor, convert the typesigs and store the result
+    # in $class and $member.
+    my ($class, $member) = split /#/, $item, 2;
+    if ($member =~ /^(.*)\((.*)\)$/) {
+      my ($nm, $params) = ($1, $2);
+      my @params = split(/,/, $2);
+      $params = join(',', map { type2sig($_) } @params);
+      $member = "$nm($params)";
+    }
+
+    # Extract the parts of 'type' that actually do constitute the type, convert
+    # its typesig and then put it back together with the other information.
+    my ($tp, $bits) = ($1, $2) if $type =~ /^([^#:*]+)((?:[#:*].*)?)$/;
+    $type = type2sig($tp) . $bits;
+
+    # Convert the modifiers into the shortened, 4 character (instead of 4 word)
+    # string.
+    my $flags = ($access eq 'public' ? 'P' : 'p');
+    $flags .= ($abstract eq 'abstract' ? 'a' : 'c');
+    $flags .= ($static eq 'static' ? 's' : 'i');
+    $flags .= ($final eq 'final' ? 'f' : 'n');
+
+    # Put it all back together into a japi entry and push it.
+    $_ = "$class#$member $flags $type";
+  }
+  if ($japiver eq "0.8" or $older) {
+    $older = 1;
+    if (
+      /^(?:((?:[a-zA-Z0-9_]+\.)*[a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_\$]+)#([^ ]*) (.*)$/
+        ) {
+      my ($pkg, $class, $member, $rest) = ($1, $2, $3, $4);
+      $member = "#$member" if $member =~ /^[^()]+$/;
+      $_ = "$pkg,$class%$member $rest";
+    } else {
+      print STDERR "Unknown line: $_\n";
+      exit 1;
+    }
+  }
+  if ($japiver eq "0.8.1" or $older) {
+    $older = 1;
+    unless ($needtosort) {
+      $defer_output = !$past_jlo && !/^java\.lang,/;
+      dump_deferred if $past_jlo && !/^java\.lang,/;
+      $past_jlo = 1 if /^java\.lang,/ && !/^java\.lang,Object%/;
+    }
+  }
+  if ($japiver eq "0.9" or $older) {
+    $older = 1;
+    # Do nothing - 0.9 is as far as we can get right now...
+  }
+  return $_;
+}
+
+sub jcmp() {
+  $ajlo = ($a =~ /^java\.lang,Object%/) ? -1 : 0;
+  $bjlo = ($b =~ /^java\.lang,Object%/) ? -1 : 0;
+  return $ajlo - $bjlo if $ajlo != $bjlo;
+  $ajl = ($a =~ /^java\.lang[\.,]/) ? -1 : 0;
+  $bjl = ($b =~ /^java\.lang[\.,]/) ? -1 : 0;
+  ($ajl != $bjl) ? $ajl - $bjl : $a cmp $b;
+}
+
+# Convert a pre-0.8 semi-human-readable typename into a 0.8-and-above JVM-style
+# type signature.
+sub type2sig($) {
+  my ($type) = @_;
+  return $sigs{$type} if $sigs{$type};
+  $type =~ s-\.-/-g;
+  $type =~ /^\[/ ? $type : "L$type;";
+}

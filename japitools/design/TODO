@@ -16,19 +16,29 @@
     at least makes sure that people are aware that something changed...
   * Update webpage to describe zip/unzip option and rationale, with note that
     "zip" is going away.
-  - Make japi2new work something like gzip/gunzip, replacing the original
+  * Make japi2new work something like gzip/gunzip, replacing the original
     unless otherwise specified. Make it work with gzipped input and produce
     gzipped output (by default, but turn-offable).
+  * Test japize at least a little bit!
+  * Figure out why japize is screwing up the ordering and fix it. Perhaps
+    put jdk1.1/classes.zip onto laptop so I can work with it.
+  * Get japize to reliably get constants, by ensuring that nothing will get
+    unloaded until there are no references to the JodeClass. "Anything can be
+    solved by another layer of indirection".
+  * Teach japicompat that constructors don't inherit, so don't filter out
+    problems "inherited" from a superclass constructor.
+  * Test japize on jdk1.1 classes.zip (again) and make sure output is equivalent
+    or better than the best I've gotten so far.
+  - Test japicompat again against japicompat-old for new jdk1.1.japi vs
+    kaffe.japi from Dalibor.
+  * Distribute as a tarball rather than a jarball, so permissions flags on the
+    things in 'bin' are preserved.
+- For 0.9.0:
   - Make japi2new catch misordered files of versions that are expected to be
     ordered and fix them up. Essentially it should abort and restart with the
     'sortneeded' flag set to true.
-  - Test japize at least a little bit!
-  - Figure out why japize is screwing up the ordering and fix it. Perhaps
-    put jdk1.1/classes.zip onto laptop so I can work with it.
-  - Get japize to reliably get constants, by ensuring that nothing will get
-    unloaded until there are no references to the JodeClass. "Anything can be
-    solved by another layer of indirection".
-- For 0.9.0:
+  - Make japifix continue with the next file on an error.
+  - Make japifix clean up its temporary files on an error.
   - Make zipped output the silent default in japize, with "zip" a no-op. "unzip"
     explicitly would turn off the zipping.
   - Any bug fixes reported in 0.8.4/5

@@ -36,7 +36,7 @@ EOF
 my @args = @ARGV;
 my $fn = "";
 my $zip = 1;
-printusage if $args[0] ne 'zip' && $args[0] ne 'unzip'
+printusage if $args[0] ne 'zip' && $args[0] ne 'unzip';
 do { shift @args; $zip = 0 } if @args[0] eq 'unzip';
 do { shift @args; $zip = 1 } if $zip && @args[0] eq 'zip';
 do { shift @args; $fn = shift @args } if @args[0] eq 'as';

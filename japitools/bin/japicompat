@@ -22,6 +22,9 @@
 ###############################################################################
 
 # Recent changes:
+# - 2002/09/09: Abort on mis-ordered japi files since the results would be
+#   incorrect. Add "interfaces" back into the summary. Treat constructors as
+#   not inherited.
 # - 2002/08/01: Update to handle version 0.9 japi files. Add back the summary
 #   of errors at the end (minus "nnn good" which can't be calculated).
 # - 2002/07/31: Fixed a nasty hang-at-end-of-file bug and a bug that caused
@@ -135,7 +138,7 @@ sub japicmp($$) {
 
 sub japitemcmp($$) {
   ($a, $b) = @_;
-  scmp {/^java\.lang,Object%/} sub {scmp {/^java\.lang,/}};
+  scmp {/^java\.lang,Object%/} sub {scmp {/^java\.lang[\.,]/}};
 }
 
 # Convert a type signature as used in a japi file to a displayable type.
@@ -215,7 +218,7 @@ sub read_japi_item($) {
   my ($item, $flags, $type) = split / /, $line, 3;
 
   # Ensure that this item is correctly ordered.
-  die "Incorrect ordering of $japi->{name} on line for:\n$item"
+  die "\nIncorrect ordering of $japi->{name}:\n$japi->{last_item} >=\n$item"
     if defined($japi->{last_item}) &&
        japitemcmp($japi->{last_item}, $item) >= 0;
   $japi->{last_item} = $item;
@@ -582,8 +585,11 @@ sub merge_results() {
         # Determine whether the same error appears in any superclass, and if so
         # do not report this error. That doesn't apply, though, to missing
         # classes, which should be reported regardless of whether their
-        # superclass is missing too.
-        unless ($isa eq 'class' && $etype eq 'missing') {
+        # superclass is missing too. It also doesn't apply to errors in
+        # constructors, since they aren't inherited.
+        unless ((($isa eq 'class' || $isa eq 'interface') &&
+                 $etype eq 'missing') ||
+                $isa eq 'constructor') {
           foreach my $sup (@sups) {
             $insup = 1 if $errs->{"$sup\%$member $rest"};
           }
@@ -636,6 +642,7 @@ sub print_summary() {
     print STDERR "\n";
     count_summary($sc, "#package");
     count_summary($sc, "#class");
+    count_summary($sc, "#interface");
     count_summary($sc, "#field");
     count_summary($sc, "#constructor");
     count_summary($sc, "#method");
