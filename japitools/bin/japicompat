@@ -364,9 +364,9 @@ sub short_summary($$) {
   print "rawsummary $pkgc";
   foreach my $item ("good", "bad", "missing", "abs.add.") {
     my $itm = $item;
-    $itm = "+abs.add" if $item eq "abs.add";
+    $itm = "+abs.add" if $item eq "abs.add.";
     my $val = $c->{"$pkg/$item"};
-    print " $item:$val" if $val;
+    print " $itm:$val" if $val;
   }
   print "\n";
   print STDERR "\r$pkgn: $summ\n" if $dot;
