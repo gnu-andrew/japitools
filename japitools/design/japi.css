@@ -11,6 +11,7 @@
 .ok-10pct { background-color: #cc5500 }
 .ok-0pct { background-color: #cc4400 }
 .ok-none { background-color: #cc0000 }
+.ok-moot { color: #555555 }
 
 /* Error category colors */
 .good, .good a { color: #00cc00 }
@@ -39,3 +40,5 @@ a:hover { text-decoration: underline }
 .ehead { margin-bottom: 2px; padding-bottom: 2px }
 .phead { background-color: #ddddff }
 .sp { font-size: 0 }
+.notify { color: #440000 }
+.ok-moot a { color: #555555 }

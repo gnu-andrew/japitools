@@ -53,9 +53,14 @@
 ## GLOBAL VARIABLES ##
 
 # Some global variables used for displaying stuff.
-$japiver = "0.9.5";
+$japiver = "0.9.6";
+$buggyver = "0.9.5";
 @static = ('instance', 'static');
 @ofhs = ();
+@summarypkgs = ();
+@allerrors = ();
+$ignore_orig = "";
+$ignore_new = "";
 
 # Requirements
 use IO::Handle;
@@ -70,7 +75,7 @@ sub close_japi($);
 sub output_error($$$$$$$;$);
 sub compare_japis($$);
 sub compare_japi_item($$$$);
-sub merge_results();
+sub merge_results($);
 sub print_summary();
 sub sig2type($);
 
@@ -78,14 +83,15 @@ sub sig2type($);
 ## MAIN LOOP ##
 
 # Parse cmdline and give a usage message.
-getopts("svqhtjo:", \%opts);
+getopts("svqhtjo:i:", \%opts);
 my $sun_only = 1 if $opts{"s"};
 my $svuid_errors = 1 if $opts{"v"};
 my $dot = $opts{"q"} ? "" : ".";
 my $outprog = $opts{"h"} ? "japiohtml" : $opts{"j"} ? undef : "japiotext";
+my $ignorefile = $opts{"i"};
 my ($origfile, $newfile) = @ARGV;
 if (!defined $newfile) {
-  print STDERR "Usage: japicompat [-svqhtj] [-o outfile] <original api> <api to check>\n";
+  print STDERR "Usage: japicompat [-svqhtj] [-o outfile] [-i ignorefile] <original api> <api to check>\n";
   exit 1;
 }
 
@@ -113,14 +119,14 @@ if ($outprog) {
 }
 
 # Loop through the two files and compare them.
-compare_japis($orig, $new);
+my $counts = compare_japis($orig, $new);
 
 # Close out the files now we're done with them.
 close_japi($orig);
 close_japi($new);
 
 # Merge the results into a single stream of errors, and print them to stdout.
-merge_results();
+merge_results($counts);
 
 # Print a summary of what was found.
 print_summary();
@@ -149,6 +155,10 @@ sub open_japi($) {
   }
   print STDERR "Loading $filename" if $dot;
   my $japiline = $fh->getline;
+  die <<EOF unless $japiline;
+
+No data found in japi file, are you sure the filename was right?
+EOF
   chomp $japiline;
   die <<EOF unless $japiline =~ /^%\%japi ([^ ]*)(?: (.*))?$/;
 
@@ -306,6 +316,13 @@ sub inc($$$$;$) {
   $c->{"/$etype"} += $count;
 }
 
+sub mootinc($$$$$;$) {
+  my ($c, $prefix, $pkg, $isa, $etype, $count) = (@_, 1);
+  $c->{"$prefix$pkg/$etype"} += $count;
+  $c->{"$prefix#$isa/$etype"} += $count;
+  $c->{"$prefix/$etype"} += $count;
+}
+
 sub output_error($$$$$$$;$) {
   my ($oitem, $nitem, $oclitem, $c, $etype, $was, $is, $count) = (@_, 1);
   print STDERR "Warning: output_error call unconverted ($was)\n" if $is =~ /^[0-9]+$/;
@@ -323,7 +340,7 @@ sub output_error($$$$$$$;$) {
   }
   $was =~ s/~/~t/g; $was =~ s/\//~s/g;
   $is =~ s/~/~t/g; $is =~ s/\//~s/g;
-  print {$ofhs[$supct]} "error $etype $oitem->{isa} $oitem->{item} $sups $was/$is\n";
+  print {$ofhs[$supct]} "error $count $etype $oitem->{isa} $oitem->{item} $sups $was/$is\n";
 
   # Note that since svuid checking happens last, svuid error count will only
   # be inc'd if the item isn't already BAD for some other reason.
@@ -354,33 +371,59 @@ sub short_summary($$) {
   $summ = pct($c, $pkg, "bad", $summ);
   $summ = pct($c, $pkg, "missing", $summ);
   $summ = pct($c, $pkg, "abs.add", $summ);
-  my $pkgc = $pkg || "#";
-  print OUT "rawsummary $pkgc";
-  foreach my $item ("good", "minor", "bad", "missing", "abs.add") {
-    my $itm = $item;
-    $itm = "+abs.add" if $item eq "abs.add";
-    my $val = $c->{"$pkg/$item"};
-    print OUT " $itm:$val" if $val;
-  }
-  print OUT "\n";
   print STDERR "\r$pkgn: $summ\n" if $dot;
+  push @summarypkgs, $pkg;
+}
+
+sub dump_output($) {
+  my ($c) = @_;
+
+  my $origname = $origfile;
+  my $newname = $newfile;
+  my $origsname = $origname; $origsname =~ s/\.japi(?:\.gz)?$//;
+  my $newsname = $newname; $newsname =~ s/\.japi(?:\.gz)?$//;
+  $origname .= "\@$orig->{date}" if $orig->{date};
+  $newname .= "\@$new->{date}" if $new->{date};
+
+  print OUT "%\%japio 0.9.2 $origname $newname\n";
+  if ($ignore_orig) {
+    print OUT "notify Differences due to incompatibility between $ignore_orig and $ignore_new have been ignored. Since these differences are not counted as good OR bad, they may cause percentages not to add up to 100%.\n";
+    print OUT "notify Warning: this may not make sense, because normally differences between $origsname and something should be ignored instead.\n" unless $ignore_orig eq $origsname;
+  }
+# if ($orig->{"origver"} && $orig->{"origver"} le $buggyver) {
+#   print OUT "notify Warning: $origsname API may have been read by a version of japitools that contained known bugs that cause inaccuracies in the output.\n";
+# }
+# if ($new->{"origver"} && $new->{"origver"} le $buggyver) {
+#   print OUT "notify Warning: $newsname API may have been read by a version of japitools that contained known bugs that cause inaccuracies in the output.\n";
+# }
+  print OUT "categories =good ";
+  print OUT "=mi_nor " if $svuid_errors;
+  print OUT "bad missing";
+  print OUT " abs.add" unless $sun_only;
+  print OUT "\n";
+
+  foreach my $pkg (@summarypkgs) {
+    my $pkgc = $pkg || "#";
+    print OUT "summary $pkgc";
+    foreach my $item ("good", "minor", "bad", "missing", "abs.add") {
+      my $itm = $item;
+      $itm = "+abs.add" if $item eq "abs.add";
+      my $val = $c->{"$pkg/$item"};
+      my $smootval = $c->{"^$pkg/$item"} || 0;
+      my $mootval = $c->{">$pkg/$item"} || 0;
+      print OUT " $itm:$val^$smootval>$mootval" if $val;
+    }
+    print OUT "\n";
+  }
+  foreach my $errline (@allerrors) {
+    print OUT "$errline\n";
+  }
 }
 
 # Loop through all the packages in the original API and process them.
 sub compare_japis($$) {
   my ($orig, $new) = @_;
 
-  my $origname = $origfile;
-  my $newname = $newfile;
-  $origname .= "\@$orig->{date}" if $orig->{date};
-  $newname .= "\@$new->{date}" if $new->{date};
-
-  print OUT "%\%japio 0.9.1 $origname $newname\n";
-  print OUT "categories =good ";
-  print OUT "=mi_nor " if $svuid_errors;
-  print OUT "bad missing";
-  print OUT " abs.add" unless $sun_only;
-  print OUT "\n";
   my $pkg = "";
   my $class = "";
   my $c = {}; # counts
@@ -476,6 +519,7 @@ sub compare_japis($$) {
   }
   short_summary($c, $pkg) if $pkg;
   short_summary($c, "");
+  return $c;
 }
 
 sub compare_japi_item($$$$) {
@@ -600,20 +644,51 @@ sub compare_japi_item($$$$) {
   return $errhere;
 }
 
-sub merge_results() {
+sub load_ignore_file() {
+  my $ign = {};
+  if ($ignorefile) {
+    open IGN, "<$ignorefile" or die "Could not open ignore file $ignorefile";
+    my $japioline = <IGN>;
+    die "Ignore file $ignorefile does not look like a japio file" if $japioline !~ /^\%\%japio /;
+    die "Ignore file $ignorefile is not japio version 0.9.2" if $japioline !~ /^\%\%japio 0.9.2 ([^ \@]+)(?:\@[^ ]+) ([^ \@]+)(?:\@[^ ]+)/;
+    ($ignore_orig, $ignore_new) = ($1, $2);
+    $ignore_orig =~ s/\.japi(\.gz)?$//;
+    $ignore_new =~ s/\.japi(\.gz)?$//;
+    while (<IGN>) {
+      chomp;
+      if (/^error /) {
+        my ($error, $etype, $isa, $item, $sups, $rest) = split(/ /, $_, 6);
+        my ($class, $member) = split(/!/, $item, 2);
+        my ($pkg, $cls) = split(/,/, $class, 2);
+        my $dotclass = "$pkg.$cls";
+        $ign->{"$dotclass\!$member $rest"} = 1;
+      }
+    }
+    close IGN;
+  }
+  return $ign;
+}
+
+sub merge_results($) {
+  my ($c) = @_;
   my $errs = {};
+  my $ign_errs = load_ignore_file();
   $sc = {};
   print STDERR "Merging results / eliminating duplicates...\n" if $dot;
   foreach my $fh (@ofhs) {
     if ($fh) {
       $fh->seek(0, 0);
+      my $lastmember = "";
       while (<$fh>) {
         chomp;
         my $line = $_;
-        my ($error, $etype, $isa, $item, $sups, $rest) = split(/ /, $_, 6);
+        my ($error, $count, $etype, $isa, $item, $sups, $rest) = split(/ /, $_, 7);
         my ($class, $member) = split(/!/, $item, 2);
+        my ($pkg, $cls) = split(/,/, $class, 2);
+        my $dotclass = "$pkg.$cls";
         my @sups = split(/;/, $sups);
         my $insup = 0;
+        my $inign = ($ign_errs->{"$dotclass\!$member $rest"} ? 1 : 0);
 
         # Determine whether the same error appears in any superclass, and if so
         # do not report this error. That doesn't apply, though, to missing
@@ -625,21 +700,30 @@ sub merge_results() {
                 $isa eq 'constructor') {
           foreach my $sup (@sups) {
             $insup = 1 if $errs->{"$sup\!$member $rest"};
+            $inign = 1 if $ign_errs->{"$sup\!$member $rest"};
           }
         }
-        unless ($insup) {
-          my ($pkg, $cls) = split(/,/, $class, 2);
-          $class = "$pkg.$cls";
-          $errs->{"$class\!$member $rest"} = 1;
-          print OUT "$line\n";
+
+        if ($inign) {
+          mootinc($c, ">", $pkg, $isa, $etype, $count) unless $lastmember eq "$dotclass\!$member";
+        } elsif ($insup) {
+          mootinc($c, "^", $pkg, $isa, $etype, $count) unless $lastmember eq "$dotclass\!$member";
+        } else {
+          $errs->{"$dotclass\!$member $rest"} = 1;
+
+          push @allerrors, "$error $etype $isa $item $sups $rest";
           $totalerrors++;
           inc($sc, $pkg, $isa, $etype);
         }
+	$lastmember = "$dotclass\!$member";
       }
       $fh->close();
       undef $fh;
     }
   }
+
+  dump_output($c);
+
   print STDERR "Done.\n" if $dot;
 }
 

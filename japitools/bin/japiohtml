@@ -21,7 +21,7 @@
 ## GLOBAL VARIABLES ##
 
 # Some global variables used for displaying stuff.
-$japiover = "0.9.1";
+$japiover = "0.9.2";
 @categories = ();
 @packages = ();
 # Would be nice not to hardcode this - maybe later...
@@ -55,9 +55,9 @@ EOF
 }
 
 ($orig,$origdate) = ($1, $2)
-    if $origfile =~ /^([^@]*?)(?:\.japi(?:\.gz))?(?:@(.*))?$/;
+    if $origfile =~ /^([^@]*?)(?:\.japi(?:\.gz)?)?(?:@(.*))?$/;
 ($new, $newdate) = ($1, $2)
-    if $newfile =~ /^([^@]*?)(?:\.japi(?:\.gz))?(?:@(.*))?$/;
+    if $newfile =~ /^([^@]*?)(?:\.japi(?:\.gz)?)?(?:@(.*))?$/;
 $origdate =~ s/_/ /g if $origdate;
 $newdate =~ s/_/ /g if $newdate;
 
@@ -83,9 +83,15 @@ print <<EOF if $newdate;
 EOF
 print <<EOF;
     <h2>Summary</h2>
-    <p>Note that summary information is calculated prior to filtering the
-       results (for duplicates, etc). It is possible to show a non-zero "bad" or
-       "missing" score without any actual errors being listed.</p>
+EOF
+
+my $alt = 1;
+while (<>) {
+  chomp;
+  if (/^notify (.*)$/) {
+    print "<p class='notify'>$1</p>\n";
+  } elsif (/^categories (.*)$/) {
+    print <<EOF;
     <table class="legend" align="right" border="0" cellspacing="0" cellpadding="3">
       <tr>
         <th>Legend:</th>
@@ -103,13 +109,6 @@ print <<EOF;
     </table>
     <br clear="all">
     <table class="summary" border="0" cellspacing="0" cellpadding="3">
-EOF
-
-my $alt = 1;
-while (<>) {
-  chomp;
-  if (/^categories (.*)$/) {
-    print <<EOF;
       <tr class="colhead">
         <td>&nbsp;</td>
 EOF
@@ -135,21 +134,23 @@ EOF
     print <<EOF;
       </tr>
 EOF
-  } elsif (/^rawsummary (.*)$/) {
-    die "No categories line found before rawsummary line" unless @categories;
+  } elsif (/^summary (.*)$/) {
+    die "No categories line found before summary line" unless @categories;
     my @bits = split / /, $1;
-    my ($extra, $total, $values, $etotal, $oktotal) = ({}, 0, {}, 0, 0);
+    my ($extra, $total, $values, $etotal, $oktotal, $nonmoototal) = ({}, 0, {}, 0, 0, 0);
     my $pkg = shift @bits;
     foreach my $bit (@bits) {
-      my ($plus, $key, $value) = ($1, $2, $3)
-        if $bit =~ /^(\+?)([^:+]+):([0-9]+)$/;
-      $etotal += $value;
-      $oktotal += $value if $okcats->{$key};
+      my ($plus, $key, $value, $smootval, $mootval) = ($1, $2, $3, $4, $5)
+        if $bit =~ /^(\+?)([^:+]+):([0-9]+)\^([0-9]+)>([0-9]+)$/;
+      $etotal += $value - $smootval - $mootval;
+      $oktotal += $value - $smootval - $mootval if $okcats->{$key};
       if ($plus) {
-        $extra->{$key} = $value + 0;
+        $extra->{$key} = $value - $smootval - $mootval;
       } else {
-        $total += $value;
-        $values->{$key} = $value + 0;
+        $total += $value - $smootval;
+        $nonmoototal += $value - $smootval - $mootval;
+        $values->{$key} = $value - $smootval - $mootval;
+        $values->{MOOT} += $mootval;
       }
     }
     my $pkgn = $pkg;
@@ -171,7 +172,11 @@ EOF
       push @packages, $pkg;
     }
     my $pctclass = "none";
-    $pctclass = (int($oktotal * 10 / $etotal) * 10)."pct" if $oktotal;
+    if ($etotal) {
+      $pctclass = (int($oktotal * 10 / $etotal) * 10)."pct" if $oktotal;
+    } else {
+      $pctclass = "moot";
+    }
     print <<EOF;
       <tr class="alternating-$alt">
         <th class="ok-$pctclass">$pkga:</th>
@@ -223,11 +228,13 @@ EOF
       # the current values of m and t. If it does, mark it as adjustable and
       # update m and t accordingly.
       foreach my $item (keys %$values) {
-        if (!$adjustable->{$item}) {
-          if ($values->{$item} * (100-$m) < $t) {
-            $t -= $values->{$item};
-            $m++;
-            $adjustable->{$item} = 1;
+        if ($values->{$item} > 0) {
+          if (!$adjustable->{$item}) {
+            if ($values->{$item} * (100-$m) < $t) {
+              $t -= $values->{$item};
+              $m++;
+              $adjustable->{$item} = 1;
+            }
           }
         }
       }
@@ -240,13 +247,15 @@ EOF
     my $adjtotal = 100 * $t;
     my $adjvalue = {};
     foreach my $item (keys %$values) {
-      if ($adjustable->{$item}) {
-        $adjvalue->{$item} = $t;
-      } else {
-        $adjvalue->{$item} = $values->{$item} * (100-$m);
+      if ($values->{$item} > 0) {
+        if ($adjustable->{$item}) {
+          $adjvalue->{$item} = $t;
+        } else {
+          $adjvalue->{$item} = $values->{$item} * (100-$m);
+        }
       }
     }
-       
+
     # Calculate the percentage rounded *down* to the nearest integer, and also
     # calculate the magnitude of the difference between the integer percentage
     # and the actual percentage. This is still all done in integer math...
@@ -256,9 +265,13 @@ EOF
     my $percent = {};
     my $diff = {};
     foreach my $item (keys %$values) {
-      $percent->{$item} = ($adjvalue->{$item} * 100) / $adjtotal;
-      $diff->{$item} = $adjvalue->{$item} * 100 - $percent->{$item} * $adjtotal;
-      $totalpct += $percent->{$item};
+      if ($values->{$item} > 0) {
+        $percent->{$item} = ($adjvalue->{$item} * 100) / $adjtotal;
+        $diff->{$item} = $adjvalue->{$item} * 100 - $percent->{$item} * $adjtotal;
+        $totalpct += $percent->{$item};
+      } else {
+        $diff->{$item} = 0;
+      }
     }
 
     # Find the items with the largest differences, and adjust them upwards,
@@ -267,15 +280,19 @@ EOF
     # bound on the number of upwards adjustments needed is smaller than the
     # number of items.
     foreach my $item (sort { $diff->{$b} <=> $diff->{$a} } keys %$values) {
-      last if ($totalpct >= 100);
-      $percent->{$item}++;
-      $totalpct++;
+      if ($values->{$item} > 0) {
+        last if ($totalpct >= 100);
+        $percent->{$item}++;
+        $totalpct++;
+      }
     }
 
     foreach my $item (keys %$extra) {
-      $percent->{$item} = ($extra->{$item} * 1000 + 5) / ($total * 10);
-      $percent->{$item} = 1 unless $percent->{$item};
-      $totalpct += $percent->{$item};
+      if ($extra->{$item} > 0) {
+        $percent->{$item} = ($extra->{$item} * 1000 + 5) / ($total * 10);
+        $percent->{$item} = 1 unless $percent->{$item};
+        $totalpct += $percent->{$item};
+      }
     }
 
     print <<EOF;
@@ -473,4 +490,3 @@ sub readable_member($) {
   }
   $member;
 }
-
