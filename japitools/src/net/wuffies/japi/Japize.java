@@ -792,7 +792,7 @@ public class Japize {
         // Constructors are never final. The verifier should enforce this
         // so this should always be a no-op, except for when the line above
         // set it.
-        if ("".equals(calls[i].getName()) {
+        if ("".equals(calls[i].getName())) {
           mmods &= ~Modifier.FINAL;
         }
 
