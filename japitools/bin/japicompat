@@ -533,7 +533,8 @@ sub compare_japi_item($$$$) {
                    "subclass of $super", "not a subclass of $super");
     }
 
-    # Also check the SerialVersionUID if that is turned on.
+    # Also check the SerialVersionUID if that is turned on. Do this last, to
+    # ensure that anything "bad" will be flagged before this "minor" error.
     if ($svuid_errors && defined $oitem->{svuid}) {
       if (!defined $nitem->{svuid}) {
         output_error($oitem, $nitem, $oclitem, $c, "minor",
@@ -541,13 +542,6 @@ sub compare_japi_item($$$$) {
       } elsif ($nitem->{svuid} ne $oitem->{svuid}) {
         output_error($oitem, $nitem, $oclitem, $c, "minor",
                      "SerialVersionUID=$oitem->{svuid}", "SerialVersionUID=$nitem->{svuid}");
-      }
-    }
-    if ($svuid_errors && defined $oitem->{deprecated} &&
-        defined $nitem->{deprecated}) {
-      if ($oitem->{deprecated} && !$nitem->{deprecated}) {
-        output_error($oitem, $nitem, $oclitem, $c, "minor",
-                     "deprecated", "not deprecated");
       }
     }
 
@@ -571,16 +565,36 @@ sub compare_japi_item($$$$) {
   # For fields, check the constant value if there is one.
   } else {
     if (defined $oitem->{constant}) {
+      my $oconstant = $oitem->{constant};
+      $oconstant .= " (0x$oitem->{constbits})" if defined $oitem->{constbits};
       if (!defined $nitem->{constant}) {
         output_error($oitem, $nitem, $oclitem, $c, "bad",
-                     "constant [$oitem->{constant}]", "nonconstant");
-      } elsif ($nitem->{constant} ne $oitem->{constant}) {
-        output_error($oitem, $nitem, $oclitem, $c, "bad",
-                     "constant [$oitem->{constant}]", "constant [$nitem->{constant}]");
+                     "constant [$oconstant}]", "not constant");
+      } else {
+        my $nconstant = $nitem->{constant};
+        $nconstant .= " (0x$nitem->{constbits})" if defined $nitem->{constbits};
+        if (defined $nitem->{constbits} && defined $oitem->{constbits}) {
+          if ($nitem->{constbits} ne $oitem->{constbits}) {
+            output_error($oitem, $nitem, $oclitem, $c, "bad",
+                         "constant [$oconstant]", "constant [$nconstant]");
+          }
+        } elsif ($nitem->{constant} ne $oitem->{constant}) {
+          output_error($oitem, $nitem, $oclitem, $c, "bad",
+                       "constant [$oconstant]", "constant [$nconstant]");
+        }
       }
     }
   }
 
+  # Check for deprecation problems - do this last, to ensure that anything "bad"
+  # will be flagged before this "minor" error.
+  if ($svuid_errors && defined $oitem->{deprecated} &&
+      defined $nitem->{deprecated}) {
+    if ($oitem->{deprecated} && !$nitem->{deprecated}) {
+      output_error($oitem, $nitem, $oclitem, $c, "minor",
+                   "deprecated", "not deprecated");
+    }
+  }
   return $errhere;
 }
 

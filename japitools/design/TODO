@@ -102,7 +102,7 @@
   * Apply theoretical fix to jode breakage with 1.4.
   * Break down results in japio* by package and etype.
   * Add links to each package/etype in japiohtml.
-- For 0.9.2:
+* For 0.9.2:
   * Bump the file format version again...
   * Add an optional creation date on the %%japi line.
   * Include the japi-creation date in the japio.
@@ -153,17 +153,30 @@
   * Support specifying the letter to alt-ify to (eg mi_nor).
   * Update spec to cover new changes.
 - For 0.9.3:
-  - Compare rawbits values if both are present, otherwise compare strings as
+  * Compare rawbits values if both are present, otherwise compare strings as
     now. Make the output always include both if present.
+  * Fix bug that reports deprecation problems only on classes and interfaces.
+  - Add "link to Sun's documentation" capability somehow.
+    - Use environment variables
+    - JAPI_DOC_LINK=http://java.sun.com/j2se/1.4/docs/api
+    - JAPI_DOC_FORMAT=1.1 or 1.0 (1.2 and up format assumed if missing)
+    - How to deal with methods inherited from superclass? In general such
+      methods shouldn't cause problems - except when overridden in the free
+      API but not in the original.
+  - Add capability to specify args to japize in a file (eg .japispec)
   - Add more filtering options to japilist: -s superclass, -t throwabletype,
     -f (public|protected|abstract|concrete|static|instance|final|nonfinal|
-        constant|variable)
-  - Document japilist better.
-  - ./configure;make;make install?
+        constant|variable|deprecated|undeprecated)
+  - Document japilist (both help messages and webpage documentation).
+  - Document japifix (-? option, webpage documentation).
+  - Update webpage docs to cover the changes in the 0.9.x series.
   - Bump the file format version.
   - Convert all non-"a-zA-Z0-9_$" characters in class and method names into
     "\uXXXX". Do the same with characters in constant strings, only use a wider
-    range (eg everything in the ascii charset from space to the end).
+    range (eg everything in the ascii charset from space to the end). Update
+    the spec to document the fact that this is now truly supported, rather
+    than just theoretically specified. 
+  - This is a 0.10.0 "Release candidate"
 - For 0.10.0:
   - Any bug fixes reported against 0.9.3.
 - For 0.10.1:
@@ -182,6 +195,7 @@
       other -a and -f args are still allowed).
   - Test by generating jdkxx-jdkyy.japio for all yy > xx and then compare kaffe
     to jdkxx filtering out all those japios.
+  - ./configure;make;make install?
 - For 0.10.2:
   - Fallout from 0.10.1, since it's a big change and will probably break stuff,
     including its own new functionality.
