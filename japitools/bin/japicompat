@@ -321,6 +321,8 @@ sub output_error($$$$$$$;$) {
   unless ($ofhs[$supct]) {
     $ofhs[$supct] = new_tmpfile IO::File();
   }
+  $was =~ s/~/~t/g; $was =~ s/\//~s/g;
+  $is =~ s/~/~t/g; $is =~ s/\//~s/g;
   print {$ofhs[$supct]} "error $etype $oitem->{isa} $oitem->{item} $sups $was/$is\n";
 
   # Note that since svuid checking happens last, svuid error count will only

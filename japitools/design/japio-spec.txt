@@ -62,10 +62,11 @@ error <etype> <itemtype> <pkg>,<class>!<member> <sups> <was>/<is>
   of "static" and an <is> of "instance". <was> can be left empty for errors
   where the <is> gives all the information you need (for example, if <is> is
   "missing"). Both <was> and <is> can contain any character, including spaces,
-  but / and \ need to be backslash-escaped. The only hard-and-fast rules for the
-  choices of <was> and <is> are that <was> and <is> cannot be the same, and that
-  they have to be interchangeable: if the same error would apply in a reverse
-  comparison, the resulting line must be the same with <was> and <is> swapped.
+  but / should be escaped as ~s and ~ as ~t. The only hard-and-fast rules for
+  the choices of <was> and <is> are that <was> and <is> cannot be the same, and
+  that they have to be interchangeable: if the same error would apply in a
+  reverse comparison, the resulting line must be the same with <was> and <is>
+  swapped.
   Some other examples:
   instance/static
   constant [foo]/nonconstant

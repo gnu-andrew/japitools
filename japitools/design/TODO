@@ -156,6 +156,9 @@
   * Compare rawbits values if both are present, otherwise compare strings as
     now. Make the output always include both if present.
   * Fix bug that reports deprecation problems only on classes and interfaces.
+  * Fix erroneous } that slipped into constants
+  * Escape slashes in "was" and "is" to avoid breakage when / appears in, say,
+    a constant string.
   - Add "link to Sun's documentation" capability somehow.
     - Use environment variables
     - JAPI_DOC_LINK=http://java.sun.com/j2se/1.4/docs/api
@@ -163,6 +166,8 @@
     - How to deal with methods inherited from superclass? In general such
       methods shouldn't cause problems - except when overridden in the free
       API but not in the original.
+    - First pass: don't even try to link to the method, just the class or the
+      package summary.
   - Add capability to specify args to japize in a file (eg .japispec)
   - Add more filtering options to japilist: -s superclass, -t throwabletype,
     -f (public|protected|abstract|concrete|static|instance|final|nonfinal|
@@ -176,6 +181,7 @@
     range (eg everything in the ascii charset from space to the end). Update
     the spec to document the fact that this is now truly supported, rather
     than just theoretically specified. 
+  - Find out how to take a \uXXXX escape and turn it into an &#xxxx; HTML one.
   - This is a 0.10.0 "Release candidate"
 - For 0.10.0:
   - Any bug fixes reported against 0.9.3.

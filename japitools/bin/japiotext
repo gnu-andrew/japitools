@@ -164,6 +164,8 @@ foreach my $pkg (@packages) {
       foreach my $line (@{$errors->{"$pkg/$cat"}}) {
         my ($etype, $isa, $item, $sups, $rest) = split / /, $line, 5;
         my ($was, $is) = split /\//, $rest;
+        $was =~ s/~s/\//g; $was =~ s/~t/~/g;
+        $is =~ s/~s/\//g; $is =~ s/~t/~/g;
         my $msg = $was ? " $was in $orig, but" : "";
         my $ritem = readable_item($item);
         print "$isa $ritem:$msg $is in $new\n";
