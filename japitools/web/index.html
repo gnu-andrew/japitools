@@ -30,7 +30,19 @@ Jochen Hoenicke. If I forgot anyone,
       <a href="htmlout/h-jdk12-classpath.html">vs JDK1.2</a>,
       <a href="htmlout/h-jdk13-classpath.html">vs JDK1.3</a>,
       <a href="htmlout/h-jdk14-classpath.html">vs JDK1.4</a>,
-      <a href="htmlout/h-classpath-jdk14.html">JDK1.4 vs it</a>
+      <a href="htmlout/h-jdk15-classpath.html">vs JDK1.5</a>,
+      <a href="htmlout/h-classpath-jdk15.html">JDK1.5 vs it</a>
+      (updated nightly).
+</li>
+<li>
+<a href="http://www.classpath.org/">GNU Classpath</a> generics branch:
+      <a href="htmlout/h-jdk10-classpath-generics.html">vs JDK1.0</a>,
+      <a href="htmlout/h-jdk11-classpath-generics.html">vs JDK1.1</a>,
+      <a href="htmlout/h-jdk12-classpath-generics.html">vs JDK1.2</a>,
+      <a href="htmlout/h-jdk13-classpath-generics.html">vs JDK1.3</a>,
+      <a href="htmlout/h-jdk14-classpath-generics.html">vs JDK1.4</a>,
+      <a href="htmlout/h-jdk15-classpath-generics.html">vs JDK1.5</a>,
+      <a href="htmlout/h-classpath-generics-jdk15.html">JDK1.5 vs it</a>
       (updated nightly).
 </li>
 <li>
@@ -40,7 +52,8 @@ Jochen Hoenicke. If I forgot anyone,
       <a href="htmlout/h-jdk12-libgcj.html">vs JDK1.2</a>,
       <a href="htmlout/h-jdk13-libgcj.html">vs JDK1.3</a>,
       <a href="htmlout/h-jdk14-libgcj.html">vs JDK1.4</a>,
-      <a href="htmlout/h-libgcj-jdk14.html">JDK1.4 vs it</a>
+      <a href="htmlout/h-jdk15-libgcj.html">vs JDK1.5</a>,
+      <a href="htmlout/h-libgcj-jdk15.html">JDK1.5 vs it</a>
       (updated nightly).
 </li>
 <li>
@@ -50,7 +63,8 @@ Jochen Hoenicke. If I forgot anyone,
       <a href="htmlout/h-jdk12-jnode.html">vs JDK1.2</a>,
       <a href="htmlout/h-jdk13-jnode.html">vs JDK1.3</a>,
       <a href="htmlout/h-jdk14-jnode.html">vs JDK1.4</a>,
-      <a href="htmlout/h-jnode-jdk14.html">JDK1.4 vs it</a>
+      <a href="htmlout/h-jdk15-jnode.html">vs JDK1.5</a>,
+      <a href="htmlout/h-jnode-jdk15.html">JDK1.5 vs it</a>
       (updated nightly).
 </li>
 <li>
@@ -60,23 +74,18 @@ Jochen Hoenicke. If I forgot anyone,
       <a href="htmlout/h-jdk12-kaffe.html">vs JDK1.2</a>,
       <a href="htmlout/h-jdk13-kaffe.html">vs JDK1.3</a>,
       <a href="htmlout/h-jdk14-kaffe.html">vs JDK1.4</a>,
-      <a href="htmlout/h-kaffe-jdk14.html">JDK1.4 vs it</a>
+      <a href="htmlout/h-jdk15-kaffe.html">vs JDK1.5</a>,
+      <a href="htmlout/h-kaffe-jdk15.html">JDK1.5 vs it</a>
       (updated manually).
 </li>
-<li>
-<a href="http://www.kaffe.org/">Kaffe</a>+<a href="http://www.jacorb.org/">JacORB</a>:
-      <a href="htmlout/h-jdk10-kaffe+jacorb.html">vs JDK1.0</a>,
-      <a href="htmlout/h-jdk11-kaffe+jacorb.html">vs JDK1.1</a>,
-      <a href="htmlout/h-jdk12-kaffe+jacorb.html">vs JDK1.2</a>,
-      <a href="htmlout/h-jdk13-kaffe+jacorb.html">vs JDK1.3</a>,
-      <a href="htmlout/h-jdk14-kaffe+jacorb.html">vs JDK1.4</a>,
-      <a href="htmlout/h-kaffe+jacorb-jdk14.html">JDK1.4 vs it</a>
-      (same as Kaffe but including JacORB for the org.omg stuff).
-</li>
 </ul>
+<p>The JDK 1.5 results do NOT include comparisons of the aspects of the API that
+use new language features. Japitools does not yet understand these features,
+so it does a comparison purely based on the underlying 1.4-compatible binary
+semantics. We're working on it...</p>
 <p>Previously, the <a href="http://wonka.acunia.com/wonka.html">Wonka</a> VM was
 also included in this list, but they seem to have stopped providing japi files
-some time ago, so they have been removed.</p>
+some time ago, so they have been removed. Also, a Kaffe+JacORB listing used to be here, until it was determined that all the bits of JacORB that cover APIs in the JDK were using the non-free OMG source anyway.</p>
 <p>A tarball of the JDK japi files used to generate this output can be
 downloaded from <a href="jdkjapis.tar">here</a>. These japi files were
 created by running japize over the rt.jar (or equivalent) files from each

@@ -546,10 +546,22 @@ public class ClassFile implements ClassWrapper
 	else
 	    return forName(superClass);
     }
+    
+    private static boolean gotSerializable = false;
+    private static ClassFile serializableClass = null;
 
     public boolean isSerializable()
     {
-	return isSubTypeOf(forName("java.io.Serializable"));
+	if (!gotSerializable)
+	{
+	    gotSerializable = true;
+	    try
+	    {
+		serializableClass = forName("java.io.Serializable");
+	    }
+	    catch (NoClassDefFoundError e) {}
+	}
+ 	return serializableClass != null && !isInterface() && isSubTypeOf(serializableClass);
     }
 
     public boolean isSubTypeOf(ClassFile c)
@@ -580,7 +592,16 @@ public class ClassFile implements ClassWrapper
 		Modifier.isStatic(fields[i].getModifiers()) &&
 		Modifier.isFinal(fields[i].getModifiers()))
 	    {
-		return ((Long)fields[i].getPrimitiveValue()).longValue();
+                Long val = (Long)fields[i].getPrimitiveValue();
+                if (val == null)
+                {
+                    // It's a blank final, we don't support that.
+                    // (We'd have to run the <clinit> to get the value.)
+                    System.err.println();
+                    System.err.println("Warning: " + name + " has a blank final serialVersionUID");
+                    return 0;
+                }
+		return val.longValue();
 	    }
 	}
 	// The class didn't define serialVersionUID, so we have to compute it
@@ -879,7 +900,7 @@ public class ClassFile implements ClassWrapper
 		return cf;
 	    }
 	}
-	return null;
+	throw new NoClassDefFoundError(name);
     }
 
     public static void setClasspath(String classpath) throws IOException
