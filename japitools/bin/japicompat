@@ -381,7 +381,7 @@ sub compare_japis($$) {
     $oclitem = $oitem if $isnewclass;
     if ($cmp) {
       my $eitem = {%$oitem};
-      if ($isnewpkg) {
+      if ($isnewpkg && $nitem->{package} ne $oitem->{package}) {
         $eitem->{isa} = "package";
         $eitem->{class} = "";
         $eitem->{item} = "$pkg,%";

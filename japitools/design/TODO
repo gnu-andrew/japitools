@@ -1,13 +1,16 @@
 - For 0.8.3:
-  - Verify results of new japicompat against old
-  - Print at least *some* kind of overall summary information at end
-  - Update docs
-- For 0.9:
-  - Better summary information (perhaps that's 0.8.4, though)
+  * Verify results of new japicompat against old
+  * Print at least *some* kind of overall summary information at end
+  * Update docs
+- For 0.8.4:
+  - Better summary information
   - Update file version format to 0.9
   - Put the whole of java.lang first along with Object
   - Make japi2new support new version
-  - Any bug fixes reported in 0.8.3
+- For 0.9.0:
+  - Any bug fixes reported in 0.8.4
+  - This is intended as a vaguely stable milestone before everything breaks
+    again.
 - For 0.9.1:
   - Output in raw mode by default (suggest .japio as file ext)
   - japiotext, japiohtml filter programs
