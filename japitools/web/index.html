@@ -297,6 +297,28 @@ $ japicompat kaffe.japi.gz jdk12.japi.gz</pre>
 tests, since Sun's own JDK1.2 produces numerous errors when tested against
 JDK1.1.</p>
 
+<h4><a name="serialize">serialize</a></h4>
+<p>The <code>serialize</code> program can be used to automatically create 
+serialized objects from the JVM and class library currently in use through 
+reflection.</p>
+<pre>
+$ serialize -d jdk12 classes
+$ serialize -d tmp java.util.Vector java.util.HashMap
+$ serialize -x -d jdk12 classes
+</pre>
+<p>The XML serialization allows for simpler inspection of the serialized 
+object where specifications and code are lacking.</p>
+<p>The <code>serialcompat</code> script compares binary files created by
+the <code>serialize</code> program and lists the classes in the new or to 
+check directory tree that exist in the old tree and are different.  If you
+want to compare the XML files, some XML diff utilities aready exist but
+serialcompat doesn't yet make use of or require this.  An example is a 
+python script called xmldiff.</p>
+<pre>
+$ serialcompat jdk12 jdk13
+$ serialcompat jdk12 classpath
+</pre>
+
 <h3>File format</h3>
 <p>The file format of .japi files is described in full in
 <a href="japi-spec.txt">the japi file format specification</a>. This document

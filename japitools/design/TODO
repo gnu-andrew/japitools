@@ -55,7 +55,7 @@
   * Test japifix on old kaffe japis (to ensure that the ordering of inner
     classes is right)
   * Test japicompat between jdk1.1 and kaffe, as usual.
-- For 0.8.7:
+* For 0.8.7:
   * Bump file format version
   * Exclude subclasses of RuntimeException and Error, and subclasses of other
     exceptions thrown by the same method.
@@ -74,7 +74,7 @@
     fixing japis that don't include the full platform.
   * Fix japize bug causing missort when java.lang is not included but
     java.lang.(something) is.
-  - Include serialize, serialcompat, build.xml and new runner scripts from
+  * Include serialize, serialcompat, build.xml and new runner scripts from
     Brian Jones.
 - For 0.9:
   - Any bug fixes reported in 0.8.7
