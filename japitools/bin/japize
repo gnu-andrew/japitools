@@ -70,7 +70,7 @@ foreach my $arg (@args) {
   if ($arg =~ /^[+-]/) {
     $errarg = $arg;
     illegalpkgpath
-      unless $arg =~ /^[+-](?:(?:[a-zA-Z0-9_]+\.)*[a-zA-Z0-9_]+)?(?:,[a-zA-Z0-9_]*)?$/;
+      unless $arg =~ /^[+-](?:(?:[a-zA-Z0-9_]+\.)*[a-zA-Z0-9_\$]+)?(?:,[a-zA-Z0-9_\$]*)?$/;
     $plusses++ if $arg =~ /^\+/;
   } else {
     $paths++;

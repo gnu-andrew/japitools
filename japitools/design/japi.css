@@ -2,9 +2,14 @@
 .ok-100pct { background-color: #00cc00 }
 .ok-90pct { background-color: #99dd00 }
 .ok-80pct { background-color: #dddd00 }
-.ok-70pct, .ok-60pct { background-color: #ddaa00 }
-.ok-50pct, .ok-40pct, .ok-30pct { background-color: #cc8800 }
-.ok-20pct, .ok-10pct, .ok-0pct { background-color: #cc4400 }
+.ok-70pct { background-color: #ddc100 }
+.ok-60pct { background-color: #ddaa00 }
+.ok-50pct { background-color: #d39900 }
+.ok-40pct { background-color: #cc8800 }
+.ok-30pct { background-color: #cc7700 }
+.ok-20pct { background-color: #cc6600 }
+.ok-10pct { background-color: #cc5500 }
+.ok-0pct { background-color: #cc4400 }
 .ok-none { background-color: #cc0000 }
 
 /* Error category colors */

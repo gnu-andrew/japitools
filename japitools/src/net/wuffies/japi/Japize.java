@@ -411,18 +411,7 @@ public class Japize {
       throws NoSuchMethodException, IllegalAccessException,
              ClassNotFoundException {
     progress("Processing class " + cls + ":");
-    PrintWriter err = jode.GlobalOptions.err;
-    jode.GlobalOptions.err = null;
-    try {
-      japizeClass(cls);
-    } catch (NoClassDefFoundError e) {
-      progress('#');
-    } catch (NullPointerException e) {
-      progress('#');
-    } catch (ClassNotFoundException e) {
-      progress('#');
-    }
-    jode.GlobalOptions.err = err;
+    japizeClass(cls);
   }
   static void processPackage(String pkg)
       throws NoSuchMethodException, IllegalAccessException,
@@ -609,196 +598,209 @@ public class Japize {
    */
   public static boolean japizeClass(String n)
       throws NoSuchMethodException, IllegalAccessException, ClassNotFoundException {
+    PrintWriter err = jode.GlobalOptions.err;
+    jode.GlobalOptions.err = null;
+    try {
 
-    // De-mangle the class name.
-    if (n.charAt(0) == ',') n = n.substring(1);
-    n = n.replace(',', '.');
+      // De-mangle the class name.
+      if (n.charAt(0) == ',') n = n.substring(1);
+      n = n.replace(',', '.');
 
-    // Get a ClassWrapper to work on.
-    ClassWrapper c = getClassWrapper(n);
+      // Get a ClassWrapper to work on.
+      ClassWrapper c = getClassWrapper(n);
 
-    // Load the class and check its accessibility.
-    int mods = c.getModifiers();
-    if (!Modifier.isPublic(mods) && !Modifier.isProtected(mods)) {
-      progress('-');
-      return false;
-    }
-
-    // Construct the basic strings that will be used in the output.
-    String entry = toClassRoot(c.getName()) + "!";
-    String classEntry = entry;
-    String type = "class";
-    if (c.isInterface()) {
-      type = "interface";
-      mods |= Modifier.ABSTRACT; // Interfaces are abstract by definition,
-                                 // but wrapper implementations are
-                                 // inconsistent in telling us this.
-    } else {
-
-      // Classes that happen to be Serializable get their SerialVersionUID
-      // output as well. The separation by the '#' character from the rest
-      // of the type string has mnemonic value for Brits, as the SVUID is a
-      // special sort of 'hash' of the class.
-      if (c.isSerializable()) {
-        type += "#" + c.getSerialVersionUID();
+      // Load the class and check its accessibility.
+      int mods = c.getModifiers();
+      if (!Modifier.isPublic(mods) && !Modifier.isProtected(mods)) {
+        progress('-');
+        return false;
       }
-    }
 
-    // Iterate over the class's superclasses adding them to its "type" name,
-    // skipping any superclasses that are not public/protected.
-    ClassWrapper sup = c;
-    int smods = mods;
-    while (sup.getSuperclass() != null) {
-      sup = sup.getSuperclass();
-      smods = sup.getModifiers();
-      if (!Modifier.isPublic(smods) && !Modifier.isProtected(smods)) {
-        progress('^');
+      // Construct the basic strings that will be used in the output.
+      String entry = toClassRoot(c.getName()) + "!";
+      String classEntry = entry;
+      String type = "class";
+      if (c.isInterface()) {
+        type = "interface";
+        mods |= Modifier.ABSTRACT; // Interfaces are abstract by definition,
+                                   // but wrapper implementations are
+                                   // inconsistent in telling us this.
       } else {
-        type += ":" + sup.getName();
-      }
-    }
-    type += mkIfaceString(c, "");
 
-    // Print out the japi entry for the class itself.
-    printEntry(entry, type, mods, c.isDeprecated());
-
-    // Get the class's members.
-    FieldWrapper[] fields = c.getFields();
-    CallWrapper[] calls = c.getCalls();
-
-    // Iterate over the fields in the class.
-    for (int i = 0; i < fields.length; i++) {
-
-      // Fields that are declared in a non-public superclass are not accessible.
-      // Skip them.
-      int dmods = fields[i].getDeclaringClass().getModifiers();
-      if (!Modifier.isPublic(dmods) && !Modifier.isProtected(dmods)) {
-        progress('>');
-        continue;
-      }
-
-      // Get the modifiers and type of the field.
-      mods = fields[i].getModifiers();
-
-      // Fields of interfaces are *always* public, static and final, although
-      // wrapper implementations are inconsistent about telling us this.
-      if (fields[i].getDeclaringClass().isInterface()) {
-        mods |= Modifier.PUBLIC | Modifier.FINAL | Modifier.STATIC;
-      }
-      type = fields[i].getType();
-
-      // A static, final field is a primitive constant if it is initialized to
-      // a compile-time constant.
-      if (fields[i].isPrimitiveConstant()) {
-        Object o = fields[i].getPrimitiveValue();
-
-        // Character values get int-ized to keep the output nice and 7bit.
-        if (o instanceof Character) {
-          type += ":" + (int)((Character)o).charValue();
-          
-        // String values get newlines and backslashes escaped to stop them from
-        // going onto a second line.
-        } else if (o instanceof String) {
-          String val = (String)o;
-          StringBuffer sb = new StringBuffer('\"');
-          int p = 0, q = 0;
-          while (q >= 0) {
-            q = val.indexOf("\n", p);
-            int r = val.indexOf("\\");
-            if (r >= 0 && (r < q || q < 0)) q = r;
-            if (q >= 0) {
-              sb.append(val.substring(p, q));
-              sb.append('\\');
-              if (val.charAt(q) == '\\') sb.append('\\'); else sb.append('n');
-              p = ++q;
-            }
-          }
-          sb.append(val.substring(p));
-          type += ":" + sb;
-
-        // Floats and doubles get their toRaw*Bits() value printed as well as
-        // their actual value.
-        } else if (o instanceof Float) {
-          type += ':' + o.toString() + '/' +
-              Integer.toHexString(Float.floatToRawIntBits(
-                                  ((Float) o).floatValue()));
-        } else if (o instanceof Double) {
-          type += ':' + o.toString() + '/' +
-              Long.toHexString(Double.doubleToRawLongBits(
-                               ((Double) o).doubleValue()));
-
-        // Other types just get output.
-        } else {
-          type += ":" + o;
+        // Classes that happen to be Serializable get their SerialVersionUID
+        // output as well. The separation by the '#' character from the rest
+        // of the type string has mnemonic value for Brits, as the SVUID is a
+        // special sort of 'hash' of the class.
+        if (c.isSerializable()) {
+          type += "#" + c.getSerialVersionUID();
         }
       }
 
-      // Output the japi entry for the field.
-      printEntry(classEntry + "#" + fields[i].getName(), type, mods,
-                 fields[i].isDeprecated());
+      // Iterate over the class's superclasses adding them to its "type" name,
+      // skipping any superclasses that are not public/protected.
+      ClassWrapper sup = c;
+      int smods = mods;
+      while (sup.getSuperclass() != null) {
+        sup = sup.getSuperclass();
+        smods = sup.getModifiers();
+        if (!Modifier.isPublic(smods) && !Modifier.isProtected(smods)) {
+          progress('^');
+        } else {
+          type += ":" + sup.getName();
+        }
+      }
+      type += mkIfaceString(c, "");
+
+      // Print out the japi entry for the class itself.
+      printEntry(entry, type, mods, c.isDeprecated());
+
+      // Get the class's members.
+      FieldWrapper[] fields = c.getFields();
+      CallWrapper[] calls = c.getCalls();
+
+      // Iterate over the fields in the class.
+      for (int i = 0; i < fields.length; i++) {
+
+        // Fields that are declared in a non-public superclass are not accessible.
+        // Skip them.
+        int dmods = fields[i].getDeclaringClass().getModifiers();
+        if (!Modifier.isPublic(dmods) && !Modifier.isProtected(dmods)) {
+          progress('>');
+          continue;
+        }
+
+        // Get the modifiers and type of the field.
+        mods = fields[i].getModifiers();
+
+        // Fields of interfaces are *always* public, static and final, although
+        // wrapper implementations are inconsistent about telling us this.
+        if (fields[i].getDeclaringClass().isInterface()) {
+          mods |= Modifier.PUBLIC | Modifier.FINAL | Modifier.STATIC;
+        }
+        type = fields[i].getType();
+
+        // A static, final field is a primitive constant if it is initialized to
+        // a compile-time constant.
+        if (fields[i].isPrimitiveConstant()) {
+          Object o = fields[i].getPrimitiveValue();
+
+          // Character values get int-ized to keep the output nice and 7bit.
+          if (o instanceof Character) {
+            type += ":" + (int)((Character)o).charValue();
+          
+          // String values get newlines and backslashes escaped to stop them from
+          // going onto a second line.
+          } else if (o instanceof String) {
+            String val = (String)o;
+            StringBuffer sb = new StringBuffer('\"');
+            int p = 0, q = 0;
+            while (q >= 0) {
+              q = val.indexOf("\n", p);
+              int r = val.indexOf("\\");
+              if (r >= 0 && (r < q || q < 0)) q = r;
+              if (q >= 0) {
+                sb.append(val.substring(p, q));
+                sb.append('\\');
+                if (val.charAt(q) == '\\') sb.append('\\'); else sb.append('n');
+                p = ++q;
+              }
+            }
+            sb.append(val.substring(p));
+            type += ":" + sb;
+
+          // Floats and doubles get their toRaw*Bits() value printed as well as
+          // their actual value.
+          } else if (o instanceof Float) {
+            type += ':' + o.toString() + '/' +
+                Integer.toHexString(Float.floatToRawIntBits(
+                                    ((Float) o).floatValue()));
+          } else if (o instanceof Double) {
+            type += ':' + o.toString() + '/' +
+                Long.toHexString(Double.doubleToRawLongBits(
+                                 ((Double) o).doubleValue()));
+
+          // Other types just get output.
+          } else {
+            type += ":" + o;
+          }
+        }
+
+        // Output the japi entry for the field.
+        printEntry(classEntry + "#" + fields[i].getName(), type, mods,
+                   fields[i].isDeprecated());
+      }
+
+      // Iterate over the methods and constructors in the class.
+      for (int i = 0; i < calls.length; i++) {
+
+        // Methods that are declared in a non-public superclass are not
+        // publically accessible. Skip them.
+        int dmods = calls[i].getDeclaringClass().getModifiers();
+        if (!Modifier.isPublic(dmods) && !Modifier.isProtected(dmods)) {
+          progress('}');
+          continue;
+        }
+
+        // For some reason the JDK returns values for static initializers
+        // sometimes. Skip calls called <init> and <clinit>.
+        if ("<init>".equals(calls[i].getName()) ||
+            "<clinit>".equals(calls[i].getName())) {
+          progress('<');
+          continue;
+        }
+
+        // This makes sure we do not print an identical method twice. It can
+        // never happen except for a rare case where an interface inherits the
+        // same method from two different superinterfaces (or from a
+        // superinterface and java.lang.Object). The 1.2 Collections architecture
+        // is a wonderful test-bed for this case :)
+        if (calls[i].isDup()) {
+          progress('!');
+          continue;
+        }
+
+        // Construct the name of the method, of the form Class!method(params).
+        entry = classEntry + calls[i].getName() + "(";
+        String[] params = calls[i].getParameterTypes();
+        String comma = "";
+        for (int j = 0; j < params.length; j++) {
+          entry += comma + params[j];
+          comma = ",";
+        }
+        entry += ")";
+
+        // Construct the "type" field, of the form returnType*exception*except2...
+        type = calls[i].getReturnType();
+        String[] excps = calls[i].getExceptionTypes();
+        for (int j = 0; j < excps.length; j++) {
+          if (includeException(excps, j)) type += "*" + excps[j];
+        }
+
+        // Get the modifiers for this method. Methods of interfaces are
+        // by definition public and abstract, although wrapper implementations
+        // are inconsistent about telling us this.
+        int mmods = calls[i].getModifiers();
+        if (c.isInterface()) {
+          mmods |= Modifier.ABSTRACT | Modifier.PUBLIC;
+        }
+
+        // Print the japi entry for the method.
+        printEntry(entry, type, mmods, calls[i].isDeprecated());
+      }
+
+      // Return true because we did parse this class.
+      progress('+');
+      return true;
+    } catch (NoClassDefFoundError e) {
+      progress('#');
+    } catch (NullPointerException e) {
+      progress('#');
+    } catch (ClassNotFoundException e) {
+      progress('#');
+    } finally {
+      jode.GlobalOptions.err = err;
     }
-
-    // Iterate over the methods and constructors in the class.
-    for (int i = 0; i < calls.length; i++) {
-
-      // Methods that are declared in a non-public superclass are not
-      // publically accessible. Skip them.
-      int dmods = calls[i].getDeclaringClass().getModifiers();
-      if (!Modifier.isPublic(dmods) && !Modifier.isProtected(dmods)) {
-        progress('}');
-        continue;
-      }
-
-      // For some reason the JDK returns values for static initializers
-      // sometimes. Skip calls called <init> and <clinit>.
-      if ("<init>".equals(calls[i].getName()) ||
-          "<clinit>".equals(calls[i].getName())) {
-        progress('<');
-        continue;
-      }
-
-      // This makes sure we do not print an identical method twice. It can
-      // never happen except for a rare case where an interface inherits the
-      // same method from two different superinterfaces (or from a
-      // superinterface and java.lang.Object). The 1.2 Collections architecture
-      // is a wonderful test-bed for this case :)
-      if (calls[i].isDup()) {
-        progress('!');
-        continue;
-      }
-
-      // Construct the name of the method, of the form Class!method(params).
-      entry = classEntry + calls[i].getName() + "(";
-      String[] params = calls[i].getParameterTypes();
-      String comma = "";
-      for (int j = 0; j < params.length; j++) {
-        entry += comma + params[j];
-        comma = ",";
-      }
-      entry += ")";
-
-      // Construct the "type" field, of the form returnType*exception*except2...
-      type = calls[i].getReturnType();
-      String[] excps = calls[i].getExceptionTypes();
-      for (int j = 0; j < excps.length; j++) {
-        if (includeException(excps, j)) type += "*" + excps[j];
-      }
-
-      // Get the modifiers for this method. Methods of interfaces are
-      // by definition public and abstract, although wrapper implementations
-      // are inconsistent about telling us this.
-      int mmods = calls[i].getModifiers();
-      if (c.isInterface()) {
-        mmods |= Modifier.ABSTRACT | Modifier.PUBLIC;
-      }
-
-      // Print the japi entry for the method.
-      printEntry(entry, type, mmods, calls[i].isDeprecated());
-    }
-
-    // Return true because we did parse this class.
-    progress('+');
-    return true;
+    return false;
   }
 
   /**
