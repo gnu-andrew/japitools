@@ -128,11 +128,7 @@ public class Japize {
     boolean zipIt = true;
     String fileName = null;
 
-    if (i < args.length && "zip".equals(args[i])) {
-      // Redundant...
-      zipIt = true;
-      i++;
-    } else if (i < args.length && "unzip".equals(args[i])) {
+    if (i < args.length && "unzip".equals(args[i])) {
       zipIt = false;
       i++;
     }

@@ -76,20 +76,29 @@
     java.lang.(something) is.
   * Include serialize, serialcompat, build.xml and new runner scripts from
     Brian Jones.
-- For 0.9:
+* For 0.9:
   * Make japifix prune exceptions correctly for the same-throws-clause case.
   * Bump file format version to force users to update their japis in case
     they're wrong.
   * Make japicompat include the per-package and overall summaries on stdout as
     well as stderr, so that "-q" and a redirect of stdout only gives decent
     results.
-  - Incorporate patch from Brian Jones to runner scripts and index.html
+  * Incorporate patch from Brian Jones to runner scripts and index.html
   * Make sure all relevant files carry the GPL, and include COPYING
   * Prepare a nice-looking announcement
   * This is intended as a vaguely stable milestone before everything breaks
     again.
 - For 0.9.1:
+  - Output in raw mode by default (suggest .japio as file ext). Add a version
+    to japio files similar to that in japi files.
+  * Put all summary information into the japio somehow to allow it to appear in
+    the results files.
+  * japiohtml filter program
+  - japiotext filter program
+  - "-h" and "-t" flags to japicompat will pipe to the relevant program
   - Bump the file format version again...
+  - Add an optional creation date on the %%japi line.
+  - Include it in the japio somehow, and thereby in the html and text.
   - Add "++" in front of java.lang.Object and "+" in front of java.lang.*,
     and make both japifix and japicompat use straight "cmp" for sorting.
   - Make japifix add the pluses as needed.
@@ -98,12 +107,7 @@
   - Add more filtering options to japilist: -s superclass, -t throwabletype,
     -f (public|protected|abstract|concrete|static|instance|final|nonfinal|
         constant|variable)
-  - Output in raw mode by default (suggest .japio as file ext). Add a version
-    to japio files similar to that in japi files.
-  - Put all summary information into the japio somehow to allow it to appear in
-    the results files.
-  - japiotext, japiohtml filter programs
-  - "-h" and "-t" flags to japicompat will pipe to the relevant program
+  - Document japilist better.
   - Remove "zip" no-op option as useless cruft.
   - ./configure;make;make install?
   - Deprecation support (it's an error to *un*deprecate an API...)

@@ -13,7 +13,7 @@ javax.swing Classpath                 |===| 90%/10%  |==|=| 80%/20%
             Kaffe                     |===| 90%/10%  |==|=| 80%/20%
             libgcj                    |===| 90%/10%  |==|=| 80%/20%
 
-Put a 2-3px border around each Cp/k/lgcj cell in the "good-xxpct" class to pick
+Put a 2-3px border around each Cp/k/lgcj cell in the "ok-xxpct" class to pick
 out the problematic items in red etc. Leave a slightly larger gap between
 packages than between implementations of the same package. Left-align the bar
 graphs so they can be compared.
