@@ -222,7 +222,7 @@ sub read_japi_item($) {
 Could not interpret item in japi file:
 $line
 Either this japi file is corrupt or you have uncovered a bug in japicompat.
-Please email this error message in full to stuart.a.ballard@gmail.com.
+Please email this error message in full to stuart.a.ballard\@gmail.com.
 EOF
   }
 
