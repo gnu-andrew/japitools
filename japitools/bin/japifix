@@ -23,6 +23,8 @@ use IO::Handle;
 use Getopt::Std;
 use integer;
 
+$currver = "0.9.4";
+
 %sigs = (boolean=>'Z', byte=>'B', char=>'C', double=>'D', float=>'F', int=>'I',
          long=>'J', short=>'S', void=>'V',
          class=>'class', interface=>'interface', constructor=>'constructor');
@@ -35,13 +37,13 @@ sub start();
 sub dump_deferred();
 sub finish();
 sub to_new();
-sub jcmp();
 sub printusage();
 
 my @out = ();
 
 my $progname = $1 if $0 =~ /(?:.*\/)?([^\/]+)/;
 MAIN: while (begin) {
+  next if $skip;
   my $line;
   while(<IN>) {
     chomp;
@@ -61,7 +63,7 @@ sub out($) {
       $a = $last_out;
     }
     $b = $_[0];
-    if (jcmp >= 0) {
+    if ($a ge $b) {
       if ($scan_only) {
         print STDERR "\n$infile mis-sorted:\n$a >=\n$b\nWill enable sort..."
           unless $sortthis;
@@ -101,7 +103,7 @@ sub dump_deferred() {
     if (defined $last_out) {
       $a = $last_out;
       $b = $out[0];
-      if (jcmp >= 0) {
+      if ($a ge $b) {
         if ($scan_only) {
           print STDERR "\n$infile mis-sorted:\n$a >=\n$b\nWill enable sort..."
             unless $sortthis;
@@ -130,12 +132,13 @@ sub begin() {
 
   #: parse parameters
   my $firsttime = 1 unless defined %opts;
-  getopts("hzube:", \%opts) if $firsttime;
+  getopts("fhzube:", \%opts) if $firsttime;
 
   printusage if $opts{h};
   my $zippit = 1 if $opts{z};
   my $unzippit = 1 if $opts{u};
   my $backup = 1 unless $opts{b};
+  my $force = 1 if $opts{f};
 
   if ($firsttime && $opts{e}) {
     my @excpfiles = split /,/, $opts{e};
@@ -168,22 +171,28 @@ sub begin() {
     open IN, "<$infile" or die "Cannot open $infile: $!";
   }
 
+  %flags = ();
   $_ = <IN>; chomp;
   if (/^[^ ]+#[^ ]* (public|protected) (abstract|concrete) (static|instance) (final|nonfinal) /) {
     $japiver = "0.7";
   } elsif (/^[^ ]+#[^ ]* [Pp][ac][si][fn] /) {
     $japiver = "0.8";
-  } elsif (/^\%\%japi ([^ ]*)(?: .*)?$/) {
+  } elsif (/^\%\%japi ([^ ]*)(?: (.*))?$/) {
     $japiver = $1;
+    my $flagstr = $2;
     if ($japiver ne "0.8.1" && $japiver ne "0.9" && $japiver ne "0.9.1" &&
-        $japiver ne "0.9.2" && $japiver ne "0.9.3") {
+        $japiver ne "0.9.2" && $japiver ne "0.9.3" && $japiver ne "0.9.4") {
       print STDERR <<EOF;
 This japi file claims to be version $japiver, but this version of $progname only
-understands versions 0.8.1, 0.9, 0.9.1, 0.9.2, 0.9.3, and older versions that
-did not carry a version number. Either this japi file is incorrect or you need a
-newer version of $progname.
+understands versions 0.8.1, 0.9, 0.9.1, 0.9.2, 0.9.3, 0.9.4, and older versions
+that did not carry a version number. Either this japi file is incorrect or you
+need a newer version of $progname.
 EOF
       exit 1;
+    }
+    foreach my $flagpair (split / /, $flagstr) {
+      my ($key, $value) = split /=/, $flagpair, 2;
+      $flags{$key} = $value;
     }
   } else {
     print STDERR <<EOF;
@@ -193,6 +202,16 @@ EOF
     exit 1;
   }
 
+  if ($japiver eq $currver && !$force) {
+    print STDERR "Skipping $infile (japi v$japiver)\n";
+    $skip = 1;
+    close IN;
+    return 1;
+  } else {
+    $skip = 0;
+  }
+
+  $flags{creator} = "japifix";
   %init_supers = %excp_supers if ($is_excpfile);
 
   if ($excpfiles) {
@@ -240,12 +259,13 @@ EOF
 
 sub printusage() {
   print <<EOF;
-Usage: $progname -z|-u -b [-e ex1,ex2] file1 ...
+Usage: $progname -z|-u -b -f [-e ex1,ex2] file1 ...
    -h to display this help message.
    -z to zip output, -u to unzip output (default is to follow the input file
    unless it's too old to have been zipped itself, in which case zip it)
    -b to NOT back up the original file with a .bak extension. Original file
    will be overwritten unless filename is different (eg due to ".gz" extension).
+   -f to force processing of files even if they are already version $currver.
    -e to provide a comma-separated list of japi files covering any exceptions
    that are thrown by methods in japi files to convert, but aren't actually
    included in the same japi. $progname needs to know the superclass of every
@@ -265,7 +285,13 @@ sub start() {
     "Converting $outfile (japi v$japiver)...";
   STDERR->autoflush;
   @out = ();
-  print OUT "%\%japi 0.9.3\n" unless $scan_only;
+  unless ($scan_only) {
+    print OUT "%\%japi $currver";
+    foreach my $flag (keys %flags) {
+      print OUT " $flag=$flags{$flag}";
+    }
+    print OUT "\n";
+  }
 }
 
 sub finish() {
@@ -275,7 +301,7 @@ sub finish() {
   }
   if ($needtosort) {
     print STDERR " sorting...";
-    print OUT (sort jcmp @out);
+    print OUT (sort @out);
   }
   close IN;
   close OUT;
@@ -376,7 +402,12 @@ sub to_new() {
   }
   if ($japiver eq "0.9.3" or $older) {
     $older = 1;
-    # Do nothing - 0.9.3 is as far as we can get right now...
+    $_ = "++$_" if /^java\.lang,Object!/;
+    $_ = "+$_" if /^java\.lang[.,]/;
+  }
+  if ($japiver eq "0.9.4" or $older) {
+    $older = 1;
+    # Do nothing - 0.9.4 is as far as we can get right now...
   }
 
   # For ALL versions, we extract the exceptions in scan-only mode. This allows
@@ -417,15 +448,6 @@ sub include_exception($$) {
   die "Could not identify superclass of $lsupname, try the -e option"
     unless defined $supname;
   return 1;
-}
-
-sub jcmp() {
-  $ajlo = ($a =~ /^java\.lang,Object!/) ? -1 : 0;
-  $bjlo = ($b =~ /^java\.lang,Object!/) ? -1 : 0;
-  return $ajlo - $bjlo if $ajlo != $bjlo;
-  $ajl = ($a =~ /^java\.lang[\.,]/) ? -1 : 0;
-  $bjl = ($b =~ /^java\.lang[\.,]/) ? -1 : 0;
-  ($ajl != $bjl) ? $ajl - $bjl : $a cmp $b;
 }
 
 # Convert a pre-0.8 semi-human-readable typename into a 0.8-and-above JVM-style

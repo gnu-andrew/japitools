@@ -38,6 +38,8 @@ import java.io.OutputStreamWriter;
 import java.util.zip.GZIPOutputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 /**
  * Process a Java API and emit a machine-readable description of the API,
@@ -307,10 +309,11 @@ public class Japize {
       throws NoSuchMethodException, IllegalAccessException, IOException,
              ClassNotFoundException {
 
-    // Print the header identifier. The syntax is "%%japi ver anything". Right
-    // now we don't use the 'anything', and in that case the space after the
-    // version is optional.
-    out.println("%%japi 0.9.3");
+    // Print the header identifier. The syntax is "%%japi ver anything".
+    // The "anything" is currently used for name/value pairs indicating the
+    // creation date and creation tool.
+    out.println("%%japi 0.9.4 creator=japize date=" +
+        new SimpleDateFormat("yyyy/MM/dd_hh:mm:ss_z").format(new Date()));
 
     // Identify whether java.lang,Object fits into our list of things to
     // process. If it does, process it first, then add it to the list of
@@ -804,6 +807,9 @@ public class Japize {
    */
   public static void printEntry(String thing, String type, int mods) {
     if (!Modifier.isPublic(mods) && !Modifier.isProtected(mods)) return;
+    if (thing.startsWith("java.lang,Object!")) out.print('+');
+    if (thing.startsWith("java.lang,") ||
+        thing.startsWith("java.lang.")) out.print('+');
     out.print(thing);
     out.print(' ');
     out.print(Modifier.isPublic(mods) ? 'P' : 'p');

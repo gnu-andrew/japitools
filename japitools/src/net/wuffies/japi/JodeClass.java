@@ -66,7 +66,16 @@ class JodeClass implements ClassWrapper {
     }
   }
   public int getModifiers() {
-    return c.getModifiers();
+    int modifiers = c.getModifiers();
+
+    // Workaround Jode limitation: Inner classes store their protected, private
+    // and static modifiers in an unusual location, and the current version of
+    // Jode doesn't know how to find them there. Thus, we do it manually.
+    if (c.getOuterClasses() != null && c.getOuterClasses().length > 0) {
+      modifiers |= (c.getOuterClasses()[0].modifiers &
+                     (Modifier.PROTECTED | Modifier.PRIVATE | Modifier.STATIC));
+    }
+    return modifiers;
   }
   public String getName() {
     return c.getName();

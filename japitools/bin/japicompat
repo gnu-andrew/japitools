@@ -18,7 +18,8 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 ###############################################################################
 
-# Recent changes:
+# Old-ish list of changes... stopped updating this list a while back but don't
+# want to lose the history...
 # - 2002/09/09: Abort on mis-ordered japi files since the results would be
 #   incorrect. Add "interfaces" back into the summary. Treat constructors as
 #   not inherited.
@@ -52,7 +53,7 @@
 ## GLOBAL VARIABLES ##
 
 # Some global variables used for displaying stuff.
-$japiver = "0.9.3";
+$japiver = "0.9.4";
 $javatypes = {Z=>'boolean', B=>'byte', C=>'char', D=>'double', F=>'float',
                   I=>'int', J=>'long', S=>'short', V=>'void'};
 @static = ('instance', 'static');
@@ -65,8 +66,6 @@ use IO::Pipe;
 use Getopt::Std;
 
 # Function prototypes
-sub scmp(&;&);
-sub japicmp($$);
 sub sig2type($);
 sub readable_member($);
 sub open_japi($);
@@ -82,19 +81,39 @@ sub print_summary();
 ## MAIN LOOP ##
 
 # Parse cmdline and give a usage message.
-getopts("svq", \%opts);
+getopts("svqhtjo:", \%opts);
 my $sun_only = 1 if $opts{"s"};
 my $svuid_errors = 1 if $opts{"v"};
 my $dot = $opts{"q"} ? "" : ".";
+my $outprog = $opts{"h"} ? "japiohtml" : $opts{"j"} ? undef : "japiotext";
 my ($origfile, $newfile) = @ARGV;
 if (!defined $newfile) {
-  print "Usage: japicompat [-svq] <original api> <api to check>\n";
+  print STDERR "Usage: japicompat [-svqhtj] [-o outfile] <original api> <api to check>\n";
   exit 1;
 }
 
 # Read in the old and new APIs.
 $orig = open_japi($origfile);
 $new = open_japi($newfile);
+
+# Open the appropriate thing for output. If we will be piping to japiohtml or
+# japiotext, we first redirect STDOUT to whatever was given as "-o".
+if ($outprog) {
+  if ($opts{"o"}) {
+    close STDOUT;
+    open STDOUT, ">$opts{o}";
+  }
+  my $ct = 0; my $prog = $0;
+  $prog = readlink $prog while -l $prog && $ct++ < 5;
+  $progdir = $1 if $prog =~ /^(.*)\/[^\/]+$/;
+  open OUT, "|$progdir/$outprog";
+} else {
+  if ($opts{"o"}) {
+    open OUT, ">$opts{o}";
+  } else {
+    open OUT, ">-";
+  }
+}
 
 # Loop through the two files and compare them.
 compare_japis($orig, $new);
@@ -112,30 +131,11 @@ print_summary();
 
 ## SUBROUTINES ##
 
-# Function for doing complicated comparisons. Returns a value equivalent to
-# that returned by cmp. Takes 2 arguments: a function which tests whether $_ is
-# in the 'preferred' set and a function to fall back on if neither or both are
-# in the preferred set. The fallback function is called using a and b, as usual,
-# and defaults to {$a cmp $b}.
-sub scmp(&;&) {
-  my ($prf, $flbk) = (@_, sub {$a cmp $b});
-  $_ = $a; my $aprf = &$prf();
-  $_ = $b; my $bprf = &$prf();
-  $aprf && !$bprf ? -1 :
-  $bprf && !$aprf ? 1 :
-  &$flbk();
-}
-
 # Compare two japi entries pseudo-alphabetically.
 sub japicmp($$) {
   my ($ia, $ib) = @_;
   return -1 unless defined $ib;
-  japitemcmp($ia->{item}, $ib->{item});
-}
-
-sub japitemcmp($$) {
-  ($a, $b) = @_;
-  scmp {/^java\.lang,Object!/} sub {scmp {/^java\.lang[\.,]/}};
+  $ia->{item} cmp $ib->{item};
 }
 
 # Convert a type signature as used in a japi file to a displayable type.
@@ -178,7 +178,7 @@ sub open_japi($) {
   print STDERR "Loading $filename" if $dot;
   my $japiline = $fh->getline;
   chomp $japiline;
-  die <<EOF unless $japiline =~ /^%\%japi ([^ ]*)(?: .*)?$/;
+  die <<EOF unless $japiline =~ /^%\%japi ([^ ]*)(?: (.*))?$/;
 
 This looks like an old-style japi file. The format was changed since version
 0.7 to save disk space and avoid a theoretically possible ambiguity. Most
@@ -186,7 +186,7 @@ new japis are approx. 30% smaller than the coresponding old-style ones. It was
 changed again since version 0.8 to allow japicompat to use smarter algorithms.
 You can use japifix to convert to the new format.
 EOF
-  my $filever = $1;
+  my ($filever, $info) = ($1, $2);
   die <<EOF if $filever lt $japiver;
 
 This japi file claims to be version $filever, but this version of japicompat
@@ -201,6 +201,10 @@ a new version of japicompat.
 EOF
   print STDERR ".\n" if $dot;
   $japi->{fh} = $fh;
+  foreach my $infitem (split / /, $info) {
+    my ($infname, $infvalue) = split /=/, $infitem, 1;
+    $japi->{$infname} = $infvalue;
+  }
   return $japi;
 }
 
@@ -216,9 +220,15 @@ sub read_japi_item($) {
 
   # Ensure that this item is correctly ordered.
   die "\nIncorrect ordering of $japi->{name}:\n$japi->{last_item} >=\n$item"
-    if defined($japi->{last_item}) &&
-       japitemcmp($japi->{last_item}, $item) >= 0;
+    if defined($japi->{last_item}) && $japi->{last_item} ge $item;
   $japi->{last_item} = $item;
+
+  # Check and trim the leading plusses on java.lang.Object and java.lang.
+  die "\nMissing required leading plusses on $item"
+    if $item =~ /^java\.lang[.,]/ || $item =~ /^\+java\.lang,Object!/;
+  $item =~ s/^\+\+java\.lang,Object!/java.lang,Object!/;
+  $item =~ s/^\+java\.lang([.,])/java.lang$1/;
+  die "\nIncorrect leading plusses on $item" if $item =~ /^\+/;
 
   my ($fqcn, $member) = split /!/, $item, 2;
   my ($pkg, $class) = split /,/, $fqcn, 2;
@@ -363,17 +373,15 @@ sub short_summary($$) {
   $summ = pct($c, $pkg, "bad", $summ);
   $summ = pct($c, $pkg, "missing", $summ);
   $summ = pct($c, $pkg, "abs.add", $summ);
-# print "$pkgn: $summ\n";
-# print "\n" unless $pkg;
   my $pkgc = $pkg || "#";
-  print "rawsummary $pkgc";
+  print OUT "rawsummary $pkgc";
   foreach my $item ("good", "svuid", "bad", "missing", "abs.add") {
     my $itm = $item;
     $itm = "+abs.add" if $item eq "abs.add";
     my $val = $c->{"$pkg/$item"};
-    print " $itm:$val" if $val;
+    print OUT " $itm:$val" if $val;
   }
-  print "\n";
+  print OUT "\n";
   print STDERR "\r$pkgn: $summ\n" if $dot;
 }
 
@@ -381,12 +389,17 @@ sub short_summary($$) {
 sub compare_japis($$) {
   my ($orig, $new) = @_;
 
-  print "%\%japio 0.9.1 $origfile $newfile\n";
-  print "categories =good ";
-  print "=svuid " if $svuid_errors;
-  print "bad missing";
-  print " abs.add" unless $sun_only;
-  print "\n";
+  my $origname = $origfile;
+  my $newname = $newfile;
+  $origname .= "\@$orig->{date}" if $orig->{date};
+  $newname .= "\@$new->{date}" if $new->{date};
+
+  print OUT "%\%japio 0.9.1 $origfile $newfile\n";
+  print OUT "categories =good ";
+  print OUT "=svuid " if $svuid_errors;
+  print OUT "bad missing";
+  print OUT " abs.add" unless $sun_only;
+  print OUT "\n";
   my $pkg = "";
   my $class = "";
   my $c = {}; # counts
@@ -596,7 +609,6 @@ sub merge_results() {
         chomp;
         my $line = $_;
         my ($error, $etype, $isa, $item, $sups, $rest) = split(/ /, $_, 6);
-#       print STDERR "Error:$error, etype:$etype, isa:$isa, item:$item, sups:$sups, rest:$rest\n";
         my ($class, $member) = split(/!/, $item, 2);
         my @sups = split(/;/, $sups);
         my $insup = 0;
@@ -617,8 +629,7 @@ sub merge_results() {
           my ($pkg, $cls) = split(/,/, $class, 2);
           $class = "$pkg.$cls";
           $errs->{"$class\!$member $rest"} = 1;
-          print "$line\n";
-#         print "error $isa $class.".readable_member($member)." $rest\n";
+          print OUT "$line\n";
           $totalerrors++;
           inc($sc, $pkg, $isa, $etype);
         }
@@ -652,12 +663,10 @@ sub count_summary($$) {
   $summ = ct($c, $pkg, "missing", $summ);
   $summ = ct($c, $pkg, "abs.add", $summ);
   $summ = "All good" unless $summ;
-# print "$pkgn: $summ\n";
   print STDERR "\r$pkgn: $summ \n" if $dot;
 }
 # Print summary information.
 sub print_summary() {
-# print "\n";
   print STDERR "\n" if $dot;
   count_summary($sc, "#package");
   count_summary($sc, "#class");
@@ -665,6 +674,5 @@ sub print_summary() {
   count_summary($sc, "#field");
   count_summary($sc, "#constructor");
   count_summary($sc, "#method");
-# print "$totalerrors unique errors found.\n";
   print STDERR "$totalerrors unique errors found.\n" if $dot;
 }

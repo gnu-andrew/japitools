@@ -30,7 +30,7 @@ $japiover = "0.9.1";
 
 my $verline = <>;
 chomp $verline;
-($filever, $orig, $new) = ($1, $2, $3)
+($filever, $origfile, $newfile) = ($1, $2, $3)
     if $verline =~ /^%\%japio ([^ ]+) ([^ ]+) ([^ ]+)(?: .*)?$/;
 unless (defined $filever) {
   print STDERR <<EOF;
@@ -46,10 +46,11 @@ EOF
   exit 1;
 }
 
-$orig =~ s/\.gz$//;
-$orig =~ s/\.japi$//;
-$new =~ s/\.gz$//;
-$new =~ s/\.japi$//;
+($orig,$origdate)=($1, $2) if $origfile =~ /^([^@]*)(?:\.japi(?:\.gz))?(?:@(.*))?$/;
+($new, $newdate) = ($1, $2) if $newfile =~ /^([^@]*)(?:\.japi(?:\.gz))?(?:@(.*))?$/;
+$origdate =~ s/_/ /g if $origdate;
+$newdate =~ s/_/ /g if $newdate;
+
 my $date = gmtime() . " GMT";
 
 print <<EOF;
@@ -63,6 +64,14 @@ print <<EOF;
   <body>
     <h1>Results of comparison between $orig and $new</h1>
     <p class="datestamp">Comparison run at $date</p>
+EOF
+print <<EOF if $origdate;
+    <p class="datestamp">$orig API scanned at $origdate</p>
+EOF
+print <<EOF if $newdate;
+    <p class="datestamp">$new API scanned at $newdate</p>
+EOF
+print <<EOF;
     <h2>Summary</h2>
     <p>Note that summary information is calculated prior to filtering the
        results (for duplicates, etc). It is possible to show a non-zero "bad" or
@@ -248,7 +257,7 @@ EOF
         $alt = $altc unless $alt;
         print <<EOF if $pct;
               <td width="$pct" class="$class-bar" title="$pkgn $item">
-                <img src="1x1.gif" width="1" height="1" alt="$alt">
+                <img src="1x1.gif" width="1" height="12" alt="$alt">
               </td>
 EOF
       }

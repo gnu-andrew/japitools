@@ -9,10 +9,12 @@ Format:
 
 %%japio 0.9.1 <origfile>@<date> <newfile>@<date>
 <linetype> <rest>
+...
 
-<date> is in the format yyyy-mm-dd/hh:mm:ss
+<date> is optional, but if present should be in the format
+       yyyy/mm/dd_hh:mm:ss_TZ
 
-Where <linetype> determines the format of the rest of the line. Possibilities
+<linetype> determines the format of the rest of the line. Possibilities
 are:
 
 categories =a b c ...
@@ -22,6 +24,10 @@ categories =a b c ...
   The "=" in front of good and svuid indicates that these values are considered
   "okay"; for example, in japiohtml, a package with 85% good and 5% svuid will
   get the ok-90pct CSS class.
+  Any name can appear in this list, and all names are optional, but the name
+  "good" is special: it implies there are *no* actual errors associated with
+  it. In the future this will perhaps be expressed in the categories line, eg
+  "==good".
 
 rawsummary <pkg> <category>:<count> <category>:<count> ...
   eg:

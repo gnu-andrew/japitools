@@ -103,33 +103,55 @@
   * Break down results in japio* by package and etype.
   * Add links to each package/etype in japiohtml.
 - For 0.9.2:
+  * Bump the file format version again...
+  * Add an optional creation date on the %%japi line.
+  * Include it in the japio.
+  * Include it in the html and text.
+  * Add "++" in front of java.lang.Object and "+" in front of java.lang.*,
+    and make both japifix and japicompat use straight "cmp" for sorting.
+  * Make japifix add the pluses as needed.
+  * Make japicompat ignore the pluses.
+  * Make japilist ignore the pluses.
+  * Fix/workaround the Jode limitation that inner class static/protected
+    modifiers aren't read right.
+  * Make japifix skip files that are already the right version unless a -f flag
+    is specified.
+  * Make japifix preserve the date field if present.
+  * Put a 12 pixel height on the spacer gif to help opera out.
+  * Use ".bad a { color: foo }" etc to support browsers that can't handle
+    "color: inherit".
+  * "-o filename" flag to japicompat which will write straight to a file
+    rather than stdout.
+  * "-h" and "-t" flags to japicompat will pipe to the relevant program
+  * Store the current japi version in a variable in japifix since it's now used
+    in multiple places.
   - Add summary totals in both japiotext and japiohtml that appear *before* the
     full listing of errors.
   - Add per-package summary of errors in japiohtml, again *before* the actual
     error listing. Minimize the size of it by putting it in spans using &nbsp;
     instead of space, all on one "line", and letting the browser wrap as
     appropriate.
-  - "-h" and "-t" flags to japicompat will pipe to the relevant program
-  - Bump the file format version again...
-  - Add an optional creation date on the %%japi line.
-  - Include it in the japio somehow, and thereby in the html and text.
-  - Add "++" in front of java.lang.Object and "+" in front of java.lang.*,
-    and make both japifix and japicompat use straight "cmp" for sorting.
-  - Make japifix add the pluses as needed.
-  - Make japicompat ignore the pluses.
-  - Make japilist ignore the pluses.
+  - Order the errors in japiotext in the same way japiohtml does.
 - For 0.9.3:
   - Add more filtering options to japilist: -s superclass, -t throwabletype,
     -f (public|protected|abstract|concrete|static|instance|final|nonfinal|
         constant|variable)
   - Document japilist better.
   - ./configure;make;make install?
+  - Bump the file format version.
+  - Use "minor" instead of "svuid".
+  - Support specifying the letter to alt-ify to (eg mi_nor, minor/n or _nminor)
   - Deprecation support (it's an error to *un*deprecate an API...)
   - Convert all non-"a-zA-Z0-9_$" characters in class and method names into
     "\uXXXX". Do the same with characters in constant strings, only use a wider
     range (eg everything in the ascii charset from space to the end).
 - For 0.9.4:
-  - Optional new argument syntax to japicompat:
+  - Support for comparisons against multiple JDK versions. One possible way
+    would be an argument syntax something like the following, but I'm getting
+    ever less sure that it's the way to go. For starters, you want the
+    removal-based-on-future-jdk-versions stuff to be included in the summary,
+    which can't happen if it's done at the same time as the dup-filtering.
+    Anyway, here's the old idea...
     - "-a file.japio" and "-f file.japio" will add or filter based on existing
       japio files.
     - Instead of a filename, "@file1.japi:file2.japi" (both ".japi" and ".gz"

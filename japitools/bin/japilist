@@ -43,18 +43,18 @@ foreach (@ARGV) {
   chomp $hdr;
   my $ver = $1 if $hdr =~ /^\%\%japi ([^ ]*)(?: .*)?$/;
   $ver = "0.8 or earlier (or\nnot a japi file at all)" unless $ver;
-  if ($ver ne "0.9.3") {
+  if ($ver ne "0.9.4") {
     print STDERR <<EOF;
 $_ is a japi file of version $ver.
-This version of japipkgs only knows how to deal with version 0.9.3 japis. Use
-japifix if your japi file is too old, or get a new version of japipkgs if it
+This version of japilist only knows how to deal with version 0.9.4 japis. Use
+japifix if your japi file is too old, or get a new version of japilist if it
 is too new.
 EOF
     exit(1);
   }
   print "\nIn $_:\n" if $#ARGV;
   while(<IN>) {
-    if (/^([^ ]+),([^ ]+)!([^ ]*) /) {
+    if (/^\+{0,2}([^ ]+),([^ ]+)!([^ ]*) /) {
       my ($pkg, $class, $member) = ($1, $2, $3);
       if ($filter_name) {
         next unless $pkg eq $filter_name || "$pkg.$class" eq $filter_name;

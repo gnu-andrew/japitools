@@ -8,19 +8,19 @@
 .ok-none { background-color: #cc0000 }
 
 /* Error category colors */
-.good, .good-bar { color: #00cc00 }
+.good, .good a { color: #00cc00 }
 .good-bar { background-color: #00cc00 }
 
-.svuid, .svuid-bar { color: #009999 }
+.svuid, .svuid a { color: #009999 }
 .svuid-bar { background-color: #009999 }
 
-.bad, .bad-bar { color: #0000ff }
+.bad, .bad a { color: #0000ff }
 .bad-bar { background-color: #0000ff }
 
-.missing { color: #555555 }
-.missing-bar { color: #999999; background-color: #999999 }
+.missing, .missing a { color: #555555 }
+.missing-bar { background-color: #999999 }
 
-.abs-add, .abs-add-bar { color: #8800aa }
+.abs-add, .abs-add a { color: #8800aa }
 .abs-add-bar { background-color: #8800aa }
 
 /* Layout properties */
@@ -29,6 +29,6 @@ th { font-size: 12px; text-align: right }
 .alternating-1 { background-color: #ddddff }
 .alternating-2 { background-color: #eeeeee }
 .datestamp { text-align: right; color: #bbbbbb }
-a { color: inherit; text-decoration: none }
+a { color: black; text-decoration: none }
 a:hover { text-decoration: underline }
 .ehead { margin-bottom: 2px; padding-bottom: 2px }

@@ -1,4 +1,4 @@
-This document specifies the format of a .japi file, version 0.9.3. The actual
+This document specifies the format of a .japi file, version 0.9.4. The actual
 implementations of japize, japifix and japicompat may not honor this spec
 exactly. If they do not, it is generally a bug or missing feature in the tool;
 this spec notes such bugs when they are known.
@@ -113,10 +113,7 @@ If any package, class or member names include any escaped characters, it is the
 escaped string that is compared, rather than the original.
 
 Note: the separating characters in a japi file were chosen so that a straight
-alphabetical sort is sufficient to achieve this ordering, except for the special
-cases for java.lang and java.lang.Object. A future version of the japi file
-format will add a prefix to java.lang and java.lang.Object so that the entire
-file is sorted purely alphabetically.
+alphabetical sort is sufficient to achieve this ordering.
 
 
 File Format: Compression
@@ -125,7 +122,7 @@ File Format: Compression
 Japi files may optionally be compressed by gzip. A compressed japi file should
 be named *.japi.gz; an uncompressed one should be named *.japi. Tools for
 reading japi files may rely on this naming convention; tools for creating japi
-files should enforce it.
+files should enforce it where possible.
 
 
 File Format: First Line
@@ -136,7 +133,7 @@ guaranteed to follow the same format for all future releases. Thus, this section
 (only!) of the spec covers all japi file format versions, past and future. With
 this information you can identify whether a file is a japi file, and which
 version it is. However, this spec does not provide any information about the
-content of the rest of the file for any version other than 0.9.3. Both past and
+content of the rest of the file for any version other than 0.9.4. Both past and
 future versions can be assumed to be entirely incompatible with this spec from
 the second line onwards.
 
@@ -146,9 +143,10 @@ The first line of any japi file since version 0.8.1 is as follows:
 version number vaguely correlates with the version number of japitools releases,
 it is not the same number. Often japitools releases do not require a file format
 change, and sometimes I mess with the file version number for other reasons,
-with mixed results. <info> is currently reserved for future expansion and should
-be omitted when creating japi files, but should be parsed and ignored when
-reading a japi file, because future versions might use it.
+with mixed results. The contents of <info> may vary from version to version,
+or it and its leading space may be omitted altogether; implementations should
+parse and ignore it (if present) except when the file format version indicates
+they can understand it.
 
 For completeness, I should mention file format versions prior to 0.8.1. Version
 0.7 can be recognized by the following regular expression:
@@ -158,6 +156,16 @@ Version 0.8 can be recognized by the following regular expression:
 These version numbers were invented retroactively, of course :)
 
 
+File Format: File information
+-----------------------------
+
+The <info> field contains a list of space-separated name=value pairs. Unknown
+names should be ignored. Neither the name nor value may include spaces. The
+following names and values are permitted:
+date=yyyy/mm/dd_hh:mm:ss_TZ
+creator=<toolname>
+
+
 File Format: API Items
 ----------------------
 
@@ -165,7 +173,12 @@ Every other line in a japi file represents an individual item in the API.
 These lines must appear in a specific order; see "Ordering" above for the
 specific requirements.
 The format of these lines is as follows:
-<class>!<member> <modifiers> <typeinfo>
+<plus><class>!<member> <modifiers> <typeinfo>
+
+<plus> is "++" for all members of java.lang.Object, "+" for all members of all
+classes in java.lang and its subpackages, or nothing ("") for all other API
+items. This allows java.lang.Object and java.lang to appear in the right
+places in a purely alphabetical sort.
 
 <class> is the name of the class, in Japi Sortable representation.
 
