@@ -276,4 +276,4 @@ Conclusion
 
 This specification should provide enough information to both read and write
 japi files. Any questions or comments, especially if anything in this spec is
-unclear, should be directed to sballard@netreach.com.
+unclear, should be directed to stuart.a.ballard@gmail.com.

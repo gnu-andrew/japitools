@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Japize - Output a machine-readable description of a Java API.
-// Copyright (C) 2000-2002  Stuart Ballard <sballard@netreach.net>
+// Copyright (C) 2000,2002,2003,2004  Stuart Ballard <stuart.a.ballard@gmail.com>
 // 
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License

@@ -1,6 +1,6 @@
 This is a temporary README file for the sake of getting *something* together
 fast. Full instructions can be found in the web/index.html file, or at
-http://rainbow.netreach.net/~sballard/japi/ .
+http://www.kaffe.org/~stuart/japi/
 
 You can unpack the tarball and use the files in the bin/ directory directly or
 via symlinks: they can find the java libraries, when necessary, by relative
