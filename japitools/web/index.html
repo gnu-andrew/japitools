@@ -15,7 +15,8 @@ compatibility, as defined by Sun in the
 <a href="http://java.sun.com/docs/books/jls/clarify.html">here</a>).</p>
 <h3>Results</h3>
 <p>(in alphabetical order to avoid arguments... ;) )</p>
-<p>
+<ul>
+<li>
 <a href="http://www.classpath.org/">GNU Classpath</a>:
       <a href="htmlout/h-jdk10-classpath.html">vs JDK1.0</a>,
       <a href="htmlout/h-jdk11-classpath.html">vs JDK1.1</a>,
@@ -24,7 +25,8 @@ compatibility, as defined by Sun in the
       <a href="htmlout/h-jdk14-classpath.html">vs JDK1.4</a>,
       <a href="htmlout/h-classpath-jdk14.html">JDK1.4 vs it</a>
       (updated nightly).
-<br>
+</li>
+<li>
 <a href="http://gcc.gnu.org/java/">GNU libgcj</a>:
       <a href="htmlout/h-jdk10-libgcj.html">vs JDK1.0</a>,
       <a href="htmlout/h-jdk11-libgcj.html">vs JDK1.1</a>,
@@ -33,7 +35,8 @@ compatibility, as defined by Sun in the
       <a href="htmlout/h-jdk14-libgcj.html">vs JDK1.4</a>,
       <a href="htmlout/h-libgcj-jdk14.html">JDK1.4 vs it</a>
       (updated nightly).
-<br>
+</li>
+<li>
 <a href="http://www.kaffe.org/">Kaffe</a>:
       <a href="htmlout/h-jdk10-kaffe.html">vs JDK1.0</a>,
       <a href="htmlout/h-jdk11-kaffe.html">vs JDK1.1</a>,
@@ -42,20 +45,40 @@ compatibility, as defined by Sun in the
       <a href="htmlout/h-jdk14-kaffe.html">vs JDK1.4</a>,
       <a href="htmlout/h-kaffe-jdk14.html">JDK1.4 vs it</a>
       (updated manually).
-<br>
-<a href="http://wonka.acunia.com/wonka.html">Wonka</a>:
+</li>
+</ul>
+<p>
+Previously, the <a href="http://wonka.acunia.com/wonka.html">Wonka</a> VM was
+also included in this list, but they seem to have stopped providing japi files
+some time ago, so they have been removed.
+
+<!--a href="http://wonka.acunia.com/wonka.html">Wonka</a>:
       <a href="htmlout/h-jdk10-wonka.html">vs JDK1.0</a>,
       <a href="htmlout/h-jdk11-wonka.html">vs JDK1.1</a>,
       <a href="htmlout/h-jdk12-wonka.html">vs JDK1.2</a>,
       <a href="htmlout/h-jdk13-wonka.html">vs JDK1.3</a>,
       <a href="htmlout/h-jdk14-wonka.html">vs JDK1.4</a>,
       <a href="htmlout/h-wonka-jdk14.html">JDK1.4 vs it</a>
-      (updated nightly).
+      (updated nightly).-->
 </p>
 <p>A tarball of the JDK japi files used to generate this output can be
 downloaded from <a href="jdkjapis.tar">here</a>.</p>
 <h3>News</h3>
 <ul>
+  <li>30 September 2004: Released japitools-0.9.4. This is a bugfix release
+      that addresses two issues:
+      <ul>
+        <li>Constant field values were frequently missed.</li>
+        <li>Exceptions were sometimes misreported (found and fixed by Tom
+            Tromey).</li>
+      </ul>
+      Needless to say, the world has changed a bit since I suggested that
+      0.9.3 was a release candidate for 1.0. Now that Java 5 has been released,
+      it would be unacceptable to make a 1.0 release without support for
+      generics and the other new language features. Still, 0.9.4 is definitely
+      more stable than any previous "stable" release - this is the version
+      you should be using.
+  </li>
   <li>19 February 2003: Released japitools-0.9.3. This is a 'release candidate'
       for 1.0. There are a few minor fixes over 0.9.2 including:
       <ul>
@@ -250,21 +273,19 @@ downloaded from <a href="jdkjapis.tar">here</a>.</p>
 </ul>
 
 <h3>Installation</h3>
-<p>You can download <a href="japitools-0.9.tar.gz">japitools-0.9.tar.gz</a>
+<p>You can download <a href="japitools-0.9.4.tar.gz">japitools-0.9.4.tar.gz</a>
 here. This tarball contains a bin/ directory containing all the japi tools, a
 share/ directory containing the java runtime libraries, and a src/ directory
 containing all the sources in case you want to do development. It should be
 unnecessary to set your CLASSPATH, since japitools can figure out the path to
 its runtime libraries by relative directory structures.</p>
-<p>If you like to live on the edge, you can download the
-<a href="japitools-0.9.3.tar.gz">japitools-0.9.3.tar.gz release</a>
-here. See the top of the changelog above for information on this release.</p>
-<p>The tarball also contains a <a href="http://jode.sourceforge.net/">Jode</a>
-jarball (also mirrored <a href="jode-1.1.1.jar">here</a>).  To compile all
-of the sources you will need to also download 
+<p>The tarball contains code extracted from
+<a href="http://jode.sourceforge.net/">Jode</a>
+(a jarball of which is mirrored <a href="jode-1.1.1.jar">here</a>).
+To compile all of the sources you will need to also download 
 <a href="http://www.csse.monash.edu.au/~bren/JSX/">JSX</a> and 
 <a href="http://www.urbanophile.com/arenn/hacking/download.html">gnu.getopt</a>.
-  After placing these packages in <code>share/java</code>, japitools 
+After placing these packages in <code>share/java</code>, japitools 
 is completely self-sufficient (except for perl and Java)</p>
 <p>The tools in the bin directory assume that perl is /usr/bin/perl and that
 your prefered Java runtime is "java" in your PATH. If you're working with

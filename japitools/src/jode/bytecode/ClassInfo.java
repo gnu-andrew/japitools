@@ -286,7 +286,12 @@ public class ClassInfo extends BinaryInfo {
 	/* Since we have to read the whole class anyway, we load all
 	 * info, that we may need later and that does not take much memory. 
 	 */
-	howMuch |= HIERARCHY | INNERCLASSES | OUTERCLASSES;
+  // Workaround for an apparent bug that causes Exception info to be incorrect
+  // if it ends up being read more than once. Reading everything up front
+  // fixes this. Found by Tom Tromey. Probably wastes memory, but correctness
+  // beats perf any day.
+	howMuch |= FULLINFO;
+//howMuch |= HIERARCHY | INNERCLASSES | OUTERCLASSES;
 	howMuch &= ~status;
 	/* header */
 	if (input.readInt() != 0xcafebabe)

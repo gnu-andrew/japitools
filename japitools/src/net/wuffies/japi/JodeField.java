@@ -31,9 +31,11 @@ class JodeField implements FieldWrapper {
   JodeField(FieldInfo f, JodeClass jc) {
     modifiers = f.getModifiers();
     constValue = f.getConstant();
-    if (!Modifier.isStatic(modifiers) || !Modifier.isFinal(modifiers) ||
-        (!Modifier.isPublic(modifiers) && !Modifier.isProtected(modifiers))) {
-      constValue = null;
+    if (!jc.isInterface()) {
+      if (!Modifier.isStatic(modifiers) || !Modifier.isFinal(modifiers) ||
+          (!Modifier.isPublic(modifiers) && !Modifier.isProtected(modifiers))) {
+        constValue = null;
+      }
     }
     name = f.getName();
     type = f.getType();
