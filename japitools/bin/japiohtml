@@ -95,6 +95,7 @@ print <<EOF;
         <td>- None correct</td>
       </tr>
     </table>
+    <br clear="all">
     <table class="summary" border="0" cellspacing="0" cellpadding="3">
 EOF
 
@@ -352,7 +353,7 @@ foreach my $pkg (@packages) {
   }
   if ($anyerrors) {
     print <<EOF;
-    <table class="phead">
+    <table class="phead" width="100%">
       <tr>
         <td>
           <h3><a name="pkg_$pkgl"></a>$catlinks$pkg</h3>
