@@ -23,7 +23,6 @@ import java.util.TreeSet;
 import java.util.Map;
 import java.util.HashMap;
 import java.lang.reflect.Modifier;
-import jode.obfuscator.ClassIdentifier;
 import java.util.Arrays;
 import java.io.DataOutputStream;
 import java.io.OutputStream;
@@ -35,7 +34,6 @@ import java.util.Comparator;
 class JodeClass implements ClassWrapper {
   private static final Map loaded = new HashMap();
   ClassInfo c;
-  private ClassIdentifier ident;
   public JodeClass(String name) {
     this(ClassInfo.forName(name));
   }

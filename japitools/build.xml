@@ -5,7 +5,7 @@
 <project name="japi" default="main" basedir=".">
     <property environment="env"/>
     <property name="name" value="japitools"/>
-    <property name="version" value="0.8.6"/>
+    <property name="version" value="0.9.1"/>
     <property name="src.dir" value="${basedir}/src"/>
     <property name="lib.dir" value="${basedir}/share/java"/>
     <property name="build.dir" value="${basedir}/build"/>
@@ -13,8 +13,6 @@
     <property name="build.classes.dir" value="${build.dir}/classes"/>
     <property name="japi.jar" value="${name}.jar"/>
 
-    <path id="jode.classpath">
-    </path>
     <path id="getopt.classpath">
     </path>
     <path id="jsx.classpath">
@@ -32,7 +30,6 @@
         <echo message=""/>
 
         <path id="base.path">
-            <pathelement location="${lib.dir}/jode-1.1.1.jar" />
             <pathelement location="${lib.dir}/java-getopt-1.0.9.jar" />
             <pathelement location="${lib.dir}/JSX1.0.5.3.jar" />
             <pathelement location="${build.classes.dir}" />

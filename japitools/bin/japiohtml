@@ -150,7 +150,7 @@ EOF
       }
       my $class = $key; $class =~ s/\./-/g;
       print <<EOF;
-        <td class="$class" title="$pkg $key">$val</td>
+        <td class="$class" title="$pkgn $key">$val</td>
 EOF
     }
 
@@ -247,7 +247,7 @@ EOF
         my $alt = $altc x ($percent->{$item} / 5);
         $alt = $altc unless $alt;
         print <<EOF if $pct;
-              <td width="$pct" class="$class-bar" title="$pkg $item">
+              <td width="$pct" class="$class-bar" title="$pkgn $item">
                 <img src="1x1.gif" width="1" height="1" alt="$alt">
               </td>
 EOF
@@ -275,20 +275,29 @@ EOF
 foreach my $pkg (@packages) {
   my $pkgl = $pkg; $pkgl =~ s/\./_/g;
   my $catlinks = "";
+  my $anyerrors = 0;
   foreach my $cat (@categories) {
     my $catl = $cat; $catl =~ s/\./_/g;
-    $catlinks .= "<a name=\"err_${catl}_$pkgl\"></a>"
-      unless $cat eq "good" || $errors->{"$pkg/$cat"};
+    unless ($cat eq "good")
+      if ($errors->{"$pkg/$cat"}) {
+        $anyerrors = 1;
+      } else {
+        $catlinks .= "<a name=\"err_${catl}_$pkgl\"></a>";
+      }
+    }
   }
-  print <<EOF;
+  print $anyerrors ? <<EOF1 : <<EOF;
     <h3><a name="pkg_$pkgl"></a>$catlinks$pkg</h3>
+EOF1
+    $catlinks
 EOF
   foreach my $cat (@categories) {
     if ($errors->{"$pkg/$cat"}) {
       my $catl = $cat; $catl =~ s/\./_/g;
       my $catc = $cat; $catc =~ s/\./-/g;
+      my $cap = uc($1).$2 if $cat =~ /^(.)(.*)$/;
       print <<EOF;
-    <h4><a name="err_${catl}_$pkgl"></a>$cat</h4>
+    <h4 class="ehead"><a name="err_${catl}_$pkgl"></a>$cap</h4>
     <ul class="$catc">
 EOF
       foreach my $line (@{$errors->{"$pkg/$cat"}}) {

@@ -15,6 +15,36 @@ compatibility, as defined by Sun in the
 <a href="http://java.sun.com/docs/books/jls/clarify.html">here</a>).</p>
 <h3>News</h3>
 <ul>
+  <li>21 November 2002: Released an EXPERIMENTAL, ALPHA QUALITY japitools-0.9.1.
+      Japitools-0.9 is still the recommended version if you plan to do anything
+      important with the results. This release includes some nice new features
+      but also has some significant issues:
+      <ul>
+        <li>The documentation below has not been updated to cover this release.
+            Since 0.9 is still the stable version, I need to split out the
+            webpage with separate docs for each version. I haven't done that
+            yet. The only information about the differences in usage is this
+            list.</li>
+        <li>japicompat no longer gives you anything terribly comprehensible if
+            you save its stdout directly. Instead, you must pipe the output to
+            one of the new tools japiotext or japiohtml. In a future version
+            this will be made optional, with a pipe through japiotext as the
+            default, but currently it's compulsory. You can save the results
+            as a ".japio" file if you want to run both japiotext and japiohtml
+            over the same output.</li>
+        <li>Speaking of which, the japiohtml tool gives nice HTML output. This
+            is what's been generating the nightly classpath comparisons. The
+            output will be further cleaned up in future versions.</li>
+        <li>Using japiotext to get text output still doesn't provide everything
+            the old text output did. Neither does the HTML output.</li>
+        <li>The bits of Jode source code that I'm using are included directly
+            and get compiled into japitools.jar, so jode-1.1.1.jar is no longer
+            bundled. I stripped out some of the "magic" of the Jode build system
+            to use just .java files instead of .java.in. I also applied a
+            theoretical fix to Jode's problem with JDK1.4, but this is entirely
+            untested. If you test it, and produce a jdk14.japi.gz, please
+            send it to me.</li>
+      </ul></li>
   <li>13 November 2002: Started a nightly script comparing classpath to various
       JDK versions using new experimental (and unreleased because it's still
       very crufty) HTML output. The results can be seen here:
@@ -145,6 +175,9 @@ share/ directory containing the java runtime libraries, and a src/ directory
 containing all the sources in case you want to do development. It should be
 unnecessary to set your CLASSPATH, since japitools can figure out the path to
 its runtime libraries by relative directory structures.</p>
+<p>If you like to live on the edge, you can download the
+<a href="japitools-0.9.1">experimental japitools-0.9.1.tar.gz release</a> here.
+See the top of the changelog above for information on this release.</p>
 <p>The tarball also contains a <a href="http://jode.sourceforge.net/">Jode</a>
 jarball (also mirrored <a href="jode-1.1.1.jar">here</a>).  To compile all
 of the sources you will need to also download 

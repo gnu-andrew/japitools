@@ -88,7 +88,7 @@
   * Prepare a nice-looking announcement
   * This is intended as a vaguely stable milestone before everything breaks
     again.
-- For 0.9.1:
+* For 0.9.1:
   * Remove "zip" no-op option as useless cruft.
   * Output in raw mode by default (suggest .japio as file ext). Add a version
     to japio files similar to that in japi files.
@@ -96,30 +96,19 @@
     the results files.
   * japiohtml filter program
   * japiotext filter program
-  - Break down results in japio* by package and etype.
-  - Add links to each package/etype in japiohtml.
+  * Include source for jode.bytecode and its dependencies.
+  * Compile jode bits from source and put them in japitools.jar. Remove
+    all references to jode-1.1.1.jar.
+  * Apply theoretical fix to jode breakage with 1.4.
+  * Break down results in japio* by package and etype.
+  * Add links to each package/etype in japiohtml.
+- For 0.9.2:
   - Add summary totals in both japiotext and japiohtml that appear *before* the
     full listing of errors.
   - Add per-package summary of errors in japiohtml, again *before* the actual
-    error listing. See if we can find a way to minimize the size of that so it
-    looks acceptable - perhaps by stretching it horizontally.
-    Svuid: x classes
-    Bad: x classes, x interfaces, x fields, x methods, x constructors
-Missing: x packages, x classes, x interfaces, x fields, x methods, x constructors
-    Abs.Add: x methods
-
-    Svuid: x classes; Bad: x classes, x intrfcs, x fields, x methods, x cnstors
-    Missing: x pkgs, x classes, x intrfcs, x mthds, x cnstors; Abs.Add: x mthds
-
-    Problem: how to generalize so that it works even if svuid isn't included?
-    Perhaps just make it a single line in a table cell so that it might end up
-    looking like this:
-    Svuid: x classes; Bad: x classes, x interfaces, x fields, x methods, x
-    constructors; Missing: x packages, x classes, x interfaces, x methods, x
-    constructors; Abs.Add: x methods
-    I wonder if span style="line-break: none" will do what I want...? Actually,
-    &nbsp; definitely will.
-
+    error listing. Minimize the size of it by putting it in spans using &nbsp;
+    instead of space, all on one "line", and letting the browser wrap as
+    appropriate.
   - "-h" and "-t" flags to japicompat will pipe to the relevant program
   - Bump the file format version again...
   - Add an optional creation date on the %%japi line.
@@ -129,7 +118,7 @@ Missing: x packages, x classes, x interfaces, x fields, x methods, x constructor
   - Make japifix add the pluses as needed.
   - Make japicompat ignore the pluses.
   - Make japilist ignore the pluses.
-- For 0.9.2:
+- For 0.9.3:
   - Add more filtering options to japilist: -s superclass, -t throwabletype,
     -f (public|protected|abstract|concrete|static|instance|final|nonfinal|
         constant|variable)
@@ -139,7 +128,7 @@ Missing: x packages, x classes, x interfaces, x fields, x methods, x constructor
   - Convert all non-"a-zA-Z0-9_$" characters in class and method names into
     "\uXXXX". Do the same with characters in constant strings, only use a wider
     range (eg everything in the ascii charset from space to the end).
-- For 0.9.3:
+- For 0.9.4:
   - Optional new argument syntax to japicompat:
     - "-a file.japio" and "-f file.japio" will add or filter based on existing
       japio files.
@@ -150,15 +139,15 @@ Missing: x packages, x classes, x interfaces, x fields, x methods, x constructor
       other -a and -f args are still allowed).
   - Test by generating jdkxx-jdkyy.japio for all yy > xx and then compare kaffe
     to jdkxx filtering out all those japios.
-- For 0.9.3:
-  - Fallout from 0.9.2, since it's a big change and will probably break stuff,
+- For 0.9.5:
+  - Fallout from 0.9.4, since it's a big change and will probably break stuff,
     including its own new functionality.
   - Anything else needed by kaffe or any other free java project for creating
     nightly results output.
   - This is 1.0 "release candidate"
   - ?? bump file format version to 1.0 with no changes?
-- For 0.9.4:
-  - If there's any fallout from 0.9.3, do a second release candidate. Otherwise
+- For 0.9.6:
+  - If there's any fallout from 0.9.5, do a second release candidate. Otherwise
     skip this and go straight to 1.0.
 - For 1.0.0:
   - Minor bugfixes only.
