@@ -327,6 +327,8 @@ EOF
     push @{$errors->{"$pkg/$etype"}}, $line;
     $totals->{"$etype/$isa"}++;
     $totals->{"$etype/$isa/$pkg"}++;
+  } elsif (/^end japio$/) {
+    last;
   } else {
     die "Line not understood in japio file:\n$_";
   }

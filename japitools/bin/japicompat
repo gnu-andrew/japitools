@@ -61,6 +61,7 @@ $buggyver = "0.9.5";
 @allerrors = ();
 $ignore_orig = "";
 $ignore_new = "";
+$totalerrors = 0;
 
 # Requirements
 use IO::Handle;
@@ -692,6 +693,8 @@ sub load_ignore_file() {
         my ($pkg, $cls) = split(/,/, $class, 2);
         my $dotclass = "$pkg.$cls";
         $ign->{"$dotclass\!$member $rest"} = 1;
+      } elsif (/^end japio$/) {
+        last;
       }
     }
     close IGN;

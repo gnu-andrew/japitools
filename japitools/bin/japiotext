@@ -135,6 +135,8 @@ while (<>) {
     my ($pkg, $cmember) = split /,/, $item;
     push @{$errors->{"$pkg/$etype"}}, $line;
     $totals->{"$etype/$isa"}++;
+  } elsif (/^end japio$/) {
+    last;
   } else {
     die "Line not understood in japio file:\n$_";
   }
