@@ -747,11 +747,11 @@ public class Japize {
           continue;
         }
 
-        // For some reason the JDK returns values for static initializers
-        // sometimes. Skip calls called <init> and <clinit>.
+        // Skip calls called <init> and <clinit>. Constructors are handled
+        // with an empty method name, and class initializers are never part of
+        // the public API.
         if ("<init>".equals(calls[i].getName()) ||
             "<clinit>".equals(calls[i].getName())) {
-          progress('<');
           continue;
         }
 

@@ -7,7 +7,7 @@ implementations of Java itself for compatibility with Sun's JDK, but they can
 also be used for testing backward compatibility between versions of any API.</p>
 <p>The tools are <a href="#japize">japize</a>
 and <a href="#japicompat">japicompat</a>. Japize is a Java program which
-uses the jode.bytecode library to emit a listing of an API in a machine-readable
+emits a listing of an API in a machine-readable
 format. Japicompat then takes two such listings and compares them for binary
 compatibility, as defined by Sun in the
 <a href="http://java.sun.com/docs/books/jls/html/13.doc.html">Java Language Specification</a>
@@ -73,23 +73,41 @@ created by running japize over the rt.jar (or equivalent) files from each
 JDK release.</p>
 <h3>News</h3>
 <ul>
-  <li>XX November 2004: Released japitools-0.9.5. This release adds a
-      much-requested feature: the ability to ignore differences when reporting
-	  compatibility with an early API release, if those differences are
-	  required for compatibility with a later release. See the description of
-	  the -i flag below for more information. This new code has been running
-	  nightly for a while producing the results linked above, without any known
-	  problems. It reveals that the free implementations are much closer to full
-	  coverage of 1.0 and 1.1 than was previously apparent - in fact missing only
-	  three fields from java.awt.Font for 1.0 coverage and only slightly more for
-	  1.1.<br>
-	  Thanks to Michael Koch for the key insight that enabled this feature to
-	  finally be written, after four years of me saying it was needed.<br>
-	  Also in this release is a fix from Jeroen Frijters for methods in final
-	  classes that were not explicitly marked final themselves, and the
-	  serialize and serialcompat tools have been removed (they are now a module
-	  in the <a href="?">Mauve</a> project).
-	  </li>
+  <li>XX November 2004: Released japitools-0.9.5. This release has several
+      significant changes and fixes:
+      <ul>
+        <li>A much-requested feature: the ability to ignore differences when
+            reporting compatibility with an early API release, if those
+            differences are required for compatibility with a later release. See
+            the description of the -i flag below for more information. This new
+            code has been running nightly for a while producing the results
+            linked above, without any known problems. It reveals that the free
+            implementations are much closer to full coverage of 1.0 and 1.1 than
+            was previously apparent - in fact already perfect for 1.0 and in
+            Classpath's case only one method away from 1.1.<br>
+            Thanks to Michael Koch for the key insight that enabled this feature
+            to finally be written, four years after I first said it was needed.
+        </li>
+        <li>A new bytecode reading implementation from Jeroen Frijters to
+            replace Jode. This vastly reduces the amount of code because it
+            only reads and understands the bits of metadata we actually need,
+            where Jode was part of a larger system that needed more information.
+            This code also fixes a "Miranda Methods" bug in the Jode
+            implementation.</li>
+        <li>Also from Jeroen: methods in final classes are now treated as
+            final even if they weren't explicitly marked as such.</li>
+        <li>Correct access modifiers on inner classes. Jeroen caught this one
+            and the fix was a joint effort.</li>
+        <li>japicompat will warn if using a japi file from an older release that
+            contains known bugs. That covers all versions except for this one,
+            in fact. Use the -w flag to disable this warning</li>
+        <li>Better support for launching japiotext and japiohtml on Windows
+            systems (some issues may remain, however).</li>
+        <li>The serialize and serialcompat tools have been removed (they are
+            now a module in the
+            <a href="http://sources.redhat.com/mauve/">Mauve</a> project).</li>
+      </ul>
+  </li>
   <li>30 September 2004: Released japitools-0.9.4. This is a bugfix release
       that addresses two issues:
       <ul>
