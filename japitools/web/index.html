@@ -139,9 +139,10 @@ containing it and then name the class for processing.</p>
 <h4>+|-&lt;pkgpath&gt;</h4>
 <p>To specify which classes are included, use +pkgpath to add pkgpaths to be
 scanned and -pkgpath to exclude sub-pkgpaths of these. You MUST specify at least
-one +pkgpath option to specify which pkgpath to include, otherwise Japize will
+one +pkgpath option to specify which pkgpath to include, otherwise Japize could
 happily scan through all the zipfiles and directories but not actually process
-any of the classes.</p>
+any of the classes. Since that would be a useless thing to do, japize gives an
+error instead.</p>
 <p>A "pkgpath" refers to either a package (which includes, by implication, all
 sub-packages of it) or a single class. A pkgpath for a package looks like
 "com.foo.pkg.sub," and a pkgpath for a class looks like "com.foo.pkg,Cls". The
@@ -172,10 +173,6 @@ on whether you specified apis, explicitly, byname, packages, or classes.</p>
   <dd>a.b.c will be processed as a class. If processing for a package is needed,
       it must be specified explicitly.</dd>
 </dl>
-<p>Remember that at least one "+&lt;pkgpath&gt;" option is required: if it
-weren't, japize could happily scan all the zipfiles and directories you specify
-and not process anything. Since that's a useless thing to do, japize will give
-you an error message instead.</p>
 <h4>Example</h4>
 <p>As an example, Sun's
 JDK 1.1 includes classes in java.awt.peer and in java.text.resources that are
@@ -189,7 +186,7 @@ small amount of processing by doing this instead:</p>
 <p>or even this:</p>
 <pre>$ japize zip as jdk11 explicitly classes.zip +java, -java.awt.peer, -java.text.resources,</pre>
 <p>Another example, this time doing the same thing for kaffe:</p>
-<pre>japize zip as kaffe packages $KAFFEHOME/share/kaffe/Klasses.jar $KAFFEHOME/share/kaffe/rmi.jar +java -java.awt.peer -java.text.resources</pre>
+<pre>$ japize zip as kaffe packages $KAFFEHOME/share/kaffe/Klasses.jar $KAFFEHOME/share/kaffe/rmi.jar +java -java.awt.peer -java.text.resources</pre>
 <h4><a name="japicompat">japicompat</a></h4>
 <p>Next, you can perform the test for compatibility between these two files:
 <pre>
@@ -208,7 +205,7 @@ SerialVersionUID number from one release to the next. Because in most cases
 this is likely to produce lots of errors, it needs to be explicitly turned on
 by passing the -v flag to japicompat, for example:</p>
 <pre>
-$ japicompat.pl -v jdk11.japi.gz kaffe.japi.gz
+$ japicompat -v jdk11.japi.gz kaffe.japi.gz
 </pre>
 <p>The v stands for serial "version" or "verbose".</p>
 <h3>What exactly does japicompat test?</h3>
@@ -246,8 +243,8 @@ backwardly-compatible with the first. Therefore, a perfect implementation of
 JDK 1.1 would produce no errors regardless of the order of the arguments, but a
 perfect implementation of JDK1.1 plus *parts* of JDK1.2 should be tested as
 follows:</p>
-<pre>japicompat jdk11.japi.gz kaffe.japi.gz
-japicompat kaffe.japi.gz jdk12.japi.gz</pre>
+<pre>$ japicompat jdk11.japi.gz kaffe.japi.gz
+$ japicompat kaffe.japi.gz jdk12.japi.gz</pre>
 <p>It is probably impossible to make an implementation that passes both these
 tests, since Sun's own JDK1.2 produces numerous errors when tested against
 JDK1.1.</p>
