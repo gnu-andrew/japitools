@@ -135,7 +135,7 @@ print_summary();
 sub japicmp($$) {
   my ($ia, $ib) = @_;
   return -1 unless defined $ib;
-  $ia->{item} cmp $ib->{item};
+  $ia->{rawitem} cmp $ib->{rawitem};
 }
 
 # Convert a type signature as used in a japi file to a displayable type.
@@ -223,6 +223,8 @@ sub read_japi_item($) {
     if defined($japi->{last_item}) && $japi->{last_item} ge $item;
   $japi->{last_item} = $item;
 
+  my $rawitem = $item;
+
   # Check and trim the leading plusses on java.lang.Object and java.lang.
   die "\nMissing required leading plusses on $item"
     if $item =~ /^java\.lang[.,]/ || $item =~ /^\+java\.lang,Object!/;
@@ -254,6 +256,7 @@ EOF
 
   # Store information about the entry in $japi->{$pkg}->{$class}->{$member}.
   my $mitem = {};
+  $mitem->{rawitem} = $rawitem;
   $mitem->{item} = $item;
   $mitem->{isa} = $isa;
   $mitem->{class} = $class;

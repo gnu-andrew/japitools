@@ -105,8 +105,7 @@
 - For 0.9.2:
   * Bump the file format version again...
   * Add an optional creation date on the %%japi line.
-  * Include it in the japio.
-  * Include it in the html and text.
+  * Include the japi-creation date in the japio.
   * Add "++" in front of java.lang.Object and "+" in front of java.lang.*,
     and make both japifix and japicompat use straight "cmp" for sorting.
   * Make japifix add the pluses as needed.
@@ -125,6 +124,8 @@
   * "-h" and "-t" flags to japicompat will pipe to the relevant program
   * Store the current japi version in a variable in japifix since it's now used
     in multiple places.
+  * "-q" flag to japifix to supress messages.
+  - Include the japi-creation date in the html and text.
   - Add summary totals in both japiotext and japiohtml that appear *before* the
     full listing of errors.
   - Add per-package summary of errors in japiohtml, again *before* the actual

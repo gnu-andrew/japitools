@@ -66,11 +66,11 @@ sub out($) {
     if ($a ge $b) {
       if ($scan_only) {
         print STDERR "\n$infile mis-sorted:\n$a >=\n$b\nWill enable sort..."
-          unless $sortthis;
+          unless $sortthis || $quiet;
         $sortthis = 1;
       } else {
         unshift @ARGV, $infile;
-        print STDERR "\n$infile mis-sorted:\n$a >=\n$b\nRestarting with sort enabled\n";
+        print STDERR "\n$infile mis-sorted:\n$a >=\n$b\nRestarting with sort enabled\n" unless $quiet;
         $sortthis = 1;
         return 0;
       }
@@ -99,18 +99,18 @@ sub out($) {
 
 sub dump_deferred() {
   if (@out && !$needtosort) {
-    print STDERR " (relocated java.lang)" unless $scan_only;
+    print STDERR " (relocated java.lang)" unless $scan_only || $quiet;
     if (defined $last_out) {
       $a = $last_out;
       $b = $out[0];
       if ($a ge $b) {
         if ($scan_only) {
           print STDERR "\n$infile mis-sorted:\n$a >=\n$b\nWill enable sort..."
-            unless $sortthis;
+            unless $sortthis || $quiet;
           $sortthis = 1;
         } else {
           unshift @ARGV, $infile;
-          print STDERR "\n$infile mis-sorted:\n$a >=\n$b\nRestarting with sort enabled\n";
+          print STDERR "\n$infile mis-sorted:\n$a >=\n$b\nRestarting with sort enabled\n" unless $quiet;
           $sortthis = 1;
           return 0;
         }
@@ -132,13 +132,14 @@ sub begin() {
 
   #: parse parameters
   my $firsttime = 1 unless defined %opts;
-  getopts("fhzube:", \%opts) if $firsttime;
+  getopts("fhzubqe:", \%opts) if $firsttime;
 
   printusage if $opts{h};
   my $zippit = 1 if $opts{z};
   my $unzippit = 1 if $opts{u};
   my $backup = 1 unless $opts{b};
   my $force = 1 if $opts{f};
+  my $quiet = 1 if $opts{q};
 
   if ($firsttime && $opts{e}) {
     my @excpfiles = split /,/, $opts{e};
@@ -203,7 +204,7 @@ EOF
   }
 
   if ($japiver eq $currver && !$force) {
-    print STDERR "Skipping $infile (japi v$japiver)\n";
+    print STDERR "Skipping $infile (japi v$japiver)\n" unless $quiet;
     $skip = 1;
     close IN;
     return 1;
@@ -221,7 +222,7 @@ EOF
   } elsif ($japiver le "0.9.2") {
     if ($scan_only) {
       $scan_only = 0;
-      print " done.\n";
+      print " done.\n" unless $quiet;
     } else {
       $scan_only = 1;
       %excp_supers = %init_supers;
@@ -282,7 +283,7 @@ sub start() {
   $sortthis = 0;
   print STDERR $scan_only ?
     "Scanning $outfile (japi v$japiver) for exception types..." :
-    "Converting $outfile (japi v$japiver)...";
+    "Converting $outfile (japi v$japiver)..." unless $quiet;
   STDERR->autoflush;
   @out = ();
   unless ($scan_only) {
@@ -300,7 +301,7 @@ sub finish() {
     return;
   }
   if ($needtosort) {
-    print STDERR " sorting...";
+    print STDERR " sorting..." unless $quiet;
     print OUT (sort @out);
   }
   close IN;
@@ -312,7 +313,7 @@ sub finish() {
   if (defined $rename) {
     rename $rename, $outfile or die "\nCould not rename $rename to $outfile: $!";
   }
-  print STDERR " done.\n";
+  print STDERR " done.\n" unless $quiet;
 }
 
 sub to_new() {
