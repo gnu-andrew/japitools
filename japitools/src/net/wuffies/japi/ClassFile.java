@@ -817,9 +817,14 @@ public class ClassFile implements ClassWrapper
 		if(entry != null)
 		{
 		    InputStream in = zf.getInputStream(entry);
-		    ClassFile cf = new ClassFile(in);
-		    in.close();
-		    return cf;
+                    try
+                    {
+                        return new ClassFile(in);
+                    }
+                    finally
+                    {
+		        in.close();
+                    }
 		}
 	    }
 	    catch(IOException x)
@@ -827,6 +832,37 @@ public class ClassFile implements ClassWrapper
 	    }
 	    return null;
 	}
+    }
+
+    private static class DirClassPathEntry extends ClassPathEntry
+    {
+        private File dir;
+
+        DirClassPathEntry(File dir)
+        {
+            this.dir = dir;
+        }
+
+        ClassFile load(String name)
+        {
+            try
+            {
+                File f = new File(dir, name.replace('.', File.separatorChar) + ".class");
+                FileInputStream in = new FileInputStream(f);
+                try
+                {
+                    return new ClassFile(in);
+                }
+                finally
+                {
+                    in.close();
+                }
+            }
+            catch(IOException x)
+            {
+            }
+            return null;
+        }
     }
 
     public static ClassFile forName(String name)
@@ -855,7 +891,8 @@ public class ClassFile implements ClassWrapper
 	    File f = new File(st.nextToken());
 	    if(f.isFile())
 		list.add(new JarClassPathEntry(f));
-	    // TODO add directory support
+	    else if(f.isDirectory())
+                list.add(new DirClassPathEntry(f));
 	}
 	ClassFile.classpath = new ClassPathEntry[list.size()];
 	list.toArray(ClassFile.classpath);
