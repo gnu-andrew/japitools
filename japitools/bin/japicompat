@@ -400,10 +400,10 @@ sub dump_output($) {
   }
   if ($buggywarn) {
     if ($orig->{"origver"} && $orig->{"origver"} le $buggyver) {
-      print OUT "notify Warning: $origsname API may have been read by a version of japitools that contained known bugs that cause inaccuracies in the output.\n";
+      print OUT "notify Warning: $origsname API was read by a version of japitools that contained known bugs that cause inaccuracies in the output.\n";
     }
     if ($new->{"origver"} && $new->{"origver"} le $buggyver) {
-      print OUT "notify Warning: $newsname API may have been read by a version of japitools that contained known bugs that cause inaccuracies in the output.\n";
+      print OUT "notify Warning: $newsname API was read by a version of japitools that contained known bugs that cause inaccuracies in the output.\n";
     }
   }
   print OUT "categories =good ";

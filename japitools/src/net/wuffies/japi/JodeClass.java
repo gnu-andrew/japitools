@@ -65,15 +65,19 @@ class JodeClass implements ClassWrapper {
       }
     }
   }
+  private static final int modfilters =
+      Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PRIVATE | Modifier.STATIC;
+
   public int getModifiers() {
     int modifiers = c.getModifiers();
 
-    // Workaround Jode limitation: Inner classes store their protected, private
-    // and static modifiers in an unusual location, and the current version of
-    // Jode doesn't know how to find them there. Thus, we do it manually.
+    // Workaround Jode limitation: Inner classes store their public, protected,
+    // private and static modifiers in an unusual location, and the current
+    // version of Jode doesn't know how to find them there. Thus, we do it
+    // manually.
     if (c.getOuterClasses() != null && c.getOuterClasses().length > 0) {
-      modifiers |= (c.getOuterClasses()[0].modifiers &
-                     (Modifier.PROTECTED | Modifier.PRIVATE | Modifier.STATIC));
+      modifiers &= ~modfilters;
+      modifiers |= (c.getOuterClasses()[0].modifiers & modfilters);
     } else {
       modifiers |= Modifier.STATIC;
     }

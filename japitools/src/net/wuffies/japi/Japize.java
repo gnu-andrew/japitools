@@ -91,6 +91,12 @@ import java.util.Date;
 public class Japize {
 
   /**
+   * Change this to specify whether to use Jode or the new ClassFile
+   * implementation by Jeroen.
+   */
+  private static final boolean useJode = false;
+
+  /**
    * The path to scan for classes in.
    */
   private static List path = new ArrayList();
@@ -225,14 +231,14 @@ public class Japize {
     }
     if (path.isEmpty() || roots.isEmpty()) printUsage();
 
-    // If we are using Jode, we need to initialize Jode's classpath to
-    // find classes in the correct location.
+    // We need to initialize the classpath to find classes in the correct
+    // location.
     StringBuffer cp = new StringBuffer();
     for (Iterator j = path.iterator(); j.hasNext(); ) {
       if (cp.length() > 0) cp.append(File.pathSeparatorChar);
       cp.append(j.next());
     }
-    JodeClass.setClassPath(cp.toString());
+    setClasspath(cp.toString());
 
     // Figure out what output writer to use.
     if (fileName == null) {
@@ -696,7 +702,7 @@ public class Japize {
             int p = 0, q = 0;
             while (q >= 0) {
               q = val.indexOf("\n", p);
-              int r = val.indexOf("\\");
+              int r = val.indexOf("\\", p);
               if (r >= 0 && (r < q || q < 0)) q = r;
               if (q >= 0) {
                 sb.append(val.substring(p, q));
@@ -910,10 +916,20 @@ public class Japize {
   }
 
   /**
+   * Set the classpath for the appropriate implementation we are using.
+   *
+   * @param cp The classpath to set.
+   */
+  public static void setClasspath(String cp) throws IOException {
+    if (useJode) {
+      JodeClass.setClassPath(cp);
+    } else {
+      ClassFile.setClasspath(cp);
+    }
+  }
+  /**
    * Construct the appropriate type of ClassWrapper object for the processing we
-   * are doing. Returns a JodeClass unconditionally because that's all we
-   * currently support (the alternative used to be Reflection, but that didn't
-   * provide enough information to function correctly).
+   * are doing. 
    *
    * @param className The fully-qualified name of the class to get a wrapper
    * for.
@@ -921,6 +937,10 @@ public class Japize {
    */
   public static ClassWrapper getClassWrapper(String className) 
       throws  ClassNotFoundException {
-    return new JodeClass(className);
+    if (useJode) {
+      return new JodeClass(className);
+    } else {
+      return ClassFile.forName(className);
+    }
   }
 }
