@@ -110,7 +110,13 @@ if ($outprog) {
   my $ct = 0; my $prog = $0;
   $prog = readlink $prog while -l $prog && $ct++ < 5;
   $progdir = $1 if $prog =~ /^(.*)\/[^\/]+$/;
-  open OUT, "|$progdir/$outprog";
+  if ($progdir) {
+    $progdir .= "/";
+  } else {
+    $progdir = $1 if $prog =~ /^(.*)\\[^\\]+$/;
+    $progdir .= "\\" if $progdir;
+  }
+  open OUT, "|$^X \"$progdir$outprog\"";
 } else {
   if ($opts{"o"}) {
     open OUT, ">$opts{o}";
