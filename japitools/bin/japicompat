@@ -22,6 +22,10 @@
 ###############################################################################
 
 # Recent changes:
+# - 2002/08/01: Update to handle version 0.9 japi files. Add back the summary
+#   of errors at the end (minus "nnn good" which can't be calculated).
+# - 2002/07/31: Fixed a nasty hang-at-end-of-file bug and a bug that caused
+#   japicompat to think packages were missing when they weren't.
 # - 2002/07/30: Rewritten version works apparently correctly, for the first
 #   time. Summary information printed per-package as well as globally.
 # - 2002/07/08: Beginnings of major rewrite to process japis efficiently.
@@ -48,7 +52,7 @@
 ## GLOBAL VARIABLES ##
 
 # Some global variables used for displaying stuff.
-$japiver = "0.8.1";
+$japiver = "0.9";
 $javatypes = {Z=>'boolean', B=>'byte', C=>'char', D=>'double', F=>'float',
                   I=>'int', J=>'long', S=>'short', V=>'void'};
 @static = ('instance', 'static');
@@ -68,7 +72,7 @@ sub readable_member($);
 sub open_japi($);
 sub read_japi_item($);
 sub close_japi($);
-sub output_error($$$$$$);
+sub output_error($$$$$$;$);
 sub compare_japis($$);
 sub compare_japi_item($$$$);
 sub merge_results();
@@ -131,7 +135,7 @@ sub japicmp($$) {
 
 sub japitemcmp($$) {
   ($a, $b) = @_;
-  scmp {/^java\.lang,Object%/};
+  scmp {/^java\.lang,Object%/} sub {scmp {/^java\.lang,/}};
 }
 
 # Convert a type signature as used in a japi file to a displayable type.
@@ -306,17 +310,17 @@ sub close_japi($) {
   close $fh;
 }
 
-sub inc($$$$) {
-  my ($c, $pkg, $isa, $nm) = @_;
-  $c->{"$pkg/$nm"}++;
-  $c->{"#$isa/$nm"}++;
-  $c->{"/$nm"}++;
+sub inc($$$$;$) {
+  my ($c, $pkg, $isa, $etype, $count) = (@_, 1);
+  $c->{"$pkg/$etype"} += $count;
+  $c->{"#$isa/$etype"} += $count;
+  $c->{"/$etype"} += $count;
 }
 
-sub output_error($$$$$$) {
-  my ($oitem, $nitem, $oclitem, $c, $etype, $error) = @_;
+sub output_error($$$$$$;$) {
+  my ($oitem, $nitem, $oclitem, $c, $etype, $error, $count) = (@_, 1);
   my ($supct, $sups);
-  if ($oitem->{isa} eq "package" || $oitem->{isa} eq "class" && !$etype) {
+  if ($oitem->{isa} eq "package") {
     $supct = 0;
     $sups = "";
   } else {
@@ -327,25 +331,29 @@ sub output_error($$$$$$) {
   unless ($ofhs[$supct]) {
     $ofhs[$supct] = new_tmpfile IO::File();
   }
-  print {$ofhs[$supct]} "$sups $oitem->{isa} $oitem->{item} $error\n";
-# print "$sups $oitem->{isa} $oitem->{item} $error\n";
-  inc($c, $oitem->{package}, $oitem->{isa}, $etype)
-    unless !$etype || $errhere;
+  print {$ofhs[$supct]} "$sups $etype $oitem->{isa} $oitem->{item} $error\n";
+  inc($c, $oitem->{package}, $oitem->{isa}, $etype, $count)
+    unless $errhere;
   $errhere = 1;
 }
 
 sub pct($$$$) {
-  my ($c, $pkg, $nm, $str) = @_;
-  my $ct = $c->{"$pkg/$nm"};
+  my ($c, $pkg, $etype, $str) = @_;
+  my $ct = $c->{"$pkg/$etype"};
   return $str unless $ct;
   my $tot = $c->{"$pkg/total"};
   $str .= ", " if $str;
-  return $str . ((int (10000 * $ct / $tot)) / 100) . "% $nm";
+  return $str . ((int (10000 * $ct / $tot)) / 100) . "% $etype";
 }
 
 sub short_summary($$) {
   my ($c, $pkg) = @_;
   my $pkgn = $pkg || "Total";
+  if ($pkg =~ /^#(.)(.*)$/) {
+    $pkgn = uc($1) . $2;
+    $pkgn .= "e" if $pkgn =~ /[sx]$/;
+    $pkgn .= "s";
+  }
   if ($dot) {
     print STDERR "\r$pkgn: ";
     my $res = pct($c, $pkg, "good", "");
@@ -371,14 +379,10 @@ sub compare_japis($$) {
     inc($c, $oitem->{package}, $oitem->{isa}, "total");
     my $isnewpkg = ($pkg ne $oitem->{package});
     my $isnewclass = $isnewpkg || ($class ne $oitem->{class});
-    if ($isnewpkg && $dot) {
-      short_summary($c, $pkg) if $pkg;
-      print STDERR $oitem->{package};
-    }
-    print STDERR $dot if $isnewclass;
     my $cmp;
     my $first = 1;
     while (($cmp = japicmp($oitem, $nitem)) > 0) {
+      $errhere = 0;
 
       # Keep an eye out for members that are abstract that are also not in
       # the original. This check is not in the JLS, so only do it if sun_only
@@ -391,41 +395,45 @@ sub compare_japis($$) {
       $first = 0;
       $nitem = read_japi_item($new);
     }
+    if ($isnewpkg && $dot) {
+      short_summary($c, $pkg) if $pkg;
+      print STDERR $oitem->{package};
+    }
+    print STDERR $dot if $isnewclass;
     $pkg = $oitem->{package};
     $class = $oitem->{class};
     $oclitem = $oitem if $isnewclass;
+    $errhere = 0;
     if ($cmp) {
+      my $ecount = 1;
       my $eitem = {%$oitem};
       if ($isnewpkg && (!defined($nitem) ||
                         $nitem->{package} ne $oitem->{package})) {
         $eitem->{isa} = "package";
         $eitem->{class} = "";
         $eitem->{item} = "$pkg,%";
-        inc($c, $pkg, $oitem->{isa}, "missing");
         while (defined $oitem && $oitem->{package} eq $pkg) {
           $oitem = read_japi_item($orig);
           if (defined $oitem && $oitem->{package} eq $pkg) {
             inc($c, $pkg, $oitem->{isa}, "total");
-            inc($c, $pkg, $oitem->{isa}, "missing");
+            $ecount++;
           }
         }
       } elsif ($isnewclass) {
-        inc($c, $pkg, $oitem->{isa}, "missing");
         while (defined $oitem && $oitem->{package} eq $pkg &&
                $oitem->{class} eq $class) {
           $oitem = read_japi_item($orig);
           if (defined $oitem && $oitem->{package} eq $pkg &&
               $oitem->{class} eq $class) {
             inc($c, $pkg, $oitem->{isa}, "total");
-            inc($c, $pkg, $oitem->{isa}, "missing");
+            $ecount++;
           }
         }
       } else {
-        inc($c, $pkg, $oitem->{isa}, "missing");
         $oitem = read_japi_item($orig);
       }
-      output_error($eitem, undef, $oclitem, $c, undef,
-                   "present in $origfile but missing in $newfile");
+      output_error($eitem, undef, $oclitem, $c, "missing",
+                   "present in $origfile but missing in $newfile", $ecount);
     } else {
       $nclitem = $nitem if $isnewclass;
       inc($c, $pkg, $oitem->{isa}, "good")
@@ -439,6 +447,7 @@ sub compare_japis($$) {
   my $first = 1;
   while (!$sun_only && defined $nitem &&
          $nitem->{package} eq $pkg && $nitem->{class} eq $class) {
+    $errhere = 0;
 
     # Keep an eye out for members that are abstract that are also not in
     # the original. This check is not in the JLS, so only do it if sun_only
@@ -461,7 +470,6 @@ sub compare_japi_item($$$$) {
 
   my $isa = $oitem->{isa};
   my $member = $oitem->{member};
-  $errhere = 0;
 
   # Check that access to the item hasn't been reduced.
   if ($oitem->{public} && !$nitem->{public}) {
@@ -559,24 +567,34 @@ sub compare_japi_item($$$$) {
 
 sub merge_results() {
   my $errs = {};
+  $sc = {};
   print STDERR "Merging results / eliminating dups...\n" if $dot;
   foreach my $fh (@ofhs) {
     if ($fh) {
       $fh->seek(0, 0);
       while (<$fh>) {
         chomp;
-        my ($sups, $isa, $item, $rest) = split(/ /, $_, 4);
+        my ($sups, $etype, $isa, $item, $rest) = split(/ /, $_, 5);
         my ($class, $member) = split(/%/, $item, 2);
         my @sups = split(/;/, $sups);
         my $insup = 0;
-        foreach my $sup (@sups) {
-          $insup = 1 if $errs->{"$sup\%$member $rest"};
+
+        # Determine whether the same error appears in any superclass, and if so
+        # do not report this error. That doesn't apply, though, to missing
+        # classes, which should be reported regardless of whether their
+        # superclass is missing too.
+        unless ($isa eq 'class' && $etype eq 'missing') {
+          foreach my $sup (@sups) {
+            $insup = 1 if $errs->{"$sup\%$member $rest"};
+          }
         }
         unless ($insup) {
-          $class =~ s/,/./;
+          my ($pkg, $cls) = split(/,/, $class, 2);
+          $class = "$pkg.$cls";
           $errs->{"$class\%$member $rest"} = 1;
           print "$isa $class.".readable_member($member)." $rest\n";
           $totalerrors++;
+          inc($sc, $pkg, $isa, $etype);
         }
       }
       $fh->close();
@@ -586,7 +604,41 @@ sub merge_results() {
   print STDERR "Done.\n" if $dot;
 }
 
+sub ct($$$$) {
+  my ($c, $pkg, $etype, $str) = @_;
+  my $ct = $c->{"$pkg/$etype"};
+  return $str unless $ct;
+  $str .= ", " if $str;
+  return "$str$ct $etype";
+}
+
+sub count_summary($$) {
+  my ($c, $pkg) = @_;
+  my $pkgn = $pkg || "Total";
+  if ($pkg =~ /^#(.)(.*)$/) {
+    $pkgn = uc($1) . $2;
+    $pkgn .= "e" if $pkgn =~ /[sx]$/;
+    $pkgn .= "s";
+  }
+  if ($dot) {
+    print STDERR "\r$pkgn: ";
+    my $res = ct($c, $pkg, "good", "");
+    $res = ct($c, $pkg, "bad", $res);
+    $res = ct($c, $pkg, "missing", $res);
+    $res = ct($c, $pkg, "abs.add.", $res);
+    $res = "All good" unless $res;
+    print STDERR "$res \n";
+  }
+}
 # Print summary information.
 sub print_summary() {
-  print STDERR "$totalerrors unique errors found.\n" if $dot;
+  if ($dot) {
+    print STDERR "\n";
+    count_summary($sc, "#package");
+    count_summary($sc, "#class");
+    count_summary($sc, "#field");
+    count_summary($sc, "#constructor");
+    count_summary($sc, "#method");
+    print STDERR "$totalerrors unique errors found.\n";
+  }
 }

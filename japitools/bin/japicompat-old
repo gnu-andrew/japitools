@@ -43,7 +43,7 @@
 ## GLOBAL VARIABLES ##
 
 # Some global variables used for displaying stuff.
-$japiver = "0.8.1";
+$japiver = "0.9";
 $javatypes = {Z=>'boolean', B=>'byte', C=>'char', D=>'double', F=>'float',
                   I=>'int', J=>'long', S=>'short', V=>'void'};
 @static = ('instance', 'static');

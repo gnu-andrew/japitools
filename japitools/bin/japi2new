@@ -1,76 +1,115 @@
 #!/usr/bin/perl
 
 use IO::Handle;
+use Getopt::Std;
 
 %sigs = (boolean=>'Z', byte=>'B', char=>'C', double=>'D', float=>'F', int=>'I',
          long=>'J', short=>'S', void=>'V',
          class=>'class', interface=>'interface', constructor=>'constructor');
 
 sub out($);
+sub begin();
 sub start();
+sub dump_deferred();
 sub finish();
 sub to_new();
 sub scmp(&;&);
 
 my @out = ();
 
-$_ = <>; chomp;
-if (/^[^ ]+#[^ ]* (public|protected) (abstract|concrete) (static|instance) (final|nonfinal) /) {
-  $japiver = "0.7";
-  start;
-  out to_new;
-} elsif (/^[^ ]+#[^ ]* [Pp][ac][si][fn] /) {
-  $japiver = "0.8";
-  start;
-  out to_new;
-} elsif (/^\%\%japi ([^ ]*)(?: .*)?$/) {
-  $japiver = $1;
-  if ($japiver ne "0.8.1") {
-    print STDERR <<EOF;
+while (begin) {
+  $_ = <IN>; chomp;
+  if (/^[^ ]+#[^ ]* (public|protected) (abstract|concrete) (static|instance) (final|nonfinal) /) {
+    $japiver = "0.7";
+    start;
+    out to_new;
+  } elsif (/^[^ ]+#[^ ]* [Pp][ac][si][fn] /) {
+    $japiver = "0.8";
+    start;
+    out to_new;
+  } elsif (/^\%\%japi ([^ ]*)(?: .*)?$/) {
+    $japiver = $1;
+    if ($japiver ne "0.8.1" && $japiver ne "0.9") {
+      print STDERR <<EOF;
 This japi file claims to be version $japiver, but this version of japi2new only
-understands version 0.8.1 and older versions that did not carry a version
-number. Either this japi file is incorrect or you need a newer version of
-japi2new.
+understands version 0.8.1, version 0.9, and older versions that did not carry a
+version number. Either this japi file is incorrect or you need a newer version
+of japi2new.
 EOF
-    exit 1;
-  }
-  start;
-} else {
-  print STDERR <<EOF;
+      exit 1;
+    }
+    start;
+  } else {
+    print STDERR <<EOF;
 This does not appear to be a japi file. japi2new can only update old japis,
 not create them from scratch.
 EOF
-  exit 1;
+    exit 1;
+  }
+
+  while(<IN>) {
+    chomp;
+    out to_new;
+  }
+  finish;
 }
 
-while(<>) {
-  chomp;
-  out to_new;
-}
-finish;
-  
 sub out($) {
-  if ($needtosort) {
+  if ($needtosort || $defer_output) {
     push @out, "$_[0]\n";
   } else {
-    print "$_[0]\n";
+    print OUT "$_[0]\n";
   }
+}
+
+sub begin() {
+  #: check if there's any more to do; return false if not
+  return 0 unless @ARGS;
+
+  #: parse parameters
+  getopts("zubo:g:", \%opts);
+
+  # -z|-u -b -o[file]|-g[file]|[file1 ...]
+  # -z to zip output, -u to unzip output (default is to follow the input file
+  # unless it's too old to have been zipped itself, in which case zip it)
+  # -b to NOT back up the original file with a .bak extension. Original file
+  # will be removed instead. Doesn't apply to -o/-g mode.
+  # -o to read unzipped input from stdin and output to [file] or stdout
+  # -g to read gzipped input from stdin and output to [file] or stdout
+  # all other args are japi files to convert; output is to original filename
+  # (plus or minus .gz); original will be renamed to .bak.
+  #: open IN
+  #: open OUT
+  #: return true
 }
 
 sub start() {
   $needtosort = $japiver le "0.8";
   print STDERR "Converting from japi version $japiver...";
   STDERR->autoflush;
-  print "%\%japi 0.8.1\n";
+  print OUT "%\%japi 0.9\n";
+}
+
+sub dump_deferred() {
+  if (@out) {
+    print STDERR " (relocated java.lang)";
+    print OUT @out;
+    @out = ();
+  }
 }
 
 sub finish() {
   if ($needtosort) {
     print STDERR " sorting...";
-    print (sort {scmp {/^java\.lang,Object%/}} @out);
+    print OUT (sort {scmp {/^java\.lang,Object%/},
+                sub {scmp {/^java\.lang,/}}} @out);
   }
+  #: close IN
+  #: move new file to overwrite old, if necessary
+  shift;
   print STDERR " done.\n";
 }
+
 sub to_new() {
 
   my $older = 0;
@@ -123,7 +162,15 @@ sub to_new() {
   }
   if ($japiver eq "0.8.1" or $older) {
     $older = 1;
-    # Do nothing - 0.8.1 is as far as we can get right now...
+    unless ($needtosort) {
+      $defer_output = !$past_jlo && !/^java\.lang,/;
+      dump_deferred if $past_jlo && !/^java\.lang,/;
+      $past_jlo = 1 if /^java\.lang,/ && !/^java\.lang,Object%/;
+    }
+  }
+  if ($japiver eq "0.9" or $older) {
+    $older = 1;
+    # Do nothing - 0.9 is as far as we can get right now...
   }
   return $_;
 }

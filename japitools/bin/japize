@@ -5,7 +5,7 @@
 
 sub printusage() {
   print STDERR <<EOF;
-Usage: japize [zip] [as <name>] apis <zipfile>|<dir> ... +|-<pkg> ...
+Usage: japize zip|unzip [as <name>] apis <zipfile>|<dir> ... +|-<pkg> ...
 At least one +pkg is required. The word 'reflect' can appear before 'apis'
 but this is unreliable and deprecated. 'name' will have .japi and/or .gz
 appended if appropriate.
@@ -35,8 +35,10 @@ EOF
 
 my @args = @ARGV;
 my $fn = "";
-my $zip = 0;
-do { shift @args; $zip = 1 } if @args[0] eq 'zip';
+my $zip = 1;
+printusage if $args[0] ne 'zip' && $args[0] ne 'unzip'
+do { shift @args; $zip = 0 } if @args[0] eq 'unzip';
+do { shift @args; $zip = 1 } if $zip && @args[0] eq 'zip';
 do { shift @args; $fn = shift @args } if @args[0] eq 'as';
 shift @args if @args[0] eq 'reflect';
 printusage

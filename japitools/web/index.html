@@ -85,7 +85,7 @@ to compare.</li>
 other</li></ul>
 <h4><a name="japize">japize</a></h4>
 <p>The general usage of japize is as follows:</p>
-<pre>$ japize [zip] [as &lt;name&gt;] apis &lt;zipfile&gt; | &lt;dir&gt; ... +|-&lt;pkgpath&gt; ...</pre>
+<pre>$ japize zip|unzip [as &lt;name&gt;] apis &lt;zipfile&gt; | &lt;dir&gt; ... +|-&lt;pkgpath&gt; ...</pre>
 <p>At least one +&lt;pkgpath&gt; is required. The word "reflect" can appear
 before "apis", but this is unreliable and deprecated. &lt;name&gt; will have
 ".japi" and/or ".gz" appended as appropriate.</p>
@@ -96,9 +96,10 @@ one of the forms "a.b.cpackage," or "a.b,CClass".</p>
 <p>That's the one-paragraph overview, pretty much equivalent to what you get if
 you type "japize" with no arguments. In detail, the options available are as
 follows:</p>
-<h4>zip</h4>
+<h4>zip|unzip</h4>
 <p>Specifying the "zip" option indicates that japize should gzip its output.
-This is highly recommended since it saves huge amounts of space (japi files are
+Specifying "unzip" indicates that it shouldn't. Zipping the output is highly
+recommended since it saves huge amounts of space (japi files are
 large but extremely compressable because they contain large numbers of duplicate
 strings. Factor-of-ten compression seems to be typical). The only situations
 where you might not want to use gzip compression are when memory and CPU usage
@@ -106,6 +107,12 @@ are extremely tight (zipping and unzipping both require more memory the larger
 the file gets, and require more CPU usage - on todays computers this is rarely
 an issue, though) or if your JVM does not implement GZIPOutputStream correctly
 (in which case you might still want to gzip the resulting file manually).</p>
+<p>In previous releases "zip" was an option and "unzip" was not available as
+an option, because it was the implicit default. Since zipping is the recommended
+mode of operation, "zip" will become the implicit default in future versions.
+Japitools 0.8.5 requires an explicit selection of this option to avoid surprises
+caused by silently changing the default. Japitools 0.9 will accept "zip" as a
+no-op; future versions will refuse it entirely.</p>
 <h4>as &lt;name&gt;</h4>
 <p>Specifying this option tells japize to write its output to a file with the
 specified name. If this option is omitted, japize will write to standard output.
@@ -196,6 +203,14 @@ small amount of processing by doing this instead:</p>
 <pre>
 $ japicompat jdk11.japi.gz kaffe.japi.gz
 </pre>
+<p>Either compressed (.japi.gz) or uncompressed (.japi) files can be passed to
+japicompat: The file extension is used to determine whether or not to pipe input
+through gzip or not. japicompat reports its progress to standard error and
+the specific errors to standard output, so you can redirect standard output
+to watch the progress without getting spammed by verbose error messages.
+However, the output should happen in a sensible order even if this is not
+done. Future versions of japicompat will support more flexible output,
+including HTML.</p>
 <p>By default, japicompat tests for binary compatibility as defined by the JLS,
 plus a couple of additions (see below for details). You can turn off these
 additions by passing the -s flag to japicompat, for example:</p>

@@ -1,22 +1,50 @@
-- For 0.8.3:
+* For 0.8.3:
   * Verify results of new japicompat against old
   * Print at least *some* kind of overall summary information at end
   * Update docs
-- For 0.8.4:
+* For 0.8.4:
   * Oops! Fix hang-at-end bug!
 - For 0.8.5:
-  - Better summary information
-  - Update file version format to 0.9
-  - Put the whole of java.lang first along with Object
-  - Make japi2new support new version
+  * Better summary information
+  * Update file version format to 0.9
+  * Put the whole of java.lang first along with Object
+  * Make japi2new support new version
+  * Make japize generate the new version
+  * Support "unzip" option in japize and require that either it or zip be
+    specified. This is a precursor to making zipped output the default; in the
+    next release, "zip" will be a no-op. Requiring the option for one release
+    at least makes sure that people are aware that something changed...
+  * Update webpage to describe zip/unzip option and rationale, with note that
+    "zip" is going away.
+  - Make japi2new work something like gzip/gunzip, replacing the original
+    unless otherwise specified. Make it work with gzipped input and produce
+    gzipped output (by default, but turn-offable).
+  - Make japi2new catch misordered files of versions that are expected to be
+    ordered and fix them up. Essentially it should abort and restart with the
+    'sortneeded' flag set to true.
+  - Test japize at least a little bit!
+  - Figure out why japize is screwing up the ordering and fix it. Perhaps
+    put jdk1.1/classes.zip onto laptop so I can work with it.
+  - Get japize to reliably get constants, by ensuring that nothing will get
+    unloaded until there are no references to the JodeClass. "Anything can be
+    solved by another layer of indirection".
 - For 0.9.0:
-  - Any bug fixes reported in 0.8.4
+  - Make zipped output the silent default in japize, with "zip" a no-op. "unzip"
+    explicitly would turn off the zipping.
+  - Any bug fixes reported in 0.8.4/5
   - This is intended as a vaguely stable milestone before everything breaks
     again.
 - For 0.9.1:
-  - Output in raw mode by default (suggest .japio as file ext)
+  - Output in raw mode by default (suggest .japio as file ext). Add a version
+    to japio files similar to that in japi files.
+  - Put all summary information into the japio somehow to allow it to appear in
+    the results files.
   - japiotext, japiohtml filter programs
   - "-h" and "-t" flags to japicompat will pipe to the relevant program
+  - Remove "zip" no-op option as useless cruft.
+  - Remove reflection support - there's no use case for it and it's useless
+    generality. Keep the generality in case something better than Jode comes
+    along, but "it's generalized!" is no excuse for keeping broken code.
 - For 0.9.2:
   - Optional new argument syntax to japicompat:
     - "-a file.japio" and "-f file.japio" will add or filter based on existing

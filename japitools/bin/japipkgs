@@ -10,10 +10,10 @@ foreach (@ARGV) {
   chomp $hdr;
   my $ver = $1 if $hdr =~ /^\%\%japi ([^ ]*)(?: .*)?$/;
   $ver = "0.8 or earlier (or\nnot a japi file at all)" unless $ver;
-  if ($ver ne "0.8.1") {
+  if ($ver ne "0.9") {
     print STDERR <<EOF;
 $_ is a japi file of version $ver.
-This version of japipkgs only knows how to deal with version 0.8.1 japis. Use
+This version of japipkgs only knows how to deal with version 0.9 japis. Use
 japi2new if your japi file is too old, or get a new version of japipkgs if it
 is too new.
 EOF

@@ -127,12 +127,19 @@ public class Japize {
     // Scan the arguments until the end of keywords is reached, interpreting
     // all the intermediate arguments and dealing with them as appropriate.
     int i = 0;
-    boolean zipIt = false;
+    boolean zipIt = true;
     String fileName = null;
 
     if (i < args.length && "zip".equals(args[i])) {
       zipIt = true;
       i++;
+    } else if (i < args.length && "unzip".equals(args[i])) {
+      zipIt = false;
+      i++;
+    } else {
+      // Specifying neither zip nor unzip is an error, so we pretend there are
+      // no more arguments so that error handling later picks up the case.
+      i = args.length;
     }
     if (i < args.length && "as".equals(args[i])) {
       fileName = args[++i];
@@ -310,7 +317,8 @@ public class Japize {
     System.err.print(str);
     System.err.flush();
   }
-  private static final String J_L_OBJECT = "java.lang,Object";
+  private static final String J_LANG = "java.lang,";
+  private static final String J_L_OBJECT = J_LANG + "Object";
 
   private static void doJapize()
       throws NoSuchMethodException, IllegalAccessException, IOException,
@@ -319,7 +327,7 @@ public class Japize {
     // Print the header identifier. The syntax is "%%japi ver anything". Right
     // now we don't use the 'anything', and in that case the space after the
     // version is optional.
-    out.println("%%japi 0.8.1");
+    out.println("%%japi 0.9");
 
     // Identify whether java.lang,Object fits into our list of things to
     // process. If it does, process it first, then add it to the list of
@@ -329,6 +337,12 @@ public class Japize {
       processClass(J_L_OBJECT);
       if (roots.contains(J_L_OBJECT)) roots.remove(J_L_OBJECT);
       exclusions.add(J_L_OBJECT);
+    }
+    // Then do the same thing with java.lang as a whole.
+    if (checkIncluded(J_LANG)) {
+      processPackage(J_LANG);
+      if (roots.contains(J_LANG)) roots.remove(J_LANG);
+      exclusions.add(J_LANG);
     }
 
     // Now process all the roots that are left.
@@ -536,7 +550,7 @@ public class Japize {
    * Print a usage message.
    */
   private static void printUsage() {
-    System.err.println("Usage: japize [zip] [as <name>] apis <zipfile>|<dir> ... +|-<pkg> ...");
+    System.err.println("Usage: japize zip|unzip [as <name>] apis <zipfile>|<dir> ... +|-<pkg> ...");
     System.err.println("At least one +pkg is required. The word 'reflect' can appear before 'apis'");
     System.err.println("but this is unreliable and deprecated. 'name' will have .japi and/or .gz");
     System.err.println("appended if appropriate.");
