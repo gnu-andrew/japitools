@@ -597,7 +597,7 @@ public class Japize {
    * @return true if the class was public/protected, false if not.
    */
   public static boolean japizeClass(String n)
-      throws NoSuchMethodException, IllegalAccessException, ClassNotFoundException {
+      throws NoSuchMethodException, IllegalAccessException {
     PrintWriter err = jode.GlobalOptions.err;
     jode.GlobalOptions.err = null;
     try {
@@ -792,11 +792,13 @@ public class Japize {
       progress('+');
       return true;
     } catch (NoClassDefFoundError e) {
-      progress('#');
+      System.err.println("\nFailed to Japize " + n + ": " + e);
     } catch (NullPointerException e) {
-      progress('#');
+      System.err.println("\nFailed to Japize " + n + ": " + e);
     } catch (ClassNotFoundException e) {
-      progress('#');
+      System.err.println("\nFailed to Japize " + n + ": " + e);
+    } catch (IndexOutOfBoundsException e) {
+      System.err.println("\nFailed to Japize " + n + ": " + e);
     } finally {
       jode.GlobalOptions.err = err;
     }
