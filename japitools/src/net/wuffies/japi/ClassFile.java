@@ -191,9 +191,9 @@ public class ClassFile implements ClassWrapper
 
 	FMInfoItem(DataInputStream in) throws IOException
 	{
-	    access_flags = in.readShort() & 0xFFFF;
-	    name_index = in.readShort() & 0xFFFF;
-	    descriptor_index = in.readShort() & 0xFFFF;
+	    access_flags = in.readUnsignedShort();
+	    name_index = in.readUnsignedShort();
+	    descriptor_index = in.readUnsignedShort();
 	}
 
 	public int getModifiers()
@@ -214,15 +214,15 @@ public class ClassFile implements ClassWrapper
 	FieldInfoItem(DataInputStream in) throws IOException
 	{
 	    super(in);
-	    int attributes_count = in.readShort() & 0xFFFF;
+	    int attributes_count = in.readUnsignedShort();
 	    for(int i = 0; i < attributes_count; i++)
 	    {
-		int attribute_name_index = in.readShort() & 0xFFFF;
+		int attribute_name_index = in.readUnsignedShort();
 		int attribute_length = in.readInt();
 		String attributeName = getUtf8String(attribute_name_index);
 		if(attributeName.equals("ConstantValue"))
 		{
-		    constantValue = constant_pool[in.readShort() & 0xFFFF].getConstantValue();
+		    constantValue = constant_pool[in.readUnsignedShort()].getConstantValue();
 		}
 		else if(attributeName.equals("Deprecated"))
 		{
@@ -273,19 +273,19 @@ public class ClassFile implements ClassWrapper
 	MethodInfoItem(DataInputStream in) throws IOException
 	{
 	    super(in);
-	    int attributes_count = in.readShort() & 0xFFFF;
+	    int attributes_count = in.readUnsignedShort();
 	    for(int i = 0; i < attributes_count; i++)
 	    {
-		int attribute_name_index = in.readShort() & 0xFFFF;
+		int attribute_name_index = in.readUnsignedShort();
 		int attribute_length = in.readInt();
 		String attributeName = getUtf8String(attribute_name_index);
 		if(attributeName.equals("Exceptions"))
 		{
-		    int count = in.readShort() & 0xFFFF;
+		    int count = in.readUnsignedShort();
 		    exceptions = new String[count];
 		    for(int j = 0; j < count; j++)
 		    {
-			exceptions[j] = getClassConstantName(in.readShort() & 0xFFFF);
+			exceptions[j] = getClassConstantName(in.readUnsignedShort());
 		    }
 		}
 		else if(attributeName.equals("Deprecated"))
@@ -399,7 +399,7 @@ public class ClassFile implements ClassWrapper
 
 	void read(DataInputStream in) throws IOException
 	{
-	    attribute_name_index = in.readShort() & 0xFFFF;
+	    attribute_name_index = in.readUnsignedShort();
 	    attribute_length = in.readInt();
 	    info = new byte[attribute_length];
 	    in.readFully(info);
@@ -413,24 +413,24 @@ public class ClassFile implements ClassWrapper
 	{
 	    throw new IOException("Illegal magic");
 	}
-	int minor_version = in.readShort() & 0xFFFF;
-	int major_version = in.readShort() & 0xFFFF;
-	int constant_pool_count = in.readShort() & 0xFFFF;
+	int minor_version = in.readUnsignedShort();
+	int major_version = in.readUnsignedShort();
+	int constant_pool_count = in.readUnsignedShort();
 	constant_pool = new ConstantPoolItem[constant_pool_count];
 	for(int i = 1; i < constant_pool_count; i++)
 	{
 	    switch(in.readUnsignedByte())
 	    {
 		case CONSTANT_Class:
-		    constant_pool[i] = new ClassConstantPoolItem(in.readShort() & 0xFFFF);
+		    constant_pool[i] = new ClassConstantPoolItem(in.readUnsignedShort());
 		    break;
 		case CONSTANT_Fieldref:
 		case CONSTANT_Methodref:
 		case CONSTANT_InterfaceMethodref:
-		    constant_pool[i] = new FMIConstantPoolItem(in.readShort() & 0xFFFF, in.readShort() & 0xFFFF);
+		    constant_pool[i] = new FMIConstantPoolItem(in.readUnsignedShort(), in.readUnsignedShort());
 		    break;
 		case CONSTANT_String:
-		    constant_pool[i] = new StringConstantPoolItem(in.readShort() & 0xFFFF);
+		    constant_pool[i] = new StringConstantPoolItem(in.readUnsignedShort());
 		    break;
 		case CONSTANT_Integer:
 		    constant_pool[i] = new IntegerConstantPoolItem(in.readInt());
@@ -447,7 +447,7 @@ public class ClassFile implements ClassWrapper
 		    i++;
 		    break;
 		case CONSTANT_NameAndType:
-		    constant_pool[i] = new NameAndTypeConstantPoolItem(in.readShort() & 0xFFFF, in.readShort() & 0xFFFF);
+		    constant_pool[i] = new NameAndTypeConstantPoolItem(in.readUnsignedShort(), in.readUnsignedShort());
 		    break;
 		case CONSTANT_Utf8:
 		    constant_pool[i] = new Utf8ConstantPoolItem(in.readUTF());
@@ -456,48 +456,50 @@ public class ClassFile implements ClassWrapper
 		    throw new IOException("unrecognized constant pool item");
 	    }
 	}
-	raw_access_flags = in.readShort() & 0xFFFF;
+	raw_access_flags = in.readUnsignedShort();
 	access_flags = raw_access_flags | Modifier.STATIC;
-	int this_class = in.readShort() & 0xFFFF;
+	int this_class = in.readUnsignedShort();
 	name = this_class == 0 ? null : getClassConstantName(this_class);
-	int super_class = in.readShort() & 0xFFFF;
+	int super_class = in.readUnsignedShort();
 	superClass = (super_class == 0 || Modifier.isInterface(access_flags)) ? null : getClassConstantName(super_class);
-	int interfaces_count = in.readShort() & 0xFFFF;
+	int interfaces_count = in.readUnsignedShort();
 	interfaces = new String[interfaces_count];
 	for(int i = 0; i < interfaces_count; i++)
 	{
-	    interfaces[i] = getClassConstantName(in.readShort() & 0xFFFF);
+	    interfaces[i] = getClassConstantName(in.readUnsignedShort());
 	}
-	int fields_count = in.readShort() & 0xFFFF;
+	int fields_count = in.readUnsignedShort();
 	fields = new FieldInfoItem[fields_count];
 	for(int i = 0; i < fields_count; i++)
 	{
 	    fields[i] = new FieldInfoItem(in);
 	}
-	int methods_count = in.readShort() & 0xFFFF;
+	int methods_count = in.readUnsignedShort();
 	methods = new MethodInfoItem[methods_count];
 	for(int i = 0; i < methods_count; i++)
 	{
 	    methods[i] = new MethodInfoItem(in);
 	}
-	int attributes_count = in.readShort() & 0xFFFF;
+	int attributes_count = in.readUnsignedShort();
 	for(int i = 0; i < attributes_count; i++)
 	{
-	    int attribute_name_index = in.readShort() & 0xFFFF;
+	    int attribute_name_index = in.readUnsignedShort();
 	    int attribute_length = in.readInt();
 	    String attributeName = getUtf8String(attribute_name_index);
 	    if(attributeName.equals("InnerClasses"))
 	    {
-		int count = in.readShort() & 0xFFFF;
+		int count = in.readUnsignedShort();
 		for(int j = 0; j < count; j++)
 		{
-		    int inner_class = in.readShort() & 0xFFFF;
-		    int outer_class = in.readShort() & 0xFFFF;
-		    int inner_name = in.readShort() & 0xFFFF;;
-		    int access_flags = in.readShort() & 0xFFFF;
+		    int inner_class = in.readUnsignedShort();
+		    int outer_class = in.readUnsignedShort();
+		    int inner_name = in.readUnsignedShort();;
+		    int access_flags = in.readUnsignedShort();
 		    if(getClassConstantName(inner_class).equals(name))
 		    {
-			this.access_flags = access_flags;
+                        int mask = Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PROTECTED | Modifier.STATIC;
+			this.access_flags &= ~mask;
+                        this.access_flags |= access_flags & mask;
 		    }
 		}
 	    }
@@ -568,9 +570,7 @@ public class ClassFile implements ClassWrapper
     }
 
     // This code is partially based on GNU Classpath's implementation which is
-    // (c) FSF and licensed under the GNU Library General Public License. Some of
-    // the modifications to make it work on ClassInfos are based on code in
-    // the jode.obfuscator package.
+    // (c) FSF and licensed under the GNU Library General Public License.
     public long getSerialVersionUID()
     {
 	for(int i = 0; i < fields.length; i++)
@@ -609,6 +609,7 @@ public class ClassFile implements ClassWrapper
 		Modifier.INTERFACE | Modifier.PUBLIC);
 	    data_out.writeInt(modifiers);
 
+            String[] interfaces = (String[])this.interfaces.clone();
 	    Arrays.sort(interfaces);
 	    for (int i = 0; i < interfaces.length; i++)
 	    {
@@ -732,7 +733,9 @@ public class ClassFile implements ClassWrapper
 	    }
 	    for(int i = 0; i < methods.length; i++)
 	    {
-		map.put(methods[i].getSig(), methods[i]);
+		// JDK15: skip bridge methods (the ACC_VOLATILE bit corresponds to the ACC_BRIDGE bit)
+		if(!Modifier.isVolatile(methods[i].getModifiers()))
+		    map.put(methods[i].getSig(), methods[i]);
 	    }
 	    allMethods = new MethodInfoItem[map.size()];
 	    map.values().toArray(allMethods);

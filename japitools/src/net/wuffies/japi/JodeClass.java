@@ -161,7 +161,7 @@ class JodeClass implements ClassWrapper {
                                  Modifier.INTERFACE | Modifier.PUBLIC);
         data_out.writeInt(modifiers);
 
-        ClassInfo[] interfaces = c.getInterfaces();
+        ClassInfo[] interfaces = (ClassInfo[])c.getInterfaces().clone();
         Arrays.sort(interfaces, new Comparator() {
           public int compare(Object o1, Object o2) {
             return
