@@ -125,7 +125,7 @@ sub scmp(&;&) {
 # Compare two japi entries pseudo-alphabetically.
 sub japicmp($$) {
   my ($ia, $ib) = @_;
-  return 1 unless defined $ib;
+  return -1 unless defined $ib;
   $a = $ia->{item};
   $b = $ib->{item};
   scmp {/^java\.lang,Object%/};
@@ -381,7 +381,8 @@ sub compare_japis($$) {
     $oclitem = $oitem if $isnewclass;
     if ($cmp) {
       my $eitem = {%$oitem};
-      if ($isnewpkg && $nitem->{package} ne $oitem->{package}) {
+      if ($isnewpkg && (!defined($nitem) ||
+                        $nitem->{package} ne $oitem->{package})) {
         $eitem->{isa} = "package";
         $eitem->{class} = "";
         $eitem->{item} = "$pkg,%";

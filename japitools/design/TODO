@@ -3,6 +3,8 @@
   * Print at least *some* kind of overall summary information at end
   * Update docs
 - For 0.8.4:
+  * Oops! Fix hang-at-end bug!
+- For 0.8.5:
   - Better summary information
   - Update file version format to 0.9
   - Put the whole of java.lang first along with Object
