@@ -3,6 +3,25 @@ implementations of japize, japifix and japicompat may not honor this spec
 exactly. If they do not, it is generally a bug or missing feature in the tool;
 this spec notes such bugs when they are known.
 
+
+Purpose of Version 0.9.7
+------------------------
+
+The 0.9.7 version of the japi file format is an interim version on the road to
+figuring out how to deal with the new language constructs introduced in Java
+1.5. Some of the new constructs are representable, some are ignored because a
+suitable representation has not yet been determined, and some are only
+partially represented. In particular, the following constructs have no
+representation in this version of the format:
+
+- Annotations applied to classes and members. The plan is to include all
+  annotations that are @Documented.
+- Default values of annotation methods that are of Array and Annotation types.
+- Constraints on generic type parameters, other than the primary constraint to
+  a single non-generic constraining type.
+- Generic methods (I'm not even sure if Java *has* generic methods)
+
+
 Types
 -----
 
@@ -12,11 +31,24 @@ item. The possible representations are:
 - Java Language representation: Can only be used to represent classes and
   interfaces. The format is simply the format of a fully-qualified class name
   in the Java language, eg "java.lang.Exception". This format is used when
-  only classes and interfaces can appear, eg in superclasses or exceptions.
+  only classes and interfaces can appear, eg in superclasses and exceptions.
   Inner classes are represented using the name that the compiler gives them:
   the name of the outer class followed by a "$" followed by the inner
   class name, eg "java.util.Map$Entry".
-  XXXX insert discussion of generic types in JL representation
+  Generic classes are represented by appending a comma-separated list of type
+  arguments, enclosed in angle brackets, in Type Signature representation (see
+  below). For example "java.util.List<Ljava/lang/String;>".
+  For inner classes of generic classes, the type arguments of the outer class
+  are prepended to the list, eg the Entry inner class of Map<String,int[]>
+  would be "java.util.Map$Entry<Ljava/lang/String;,[I>". (This may
+  change in a future version to more accurately reflect the semantics, but it is
+  a simplistic approach that is easier to implement for now).
+  Type parameters are represented as "@0", "@1", "@2" etc in the order they
+  appear on the containing class. Type parameters of an inner class are numbered
+  starting where the parameters of the outer class leaves off.
+  There is NO representation of primitive types OR ARRAYS in Java Language
+  representation (emphasis because it's easy to forget that JL representation
+  can't express all reference types).
 - Type Signature representation: Can represent any Java type, including
   primitive types and arrays. This is the format used in type signatures
   internally within the Java virtual machine. The format looks like this:
@@ -38,7 +70,14 @@ item. The possible representations are:
     arrays of strings would be ".[Ljava/lang/String;". Note that a special
     rule applies for ordering methods with this kind of parameter - see
     "Ordering", below.
-  - XXXX insert discussion of generic types in TS representation
+  - Generic types are represented by inserting a comma-separated list of type
+    arguments in Type Signature representation, enclosed in angle brackets,
+    immediately before the trailing semicolon. For example
+    "Ljava/util/Map<Ljava/lang/String;,[I>;". Note that a special rule applies
+    for ordering methods with generic-typed parameters - see "Ordering", below.
+  - Type parameters are represented as "@0", "@1", "@2", exactly as in Java
+    Language representation. Note that a special rule applies for ordering
+    methods with parameters of these types - see "Ordering", below.
 - Japi sortable representation: Designed to make it easy to sort a japi file
   into a convenient order. The format is:
   <pkg>,<class>[$<innerclass>].
@@ -114,12 +153,24 @@ everything.
 
 Within a class or interface, the class (or interface) itself comes first,
 followed by its fields (in alphabetical order by name), followed by its
-constructors (in alphabetical order by argument types), followed by its methods
-(in alphabetical order by name and argument types). "By argument types" here
-means by the result of concatenating all the types of the arguments, comma
-separated, in type signature format, EXCEPT that any generic types should be
-replaced by the real type and the leading "." of a vararg array should be
-replaced with "[" for the purposes of this comparison.
+constructors (in alphabetical order by parameter types), followed by its methods
+(in alphabetical order by name and parameter types).
+
+"By argument types" here means by the result of this algorithm:
+- Loop over the types of all the parameters
+- Take the type in Type Signature representation
+- If the type is a generic type parameter (@0, @1 etc), replace with the
+  constraining type.
+- If the type *has* generic type parameters (anything in <>s), remove them.
+- If the parameter is a varargs array type (starts with "."), treat it as a
+  regular array type (replace the "." with "[").
+- Concatenate these values, comma-separated.
+This resulting string does not appear anywhere in the japi file; it is merely
+constructed in memory for the purposes of sorting. The purpose of this algorithm
+is to ensure that the ordering of methods using generic constructs is identical
+to the ordering they would have if they were non-generic. This is necessary to
+support meaningful comparisons between non-generic and generic versions of the
+same API, eg java.util between JDK1.4 and JDK1.5.
 
 If any package, class or member names include any escaped characters, it is the
 escaped string that is compared, rather than the original.
@@ -225,11 +276,16 @@ one listed in Type Signature representation, eg "[B,I,I,Ljava/lang/String;".
 
 <typeinfo> is a catch-all for general information about the item. What exactly
 appears here depends on what type of item this is.
-XXXX Insert notes here about how annotations appear on each of the types of
-item and which annotations should appear (probably those that are @Documented).
 
 - For classes, the <typeinfo> field consists of the following parts:
   - The word "class"
+  - If the class has any generic parameters, the character "<", followed by a
+    comma-separated list of the constraining type of each parameter in Type
+    Signature representation, followed by the character ">". For this interim
+    version of the specification, only the primary constraining type appears;
+    any further information about the constraints (including type arguments
+    of the constraining type) is not included. A suitable representation for
+    this information will be determined in future versions of this specification.
   - If the class is serializable, the character "#" followed by the
     SerialVersionUID of the class, represented in decimal. If the class is
     not serializable, this section does not appear.
@@ -243,9 +299,9 @@ item and which annotations should appear (probably those that are @Documented).
     interfaces implemented by superclasses, or by other interfaces, must also be
     included, even if the superclass that implements the interface isn't
     public or protected.
-  For example, for the class java.util.ArrayList, the typeinfo would be
-  something like:
-  class#99999999999999:java.util.AbstractList:java.lang.AbstractCollection:java.lang.Object*java.io.Serializable*java.lang.Cloneable*java.util.List*java.util.Collection
+  For example, for the class java.util.ArrayList, the typeinfo would be something
+  like:
+  class<java.lang.Object>#99999999999999:java.util.AbstractList<@0>:java.lang.AbstractCollection<@0>:java.lang.Object*java.io.Serializable*java.lang.Cloneable*java.util.List<@0>*java.util.Collection<@0>
 
 - For interfaces, the format is the same except that "interface" appears instead
   of "class", and the SerialVersionUID and superclasses are not applicable.
@@ -281,6 +337,12 @@ item and which annotations should appear (probably those that are @Documented).
 
 - For methods, the <typeinfo> field consists of the following parts:
   - The return type of the method, in Type Signature format.
+  - If the method is part of an annotation, has a default value, and is of type
+    String, Class, or a primitive type, the character ":" followed by the default
+    value. The format of the default value is identical to that used by constant
+    fields for Strings and primitive types, or the name of the class in Type
+    Signature representation for Class types. Default values on array- and
+    annotation-typed methods are not yet supported.
   - For every exception type thrown by this method, the character "*" followed
     by the name of the exception type, in Java Language representation. These
     may appear in any order. Subclasses of java.lang.RuntimeException and
