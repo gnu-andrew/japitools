@@ -312,7 +312,6 @@ foreach my $cat (@categories) {
   next if $cat eq "good";
   my $cap = uc($1).$2 if $cat =~ /^(.)(.*)$/;
   my $catn = $cat; $catn =~ s/\./-/g;
-  my $scol = ($ct++ == $#categories ? "" : ";");
   my $vals = "";
   foreach my $thing (@things) {
     my $tot = $totals->{"$cat/$thing"};
@@ -328,7 +327,7 @@ foreach my $cat (@categories) {
   }
   $vals = "&nbsp;None" unless $vals;
   print <<EOF;
-          <span class="$catn">$cap:$vals.</span>$scol
+          <span class="$catn">$cap:$vals.</span>
 EOF
 }
 print <<EOF;
@@ -364,7 +363,6 @@ EOF
       my $cap = uc($1).$2 if $cat =~ /^(.)(.*)$/;
       my $catn = $cat; $catn =~ s/\./-/g;
       my $catl = $cat; $catl =~ s/\./_/g;
-      my $scol = ($ct++ == $#categories ? "" : ";");
       my $vals = "";
       foreach my $thing (@things) {
         my $tot = $totals->{"$cat/$thing/$pkg"};
@@ -379,7 +377,7 @@ EOF
         }
       }
       print <<EOF if $vals;
-          <a class="$catn" href="#err_${catl}_$pkgl">$cap:$vals.</a>$scol
+          <a class="$catn" href="#err_${catl}_$pkgl">$cap:$vals.</a>
 EOF
     }
     print <<EOF;
