@@ -332,6 +332,7 @@ public class Japize {
 
     // Now process all the roots that are left.
     processRootSet(roots);
+    progress("");
   }
 
   private static void processRootSet(SortedSet rootSet) 

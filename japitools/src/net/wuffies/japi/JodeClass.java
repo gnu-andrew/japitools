@@ -34,7 +34,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Comparator;
 
 class JodeClass implements ClassWrapper {
-  private ClassInfo c;
+  ClassInfo c;
   private ClassIdentifier ident;
   public JodeClass(String name) {
     this(ClassInfo.forName(name));

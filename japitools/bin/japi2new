@@ -23,7 +23,7 @@ if (/^[^ ]+#[^ ]* (public|protected) (abstract|concrete) (static|instance) (fina
   $japiver = "0.8";
   start;
   out to_new;
-} elsif (/^\%\%japi ([^ ]*) /) {
+} elsif (/^\%\%japi ([^ ]*)(?: .*)?$/) {
   $japiver = $1;
   if ($japiver ne "0.8.1") {
     print STDERR <<EOF;
@@ -61,7 +61,7 @@ sub start() {
   $needtosort = $japiver le "0.8";
   print STDERR "Converting from japi version $japiver...";
   STDERR->autoflush;
-  print "%\%japi 0.8.1 \n";
+  print "%\%japi 0.8.1\n";
 }
 
 sub finish() {

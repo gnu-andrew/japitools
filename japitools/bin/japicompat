@@ -167,7 +167,7 @@ sub read_japi($) {
   print STDERR "Loading $filename" if $dot;
   my $japiline = <IN>;
   chomp $japiline;
-  die <<EOF unless $japiline =~ /^%\%japi ([^ ]*) /;
+  die <<EOF unless $japiline =~ /^%\%japi ([^ ]*)(?: .*)?$/;
 
 This looks like an old-style japi file. The format was changed since version
 0.7 to save disk space and avoid a theoretically possible ambiguity. Most

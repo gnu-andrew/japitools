@@ -42,16 +42,24 @@ class JodeField implements FieldWrapper {
   }
   public boolean isPrimitiveConstant() {
     int mods = f.getModifiers();
+    Object constVal;
+    synchronized (jc.c) {
+      jc.c.loadInfo(ClassInfo.CONSTANTS);
+      constVal = f.getConstant();
+    }
     if (Modifier.isStatic(mods) && Modifier.isFinal(mods) &&
         (Modifier.isPublic(mods) || Modifier.isProtected(mods)) &&
-        f.getConstant() != null) {
+        constVal != null) {
       return true;
     } else {
       return false;
     }
   }
   public Object getPrimitiveValue() {
-    return f.getConstant();
+    synchronized (jc.c) {
+      jc.c.loadInfo(ClassInfo.CONSTANTS);
+      return f.getConstant();
+    }
   }
   public ClassWrapper getDeclaringClass() {
     return jc;

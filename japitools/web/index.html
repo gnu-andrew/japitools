@@ -15,6 +15,10 @@ compatibility, as defined by Sun in the
 <a href="http://java.sun.com/docs/books/jls/clarify.html">here</a>).</p>
 <h3>News</h3>
 <ul>
+  <li>9 July 2002: Released japitools-0.8.2 with a fix for a NullPointer.
+      There's more work in progress on my laptop that isn't included in this
+      release because it's not ready yet, but hopefully soon there'll be a first
+      pass at the optimized algorithm for japicompat.</li>
   <li>28 June 2002: Released japitools-0.8.1. Noted that this obsoletes some
       of the documentation on the website. Removed a bunch of old results
       files that aren't correct any more. The docs will have to be updated
@@ -53,18 +57,13 @@ compatibility, as defined by Sun in the
 </ul>
 
 <h3>Installation</h3>
-<p>You can download <a href="japitools-0.8.1.jar">japitools-0.8.1.jar</a> here.
+<p>You can download <a href="japitools-0.8.2.jar">japitools-0.8.2.jar</a> here.
 You can use this jar file directly in your classpath for running Japize, and
 just extract bin/* to use the tools, or you can extract the whole thing
 if you want to do development. You will need Jode 1.1.1, available
 from <a href="http://jode.sourceforge.net/">here</a>
 (<a href="jode-1.1.1.jar">local mirror of jode jarball</a>).
 <p>The tools in the bin directory assume that perl is /usr/bin/perl.</p>
-<p style="color: red">Note: I've had a report of a NullPointerException with
-japize 0.8.1, but I haven't had a chance to diagnose/fix this yet. If you find
-that 0.8.1 fails for you, the <a href="japitools-0.8.jar">previous release</a>,
-0.8, is still available. The documentation on this page that's marked as
-"outdated" is correct for the 0.8 release.</p>
 
 <h3>Usage</h3>
 <p>Using japitools is a two-step process:</p>
