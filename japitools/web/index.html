@@ -15,6 +15,10 @@ compatibility, as defined by Sun in the
 <a href="http://java.sun.com/docs/books/jls/clarify.html">here</a>).</p>
 <h3>News</h3>
 <ul>
+  <li>31 July 2002: Released a brown-paper-bag japitools-0.8.4 with a fix for
+      a hang-at-end-of-file bug that showed up whenever the 'orig' file contains
+      packages or classes at the end of the file that aren't in the 'new' file.
+      Oooops!</li>
   <li>31 July 2002: Released japitools-0.8.3 with a rewritten japicompat that
       uses a much faster and more scalable algorithm. Of course, being a total
       rewrite, there's a risk of regressions, so the old japicompat is still
@@ -65,7 +69,7 @@ compatibility, as defined by Sun in the
 </ul>
 
 <h3>Installation</h3>
-<p>You can download <a href="japitools-0.8.3.jar">japitools-0.8.3.jar</a> here.
+<p>You can download <a href="japitools-0.8.4.jar">japitools-0.8.4.jar</a> here.
 You can use this jar file directly in your classpath for running Japize, and
 just extract bin/* to use the tools, or you can extract the whole thing
 if you want to do development. You will need Jode 1.1.1, available
