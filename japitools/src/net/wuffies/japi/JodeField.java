@@ -44,7 +44,7 @@ class JodeField implements FieldWrapper {
     int mods = f.getModifiers();
     Object constVal;
     synchronized (jc.c) {
-      jc.c.loadInfo(ClassInfo.CONSTANTS);
+      jc.c.loadInfo(ClassInfo.MOSTINFO);
       constVal = f.getConstant();
     }
     if (Modifier.isStatic(mods) && Modifier.isFinal(mods) &&
@@ -57,7 +57,7 @@ class JodeField implements FieldWrapper {
   }
   public Object getPrimitiveValue() {
     synchronized (jc.c) {
-      jc.c.loadInfo(ClassInfo.CONSTANTS);
+      jc.c.loadInfo(ClassInfo.MOSTINFO);
       return f.getConstant();
     }
   }
