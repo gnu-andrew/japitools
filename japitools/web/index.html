@@ -5,16 +5,20 @@
 between Java APIs. They were originally designed for testing free
 implementations of Java itself for compatibility with Sun's JDK, but they can
 also be used for testing backward compatibility between versions of any API.</p>
-<p>The tools are <a href="Japize.java">Japize</a>
-and <a href="japicompat.pl">japicompat.pl</a>. Japize is a java program which
-uses reflection to emit a listing of an API in a machine-readable format.
-japicompat then takes two such listings and compares them for binary
+<p>The tools are <a href="#japize">japize</a>
+and <a href="#japicompat">japicompat</a>. Japize is a java program which
+uses the jode.bytecode library to emit a listing of an API in a machine-readable
+format. Japicompat then takes two such listings and compares them for binary
 compatibility, as defined by Sun in the
 <a href="http://java.sun.com/docs/books/jls/html/13.doc.html">Java Language Specification</a>
 (and as amended
 <a href="http://java.sun.com/docs/books/jls/clarify.html">here</a>).</p>
 <h3>News</h3>
 <ul>
+  <li>28 June 2002: Released japitools-0.8.1. Noted that this obsoletes some
+      of the documentation on the website. Removed a bunch of old results
+      files that aren't correct any more. The docs will have to be updated
+      later - no time now.</li>
   <li>19 March 2002: Updated the website so that the documentation matches the
       actual current code. Since it's been almost 2 years since I wrote this,
       I can't be 100% sure that this documentation is all correct, but it's
@@ -49,20 +53,31 @@ compatibility, as defined by Sun in the
 </ul>
 
 <h3>Installation</h3>
-<p>You can download <a href="japitools-0.8.jar">japitools-0.8.jar</a> here.
+<p>You can download <a href="japitools-0.8.1.jar">japitools-0.8.1.jar</a> here.
 You can use this jar file directly in your classpath for running Japize, and
-just extract bin/japicompat.pl to use that, or you can extract the whole thing
-if you want to do development. You will need Jode 1.0.93 for JDK 1.1, available
-from <a href="http://jode.sourceforge.net/">here</a>.
-<p>japicompat.pl assumes that perl is /usr/bin/perl.</p>
+just extract bin/* to use the tools, or you can extract the whole thing
+if you want to do development. You will need Jode 1.1.1, available
+from <a href="http://jode.sourceforge.net/">here</a>
+(<a href="jode-1.1.1.jar">local mirror of jode jarball</a>).
+<p>The tools in the bin directory assume that perl is /usr/bin/perl.</p>
+<p style="color: red">Note: I've had a report of a NullPointerException with
+japize 0.8.1, but I haven't had a chance to diagnose/fix this yet. If you find
+that 0.8.1 fails for you, the <a href="japitools-0.8.jar">previous release</a>,
+0.8, is still available. The documentation on this page that's marked as
+"outdated" is correct for the 0.8 release.</p>
 
 <h3>Usage</h3>
 <p>Using japitools is a two-step process:</p>
-<ul><li>Use Japize to generate a .japi file for each of the versions you want
+<ul><li>Use japize to generate a .japi file for each of the versions you want
 to compare.</li>
 <li>Use japicompat to compare one for backwards compatibility with the
 other</li></ul>
-<h4>Japize</h4>
+<h4><a name="japize">Japize</a></h4>
+<p style="color: red">Note: This documentation is largely out of date. Run
+bin/japize with no arguments to get the correct usage of japize. Note the useful
+new "zip" option, in particular. Reading this documentation is still recommended
+as it gives more explanation and lists some pitfalls, even though the syntax is
+outdated</p>
 <p>The general usage of Japize is as follows:</p>
 <pre>$ java net.wuffies.japi.Japize jode [&lt;zipfile&gt; | &lt;dir&gt; | +&lt;package&gt; | -&lt;package&gt;] ... &gt;&lt;japifile&gt;</pre>
 <p>The word "jode" indicates to Japize that it should use the newer, reliable
@@ -114,16 +129,16 @@ like:</p>
 $ java net.wuffies.japi.Japize jode $JAVA_HOME/lib/classes.zip +java -java.awt.peer -java.text.resources &gt;jdk11.japi
 $ java net.wuffies.japi.Japize jode $KAFFEHOME/share/kaffe/Klasses.jar $KAFFEHOME/share/kaffe/rmi.jar +java -java.awt.peer -java.text.resources &gt;kaffe.japi
 </pre>
-<h4>japicompat</h4>
+<h4><a name="japicompat">japicompat</a></h4>
 <p>Next, you can perform the test for compatibility between these two files:
 <pre>
-$ japicompat.pl jdk11.japi kaffe.japi
+$ japicompat jdk11.japi kaffe.japi
 </pre>
 <p>By default, japicompat tests for binary compatibility as defined by the JLS,
 plus a couple of additions (see below for details). You can turn off these
 additions by passing the -s flag to japicompat, for example:</p>
 <pre>
-$ japicompat.pl -s jdk11.japi kaffe.japi
+$ japicompat -s jdk11.japi kaffe.japi
 </pre>
 <p>The s stands for "sun", "standard", "specification", or if you like more
 colorful language, "single-buttocked" (one buttock=half an...)</p>
@@ -135,11 +150,6 @@ by passing the -v flag to japicompat, for example:</p>
 $ japicompat.pl -v jdk11.japi kaffe.japi
 </pre>
 <p>The v stands for serial "version" or "verbose".</p>
-<p>If you are interested, you can see <a href="jdk11.japi">jdk11.japi</a>,
-<a href="kaffe.japi">kaffe.japi</a> and <a href="results-jdk11-kaffe.txt">the
-results of this comparison</a>, as of Kaffe CVS June 15 2000. Here are
-<a href="s-results-jdk11-kaffe.txt">the results with -s turned on</a> and
-<a href="v-results-jdk11-kaffe.txt">the results with -v turned on</a>.</p>
 <h3>What exactly does japicompat test?</h3>
 <p>As mentioned above, japicompat tests for binary compatibility as defined
 by Sun in the JLS. A full summary of what does and does not break binary
@@ -175,8 +185,8 @@ backwardly-compatible with the first. Therefore, a perfect implementation of
 JDK 1.1 would produce no errors regardless of the order of the arguments, but a
 perfect implementation of JDK1.1 plus *parts* of JDK1.2 should be tested as
 follows:</p>
-<pre>japicompat.pl jdk11.japi kaffe.japi
-japicompat.pl kaffe.japi jdk12.japi</pre>
+<pre>japicompat jdk11.japi kaffe.japi
+japicompat kaffe.japi jdk12.japi</pre>
 <p>It is probably impossible to make an implementation that passes both these
 tests, since Sun's own JDK1.2 produces numerous errors when tested against
 JDK1.1.</p>
@@ -189,15 +199,13 @@ version 2 or later.</p>
 <h3>To do</h3>
 <p>Here is an incomplete list of what still needs to be done:</p>
 <ul>
-<li>Find someone else to maintain this, since it seems unlikely that I'll have
-    time to. There are a lot of loose ends, and some parts could use a complete
-    rewrite (especially with regard to memory usage). I don't have much
-    enthusiasm for these tasks any more, as you can tell by the 2 years between
-    updates. Maybe a fresh maintainer would.</li>
-<li>Figure out a way to keep the memory usage down. Java versions 1.2 and above
-    are so huge that Japize has to be done in sections, and japicompat uses the
-    full resources of my machine for a long time (long enough that I just
-    killed it, in fact). Beware of this!</li>
+<li>Implement the japicompat algorithm described in
+    <a href="http://www.advogato.org/person/sab39/diary.html?start=27">my
+    advogato diary</a> to keep memory usage constant rather than growing with
+    the (exponentially increasing) size of the JDK. Beware that unless you have
+    substantial memory (one report suggests about 100Mb free) japicompat will
+    swap like crazy and probably make your machine unusable if you try to
+    compare Java versions 1.2 and above.</li>
 <li>Figure out a way to ignore errors that are present in Sun's implementation
     too - that is, if <tt>japicompat.pl jdk11.japi jdk12.japi</tt> produces a
     given error, then ignore it when running <tt>japicompat.pl jdk11.japi
@@ -206,9 +214,9 @@ version 2 or later.</p>
     Japize, and publish a tarball of them.</li>
 <li>Set up a nightly checkout of Kaffe, Classpath and libgcj, if possible, and
     run automated japicompat tests against all the jdk versions.</li>
-<li>Change the output for compiletime-constant differences so that it says
-    specifically that the value is different, rather than that the type is.</li>
 <li>Fix any bugs that anyone finds...</li>
+<li>Handle APIs containing international characters in class/member names, and
+    also international characters in final constant Strings.</li>
 <li>Make a "1.0" release.</li>
 <li>Write a japi2java tool, just because I can...</li>
 </ul>
