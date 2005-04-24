@@ -53,7 +53,7 @@
 ## GLOBAL VARIABLES ##
 
 # Some global variables used for displaying stuff.
-$japiver = "0.9.6";
+$japiver = "0.9.7";
 $buggyver = "0.9.5";
 @static = ('instance', 'static');
 @ofhs = ();
@@ -183,11 +183,6 @@ sub read_japi_item($) {
   # Parse and interpret the entry.
   my ($item, $flags, $type) = split / /, $line, 3;
 
-  # Ensure that this item is correctly ordered.
-  die "\nIncorrect ordering of $japi->{name}:\n$japi->{last_item} >=\n$item"
-    if defined($japi->{last_item}) && $japi->{last_item} ge $item;
-  $japi->{last_item} = $item;
-
   my $rawitem = $item;
 
   # Check and trim the leading plusses on java.lang.Object and java.lang.
@@ -201,7 +196,11 @@ sub read_japi_item($) {
   my ($pkg, $class) = split /,/, $fqcn, 2;
   my $isa;
   if ($member eq "") {
-    $isa = $type =~ /^class/ ? "class" : "interface";
+    $isa = $type =~ /^class/ ? "class" :
+           $type =~ /^interface/ ? "interface" :
+           $type =~ /^enum/ ? "enum" :
+           $type =~ /^annotation/ ? "annotation" :
+           die "\nUnknown kind of Type: $type";
   } elsif ($member =~ /^\(.*\)$/) {
     $isa = "constructor";
   } elsif ($member =~ /\(.*\)$/) {
@@ -220,18 +219,28 @@ EOF
   }
 
   # Store information about the entry in $japi->{$pkg}->{$class}->{$member}.
+  # FIXME inner classes should get *both* the if and the else here
+  # see TODO for 0.9.6 for more details as to why
+  # BUT check the spec because it seems that currently we're requiring the inner class to redeclare
+  # all the generic params of the outer class anyway, in which case we don't actually need that context.
   my $mitem = {};
+  if ($member eq "") {
+    $japi->{clitem} = $mitem;
+  } else {
+    $mitem->{clitem} = $japi->{clitem};
+  }
   $mitem->{rawitem} = $rawitem;
   $mitem->{item} = $item;
   $mitem->{isa} = $isa;
   $mitem->{class} = $class;
   $mitem->{package} = $pkg;
-  $mitem->{member} = $member;
+  $mitem->{gmember} = $member;
   my ($public, $abstract, $static, $final, $deprecated) = split //, $flags;
   $mitem->{public} = ($public eq 'P' || 0);
   $mitem->{abstract} = ($abstract eq 'a' || 0);
   $mitem->{static} = ($static eq 's' || 0);
-  $mitem->{final} = ($final eq 'f' || 0);
+  $mitem->{final} = ($final eq 'f' || $final eq 'e' || 0);
+  $mitem->{enumfield} = ($final eq 'e' || 0);
   $mitem->{deprecated} = ($deprecated eq 'd' ? 1 :
                           $deprecated eq 'u' ? 0 : undef);
 
@@ -261,14 +270,43 @@ EOF
     ($type, $svuid) = split(/#/, $type, 2);
     $mitem->{svuid} = $svuid if defined $svuid;
 
+    my $genericparams;
+    ($type, $genericparams) = ($1, $2) if $type =~ /^([^<>]+)<([^<>]+)>$/;
+    if (defined $genericparams) {
+      $mitem->{genericparams} = [];
+      my $ct = 0;
+      foreach my $gparam (split /,/, $genericparams) {
+        $mitem->{genericparams}->[$ct++] = $gparam;
+      }
+    }
+
   # Methods and constructors have exceptions that can be thrown separated by
-  # '*'s from the typename. These also need to get stored in the hash.
+  # '*'s from the typename. Also in the case of annotations the method can
+  # have a default value. These also need to get stored in the hash.
   } elsif ($member =~ /\(.*\)$/) {
+    my ($val, $bits);
+    ($type, $val) = split(/:/, $type, 2);
     my @excps = split(/\*/, $type);
     $type = shift @excps;
     foreach my $excp (@excps) {
       $mitem->{excps}->{$excp} = 1;
     }
+
+    my $genericparams;
+    ($genericparams, $type) = ($1, $2) if $type =~ /^<([^<>]+)>(.+)$/;
+    if (defined $genericparams) {
+      $mitem->{genericparams} = [];
+      my $ct = 0;
+      foreach my $gparam (split /,/, $genericparams) {
+        $mitem->{genericparams}->[$ct++] = $gparam;
+      }
+    }
+
+    ($val, $bits) = ($1, $2)
+      if ($type eq 'F'||$type eq 'D') && defined $val && $val =~ /^(.*)\/(.*)$/;
+    $mitem->{defaultbits} = $bits if defined $bits;
+    $mitem->{default} = $val if defined $val;
+
   # Fields can have their value separated by a : from the typename, if they
   # are constant.
   } else {
@@ -282,6 +320,15 @@ EOF
 
   # Store what's left of the type after parsing off all of those parts.
   $mitem->{type} = $type;
+
+  $mitem->{member} = sanitize_member($mitem, $member);
+
+  # Ensure that this item is correctly ordered.
+  # FIXME we need to ensure we sanitize $rawitem appropriately here, or
+  # reconstruct it from its constituent parts.
+  die "\nIncorrect ordering of $japi->{name}:\n$japi->{last_item} >=\n$item"
+    if defined($japi->{last_item}) && $japi->{last_item} ge $rawitem;
+  $japi->{last_item} = $rawitem;
 
   return $mitem;
 }
@@ -456,9 +503,11 @@ sub compare_japis($$) {
       # Keep an eye out for members that are abstract that are also not in
       # the original. This check is not in the JLS, so only do it if sun_only
       # is false.
+      # FIXME: Maybe New annotation methods should be legal, esp. if there's a
+      # default value?
       if (!$sun_only && !$first && $class_has_ctors && $nitem->{abstract} &&
           $nitem->{package} eq $pkg && $nitem->{class} eq $class) {
-        my $mtype = $nclitem->{isa} eq "class" ? "abstract" : $nclitem->{isa};
+        my $mtype = $nclitem->{isa} eq "interface" ? "interface" : "abstract";
         output_error($nitem, $nitem, $oclitem, $c, "abs.add",
                      "", "new $mtype method");
       }
@@ -525,7 +574,7 @@ sub compare_japis($$) {
     # the original. This check is not in the JLS, so only do it if sun_only
     # is false.
     if (!$first && $nitem->{abstract}) {
-      my $mtype = $nclitem->{isa} eq "class" ? "abstract" : $nclitem->{isa};
+      my $mtype = $nclitem->{isa} eq "interface" ? "interface" : "abstract";
       output_error($nitem, $nitem, $oclitem, $c, "abs.add",
                    "", "new $mtype method");
     }
@@ -542,6 +591,25 @@ sub compare_japi_item($$$$) {
 
   my $isa = $oitem->{isa};
   my $member = $oitem->{member};
+
+  # FIXME: Check that the generic parameter types haven't changed
+  # FIXME: Check that the "gmember" string hasn't changed
+  # FIXME: Check that the annotation default hasn't changed
+
+  # Check that the item hasn't gone from class to interface, annotation to
+  # class etc.
+  # FIXME: we treat it as legal for a class to turn into an enum, and an
+  # interface to turn into an annotation. Should it be?
+  if ($oitem->{isa} ne $nitem->{isa}) {
+    if ($oitem->{isa} eq "class" && $nitem->{isa} eq "enum") {
+      # Do nothing, we're treating this as legal.
+    } elsif ($oitem->{isa} eq "interface" && $nitem->{isa} eq "annotation") {
+      # Do nothing, we're treating this as legal.
+    } else {
+      output_error($oitem, $nitem, $oclitem, $c, "bad",
+                   $oitem->{isa}, $nitem->{isa});
+    }
+  }
 
   # Check that access to the item hasn't been reduced.
   if ($oitem->{public} && !$nitem->{public}) {
@@ -569,14 +637,18 @@ sub compare_japi_item($$$$) {
                  "nonfinal", "final");
   }
 
+  # Check that the item hasn't changed from an enum field to a regular
+  # field.
+  if ($oitem->{enumfield} && !$nitem->{enumfield}) {
+    output_error($oitem, $nitem, $oclitem, $c, "bad",
+                 "enum field", "normal field");
+  }
+
   # Check that the item's type has remained the same.
   if ($oitem->{type} ne $nitem->{type}) {
-    unless ($oitem->{isa} eq "field" && $oitem->{type} !~ /:/ &&
-            $nitem->{type} =~ /^\Q$oitem->{type}\E:/) {
-      output_error($oitem, $nitem, $oclitem, $c, "bad",
-                   "type @{[sig2type($oitem->{type})]}", "type @{[sig2type($nitem->{type})]}");
-      # Do I win the award for "most consecutive close brackets"?
-    }
+    output_error($oitem, $nitem, $oclitem, $c, "bad",
+                 "type @{[sig2type($oitem->{type})]}", "type @{[sig2type($nitem->{type})]}");
+    # Do I win the award for "most consecutive close brackets"?
   }
 
   # For classes and interfaces, check that nothing has been removed from
@@ -622,6 +694,31 @@ sub compare_japi_item($$$$) {
                      "doesn't throw $excp", "throws $excp");
       }
     }
+
+    # Check the default value if applicable
+    # FIXME Assuming for now that it's legal to add a default where one wasn't
+    # before. Not sure if this is true...
+    if (defined $oitem->{default}) {
+      my $odefault = $oitem->{default};
+      $odefault .= " (0x$oitem->{defaultbits})" if defined $oitem->{defaultbits};
+      if (!defined $nitem->{default}) {
+        output_error($oitem, $nitem, $oclitem, $c, "bad",
+                     "has default [$odefault]", "has no default");
+      } else {
+        my $ndefault = $nitem->{default};
+        $ndefault .= " (0x$nitem->{defaultbits})" if defined $nitem->{defaultbits};
+        if (defined $nitem->{defaultbits} && defined $oitem->{defaultbits}) {
+          if ($nitem->{defaultbits} ne $oitem->{defaultbits}) {
+            output_error($oitem, $nitem, $oclitem, $c, "bad",
+                         "has default [$odefault]", "has default [$ndefault]");
+          }
+        } elsif ($nitem->{default} ne $oitem->{default}) {
+          output_error($oitem, $nitem, $oclitem, $c, "bad",
+                       "has default [$odefault]", "has default [$ndefault]");
+        }
+      }
+    }
+
 
   # For fields, check the constant value if there is one.
   } else {
@@ -799,9 +896,42 @@ sub print_summary() {
 sub sig2type($) {
   my ($sig) = @_;
   return sig2type($1) . '[]' if $sig =~ /^\[(.*)$/;
+  return sig2type($1) . "..." if $sig =~ /^\.(.*)$/;
   return $javatypes->{$sig} if $javatypes->{$sig};
   if ($sig =~ /^L(.*);$/) {
     $sig = $1; $sig =~ s-/-.-g;
   }
   $sig;
+}
+
+sub sanitize_typesig($$) {
+  my ($str, $item) = @_;
+  if ($item->{isa} eq "method" && $item->{static}) {
+    $gparams = $item->{genericparams};
+  } elsif ($item->{isa} eq "method" || $item->{isa} eq "constructor") {
+    $gparams = $item->{clitem}->{genericparams};
+  } else {
+    $gparams = [];
+  }
+  $str =~ s/^\./\[/;
+  my $newstr = $str;
+  $newstr =~ s/<[^<>]*>//g;
+  while ($newstr ne $str) {
+    $str = $newstr;
+    $newstr =~ s/<[^<>]*>//g;
+  }
+  $str =~ s/\@([0-9]+)/$gparams->[$1]/g;
+  return $str;
+}
+
+sub sanitize_member($) {
+  my ($item) = @_;
+  if ($item->{gmember} =~ /\(([^\)]+\))/) {
+    my $params = join(',', map {sanitize_typesig($_, $item)} split(/,/, $1));
+    my $result = $item->{gmember};
+    $result =~ s/\([^\)]+\)/\($params\)/;
+    return $result;
+  } else {
+    return $item->{gmember};
+  }
 }

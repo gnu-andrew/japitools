@@ -23,7 +23,7 @@ use IO::Handle;
 use Getopt::Std;
 use integer;
 
-$currver = "0.9.6";
+$currver = "0.9.7";
 
 %sigs = (boolean=>'Z', byte=>'B', char=>'C', double=>'D', float=>'F', int=>'I',
          long=>'J', short=>'S', void=>'V',
@@ -183,12 +183,12 @@ sub begin() {
     my $flagstr = $2;
     if ($japiver ne "0.8.1" && $japiver ne "0.9" && $japiver ne "0.9.1" &&
         $japiver ne "0.9.2" && $japiver ne "0.9.3" && $japiver ne "0.9.4" &&
-        $japiver ne "0.9.5" && $japiver ne "0.9.6") {
+        $japiver ne "0.9.5" && $japiver ne "0.9.6" && $japiver ne "0.9.7") {
       print STDERR <<EOF;
 This japi file claims to be version $japiver, but this version of $progname only
-understands versions 0.8.1, 0.9, 0.9.1, 0.9.2, 0.9.3, 0.9.4, 0.9.5, 0.9.6 and
-older versions that did not carry a version number. Either this japi file is
-incorrect or you need a newer version of $progname.
+understands versions 0.8.1, 0.9, 0.9.1, 0.9.2, 0.9.3, 0.9.4, 0.9.5, 0.9.6,
+0.9.7 and older versions that did not carry a version number. Either this japi
+file is incorrect or you need a newer version of $progname.
 EOF
       exit 1;
     }
@@ -442,7 +442,11 @@ sub to_new() {
   }
   if ($japiver eq "0.9.6" or $older) {
     $older = 1;
-    # Do nothing - 0.9.6 is as far as we can get right now...
+    # Do nothing - 0.9.7 had *additions* to the spec but no actual differences
+  }
+  if ($japiver eq "0.9.7" or $older) {
+    $older = 1;
+    # Do nothing - 0.9.7 is as far as we can get right now...
   }
 
   # For ALL versions, we extract the exceptions in scan-only mode. This allows

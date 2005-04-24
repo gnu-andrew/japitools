@@ -19,7 +19,6 @@ representation in this version of the format:
 - Default values of annotation methods that are of Array and Annotation types.
 - Constraints on generic type parameters, other than the primary constraint to
   a single non-generic constraining type.
-- Generic methods (I'm not even sure if Java *has* generic methods)
 
 
 Types
@@ -130,8 +129,9 @@ Inclusion
 Japi files may be created for any set of classes and interfaces, although
 typically they will be made for particular complete packages that make up a
 public API. However, it is not permitted to create a japi file for only part of
-a class. Only public and protected classes and interfaces can be included in
-a japi file.
+a class, and it is not permitted to create a japi file for an inner class
+without it's containing class, or vice versa. Only public and protected classes
+and interfaces can be included in a japi file.
 
 For each class and/or interface that is included, all its public and protected
 fields, methods and constructors must be included. This includes fields and
@@ -153,24 +153,24 @@ everything.
 
 Within a class or interface, the class (or interface) itself comes first,
 followed by its fields (in alphabetical order by name), followed by its
-constructors (in alphabetical order by parameter types), followed by its methods
-(in alphabetical order by name and parameter types).
+constructors (in alphabetical order by parameter types), followed by its
+methods (in alphabetical order by name and parameter types).
 
-"By argument types" here means by the result of this algorithm:
-- Loop over the types of all the parameters
-- Take the type in Type Signature representation
-- If the type is a generic type parameter (@0, @1 etc), replace with the
-  constraining type.
-- If the type *has* generic type parameters (anything in <>s), remove them.
-- If the parameter is a varargs array type (starts with "."), treat it as a
-  regular array type (replace the "." with "[").
-- Concatenate these values, comma-separated.
+"By parameter types" here means by the result of concatenating the types of all
+the parameters in type signature format, EXCEPT that all 1.5-specific features
+are ignored. Specifically:
+- Generic type parameters (@0, @1 etc) are replaced by the constraining type.
+- Types that *have* generic type parameters (anything in <>s) have them removed.
+- Varargs array types (starting with ".") are treated as regular array types
+  (replacing the "." with "[").
+
 This resulting string does not appear anywhere in the japi file; it is merely
-constructed in memory for the purposes of sorting. The purpose of this algorithm
-is to ensure that the ordering of methods using generic constructs is identical
-to the ordering they would have if they were non-generic. This is necessary to
-support meaningful comparisons between non-generic and generic versions of the
-same API, eg java.util between JDK1.4 and JDK1.5.
+constructed in memory for the purposes of sorting. The purpose of this
+algorithm is to ensure that the ordering of methods using 1.5-specific
+constructs is identical to the ordering they would have under an older JDK
+version. This is necessary to support meaningful comparisons between, for
+example, non-generic and generic versions of the same API, such as java.util
+between JDK1.4 and JDK1.5.
 
 If any package, class or member names include any escaped characters, it is the
 escaped string that is compared, rather than the original.
@@ -316,14 +316,14 @@ appears here depends on what type of item this is.
   - The type of the field, in Type Signature format.
   - If the field is a constant value other than null, the character ":" followed
     by the value of the field. In the case of a char value, this is the integer
-    value of the character; in the case of a string, it is the character '"'
-    followed by the escaped string. For all other values it is the result of
-    Java's default conversion of that type to a string. For float and double
-    constants, the stringified value may be followed by "/" and the result of
-    toHexString() called on the result of floatToRawIntBits() or
-    doubleToRawLongBits(), respectively. This is unambigous since there is no
-    way for the stringified value of a float or double to contain "/". This
-    hex string is optional but it is recommended to include it if possible.
+    value of the character; in the case of a string, it is the escaped string.
+    For all other values it is the result of Java's default conversion of that
+    type to a string. For float and double constants, the stringified value may
+    be followed by "/" and the result of toHexString() called on the result of
+    floatToRawIntBits() or doubleToRawLongBits(), respectively. This is
+    unambigous since there is no way for the stringified value of a float or
+    double to contain "/". This hex string is optional but it is recommended to
+    include it if possible.
 
 - For constructors, the <typeinfo> field consists of the following parts:
   - The word "constructor".
@@ -336,13 +336,14 @@ appears here depends on what type of item this is.
     be listed).
 
 - For methods, the <typeinfo> field consists of the following parts:
+  - If the method is a generic static method, the character "<", followed by a
+    comma-separated list of the constraining type of each type parameter in Type
+    Signature representation, followed by the character ">". For this interim
+    version of the specification, only the primary constraining type appears;
+    any further information about the constraints (including type arguments
+    of the constraining type) is not included. A suitable representation for
+    this information will be determined in future versions of this specification.
   - The return type of the method, in Type Signature format.
-  - If the method is part of an annotation, has a default value, and is of type
-    String, Class, or a primitive type, the character ":" followed by the default
-    value. The format of the default value is identical to that used by constant
-    fields for Strings and primitive types, or the name of the class in Type
-    Signature representation for Class types. Default values on array- and
-    annotation-typed methods are not yet supported.
   - For every exception type thrown by this method, the character "*" followed
     by the name of the exception type, in Java Language representation. These
     may appear in any order. Subclasses of java.lang.RuntimeException and
@@ -350,6 +351,12 @@ appears here depends on what type of item this is.
     another exception that can be thrown (eg if both java.io.IOException and
     java.io.FileNotFoundException can be thrown, only java.io.IOException should
     be listed).
+  - If the method is part of an annotation, has a default value, and is of type
+    String, Class, or a primitive type, the character ":" followed by the default
+    value. The format of the default value is identical to that used by constant
+    fields for Strings and primitive types, or the name of the class in Type
+    Signature representation for Class types. Default values on array- and
+    annotation-typed methods are not yet supported.
 
 
 Conclusion

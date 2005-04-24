@@ -161,10 +161,47 @@
     a constant string.
   * Fix problem causing japize to fail on Classpath.
   * This is a 1.0 "Release candidate"
-- For 1.0: 
+* Skipped up to 0.9.5...
   * Fix bug causing minor not to be recognized as 'ok'. Now a package with only
     minor bugs will get the 'good-100pct' CSS class.
-  - Fix any bugs reported in 0.9.3.
+  * Update webpage docs to cover the changes in the 0.9.x series.
+  * Bump the file format version.
+  * Ability to filter out differences between, say, jdk11 and jdk14 when comparing
+    jdk11 against $freevm
+- For 0.9.6:
+  - Remove Jode support entirely
+  - Preliminary generics, enum, annotation etc support
+  - Generics, specifically:
+    - Need to be aware of the containing class(es) when doing read_japi_item. How?
+    - By putting stuff in the $japi hash. BUT WHAT?
+    - A single $clitem which is the japi entry of the single containing class. When
+      a class(/interface/etc) is found, replace $clitem with this one.
+    - Also add the $clitem to the item hash. This provides a chain to find the
+      container of an inner class. Make sure to store the previous $clitem for items
+      that represent an inner class of that item, but not for brand new classes.
+    - We can probably stop storing $oclitem and $nclitem in compare_japis
+    - And stop passing it to output_error
+    - $item->{member} should be the sanitized string, for compatibility
+    - $item->{gmember} should be the real, generic-aware string
+    - Sounds like what we really want is:
+      sanitize_typesig(str, item)
+      sanitize_member(item) - works on $item->{gmember}
+      sanitize_member looks for (...), splits it on comma, and calls sanitize_typesig on each part.
+      sanitize_typesig makes the following changes:
+      - Removes anything between <>
+      - Replaces any @n with the nth generic parameter type
+      - Replaces any leading . with a [
+      - 
+
+- For 0.9.7:
+  - Finish generics, enum, annotation etc support
+    - Array and annotation-typed annotation method defaults
+    - Annotations on packages, types and members
+    - Constraints on generic types
+    - Investigate improving representations eg of inner classes of generic types
+    - Try to be less naive about reporting every difference as an error
+- For 1.0: 
+  - Fix any bugs reported in 0.9.7.
   - Do 1.0.x releases for other (hopefully minor) bugfixes.
 - For 1.1.1:
   - Add "link to Sun's documentation" capability somehow.
@@ -182,8 +219,6 @@
         constant|variable|deprecated|undeprecated)
   - Document japilist (both help messages and webpage documentation).
   - Document japifix (-? option, webpage documentation).
-  - Update webpage docs to cover the changes in the 0.9.x series.
-  - Bump the file format version.
   - Convert all non-"a-zA-Z0-9_$" characters in class and method names into
     "\uXXXX". Do the same with characters in constant strings, only use a wider
     range (eg everything in the ascii charset from space to the end). Update
@@ -192,37 +227,4 @@
   - Find out how to take a \uXXXX escape and turn it into an &#xxxx; HTML one.
   - This is a 1.2.0 Release Candidate.
 - For 1.2.0:
-  - Any bug fixes reported against 1.1.3.
-- For 1.2.1:
-  - Support for comparisons against multiple JDK versions. One possible way
-    would be an argument syntax something like the following, but I'm getting
-    ever less sure that it's the way to go. For starters, you want the
-    removal-based-on-future-jdk-versions stuff to be included in the summary,
-    which can't happen if it's done at the same time as the dup-filtering.
-    Anyway, here's the old idea...
-    - "-a file.japio" and "-f file.japio" will add or filter based on existing
-      japio files.
-    - Instead of a filename, "@file1.japi:file2.japi" (both ".japi" and ".gz"
-      are optional) passed to -a or -f will dynamically compare the japis and
-      apply the filters.
-    - japicompat file1 file2 is equivalent to japicompat -a @file1:file2 (and
-      other -a and -f args are still allowed).
-  - Test by generating jdkxx-jdkyy.japio for all yy > xx and then compare kaffe
-    to jdkxx filtering out all those japios.
-  - ./configure;make;make install?
-- For 1.2.2:
-  - Fallout from 1.2.1, since it's a big change and will probably break stuff,
-    including its own new functionality.
-  - Anything else needed by kaffe or any other free java project for creating
-    nightly results output.
-  - This is 2.0 "release candidate"
-- For 1.2.3:
-  - If there's any fallout from 1.2.2, do a second release candidate. Otherwise
-    skip this and go straight to 2.0.
-- For 2.0:
-  - Minor bugfixes only.
-  - Do 2.0.x releases for other (hopefully minor) bugfixes.
-- For 2.1, 3.0 etc:
-  - New features, if I can think of any (everything I've thought of so far is
-    on the roadmap for 1.0...)
-  - Profiling support as suggested by Dalibor?
+  - Any bug fixes reported against 1.1.1.

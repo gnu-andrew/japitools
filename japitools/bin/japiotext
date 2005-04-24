@@ -199,6 +199,7 @@ sub readable_item($) {
 sub sig2type($) {
   my ($sig) = @_;
   return sig2type($1) . '[]' if $sig =~ /^\[(.*)$/;
+  return sig2type($1) . '...' if $sig =~ /^\.(.*)$/;
   return $javatypes->{$sig} if $javatypes->{$sig};
   if ($sig =~ /^L(.*);$/) {
     $sig = $1; $sig =~ s-/-.-g;
