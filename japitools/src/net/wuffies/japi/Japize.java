@@ -45,56 +45,10 @@ import java.util.Date;
  * Process a Java API and emit a machine-readable description of the API,
  * suitable for comparison to other APIs. Specifically, the perl script
  * japicompat.pl can test APIs for source/binary compatibility with each other.
- * <p>
- * Recent changes:<br>
- * - 2002/09/10: Make 'zip|unzip' optional, defaulting to 'zip'. Remove
- *   reflection support because it's just a Bad Idea (but keep the wrapper
- *   classes in case they turn out to be useful later).
- * - 2002/xx/xx: At some point after the last entry, a few changes were made,
- *   notably in the JodeField and JodeMethod classes to ensure that data hasn't
- *   gone away by the time we want to use it. Also 'unzip' option was added,
- *   and specifying either that or 'zip' is compulsory.
- * - 2002/03/29: After a long hiatus, I got some motivation to hack on this
- *   again. Changed commandline options to default to jode, also allow use of
- *   GZIPOutputStream if available. Sort the output in a way that should help
- *   a future japicompat implementation be much more efficient.
- * - 2000/xx/xx: At some point soon after the last entry, the svuid code was
- *   added to the jode implementation. The code is part of this tool and it
- *   turned out to not be particularly worthwhile to submit it for jode itself.
- * - 2000/06/25: Start supporting jode.bytecode (it suits my needs better than
- *   gnu.bytecode). Everything works except for serialVersionUIDs. I'm hoping
- *   that if I provide Jochen Hoenicke (the author of jode.bytecode) with an
- *   implementation of ObjectStreamClass.getSerialVersionUID() ported to
- *   jode.bytecode, he will incorporate it.<br>
- * - 2000/06/20: Prepare for supporting gnu.bytecode by abstracting all
- *   reflection calls into "Wrapper" classes. The class ReflectClass provides
- *   a reflection-based Wrapper class that should keep all functionality the
- *   same as it is now. The Wrapper classes are uncommented but mostly pretty
- *   trivial to understand.<br>
- * - 2000/06/16: Add a cool new feature at the suggestion of Edouard G.
- *   Parmelan: Japize now outputs SerialVersionUIDs. It will be interesting
- *   to try to re-implement *that* with gnu.bytecode... Also implemented
- *   translation of chars to their associated ints to avoid the funny char
- *   values that appeared in the output, and String mangling just in case
- *   a primitive constant String contained a newline.<br>
- * - 2000/06/16: Remove the kaffe bug hackaround now that kaffe has been fixed
- *   (2 days from discovery to fix - impressive). Left in the part that prints
- *   "!", which turns out to be unavoidable given the JLS. JDK does it too.<br>
- * - 2000/06/14: Finally got to commenting the class; fixed a bug where a
- *   static final value would not be recognized as a potential constant if it
- *   was protected; added support for knowing the "implicit" modifiers on
- *   interfaces and their members which Reflection should tell us, but
- *   doesn't.<br>
  *
- * @author Stuart Ballard &lt;<a href="mailto:sballard@wuffies.net">sballard@wuffies.net</a>&gt;
+ * @author Stuart Ballard &lt;<a href="mailto:stuart.a.ballard@gmail.com">stuart.a.ballard@gmail.com</a>&gt;
  */
 public class Japize {
-
-  /**
-   * Change this to specify whether to use Jode or the new ClassFile
-   * implementation by Jeroen.
-   */
-  private static final boolean useJode = false;
 
   /**
    * The path to scan for classes in.
@@ -573,24 +527,24 @@ public class Japize {
   public static String mkIfaceString(ClassWrapper c, String s) {
 
     // First iterate over the class's direct superinterfaces.
-    ClassWrapper[] ifaces = c.getInterfaces();
+    ClassType[] ifaces = c.getInterfaces();
     for (int i = 0; i < ifaces.length; i++) {
 
       // If the string does not already contain the interface, and the
       // interface is public/protected, then add it to the string and
       // also process *its* superinterfaces, recursively.
       if ((s + "*").indexOf("*" + ifaces[i].getName() + "*") < 0) {
-        int mods = ifaces[i].getModifiers();
+        int mods = ifaces[i].getWrapper().getModifiers();
         if (Modifier.isPublic(mods) || Modifier.isProtected(mods)) {
           s += "*" + ifaces[i].getName();
         }
-        s = mkIfaceString(ifaces[i], s);
+        s = mkIfaceString(ifaces[i].getWrapper(), s);
       }
     }
 
     // Finally, recursively process the class's superclass, if it has one.
     if (c.getSuperclass() != null) {
-      s = mkIfaceString(c.getSuperclass(), s);
+      s = mkIfaceString(c.getSuperclass().getWrapper(), s);
     }
     return s;
   }
@@ -604,8 +558,6 @@ public class Japize {
    */
   public static boolean japizeClass(String n)
       throws NoSuchMethodException, IllegalAccessException {
-    PrintWriter err = jode.GlobalOptions.err;
-    jode.GlobalOptions.err = null;
     try {
 
       // De-mangle the class name.
@@ -647,7 +599,7 @@ public class Japize {
       ClassWrapper sup = c;
       int smods = mods;
       while (sup.getSuperclass() != null) {
-        sup = sup.getSuperclass();
+        sup = sup.getSuperclass().getWrapper();
         smods = sup.getModifiers();
         if (!Modifier.isPublic(smods) && !Modifier.isProtected(smods)) {
           progress('^');
@@ -683,7 +635,7 @@ public class Japize {
         if (fields[i].getDeclaringClass().isInterface()) {
           mods |= Modifier.PUBLIC | Modifier.FINAL | Modifier.STATIC;
         }
-        type = fields[i].getType();
+        type = fields[i].getType().getTypeSig();
 
         // A static, final field is a primitive constant if it is initialized to
         // a compile-time constant.
@@ -755,31 +707,22 @@ public class Japize {
           continue;
         }
 
-        // This makes sure we do not print an identical method twice. It can
-        // never happen except for a rare case where an interface inherits the
-        // same method from two different superinterfaces (or from a
-        // superinterface and java.lang.Object). The 1.2 Collections architecture
-        // is a wonderful test-bed for this case :)
-        if (calls[i].isDup()) {
-          progress('!');
-          continue;
-        }
-
         // Construct the name of the method, of the form Class!method(params).
         entry = classEntry + calls[i].getName() + "(";
-        String[] params = calls[i].getParameterTypes();
+        Type[] params = calls[i].getParameterTypes();
         String comma = "";
         for (int j = 0; j < params.length; j++) {
-          entry += comma + params[j];
+          entry += comma + params[j].getTypeSig();
           comma = ",";
         }
         entry += ")";
 
         // Construct the "type" field, of the form returnType*exception*except2...
-        type = calls[i].getReturnType();
-        String[] excps = calls[i].getExceptionTypes();
+        Type rtnType = calls[i].getReturnType();
+        type = (rtnType == null) ? "constructor" : calls[i].getReturnType().getTypeSig();
+        ClassType[] excps = calls[i].getExceptionTypes();
         for (int j = 0; j < excps.length; j++) {
-          if (includeException(excps, j)) type += "*" + excps[j];
+          if (includeException(excps, j)) type += "*" + excps[j].getName();
         }
 
         // Get the modifiers for this method. Methods of interfaces are
@@ -811,14 +754,16 @@ public class Japize {
       return true;
     } catch (NoClassDefFoundError e) {
       System.err.println("\nFailed to Japize " + n + ": " + e);
+      e.printStackTrace();
     } catch (NullPointerException e) {
       System.err.println("\nFailed to Japize " + n + ": " + e);
+      e.printStackTrace();
     } catch (ClassNotFoundException e) {
       System.err.println("\nFailed to Japize " + n + ": " + e);
+      e.printStackTrace();
     } catch (IndexOutOfBoundsException e) {
       System.err.println("\nFailed to Japize " + n + ": " + e);
-    } finally {
-      jode.GlobalOptions.err = err;
+      e.printStackTrace();
     }
     return false;
   }
@@ -856,17 +801,26 @@ public class Japize {
     out.println(type);
   }
 
+
+  /**
+   * Trivial utility method to get the wrapper for a superclass or null if there
+   * isn't one.
+   */
+  static ClassWrapper getWrapper(ClassType t) {
+    return t == null ? null : t.getWrapper();
+  }
+
   /**
    * Check to see if an exception should be included in the list of exceptions.
    * Subclasses of RuntimeException and Error should be omitted, as should
    * subclasses of other exceptions also thrown.
    */
-  static boolean includeException(String[] excps, int index)
+  static boolean includeException(ClassType[] excps, int index)
       throws ClassNotFoundException {
     boolean isSuper = false;
-    for (ClassWrapper supclass = getClassWrapper(excps[index]);
+    for (ClassWrapper supclass = excps[index].getWrapper();
          supclass != null;
-         supclass = supclass.getSuperclass()) {
+         supclass = getWrapper(supclass.getSuperclass())) {
       String supname = supclass.getName();
       if ("java.lang.RuntimeException".equals(supname) ||
           "java.lang.Error".equals(supname)) {
@@ -874,7 +828,7 @@ public class Japize {
       }
       if (isSuper) {
         for (int i = 0; i < excps.length; i++) {
-          if (i != index && supname.equals(excps[i])) return false;
+          if (i != index && supname.equals(excps[i].getName())) return false;
         }
       }
       isSuper = true;
@@ -921,11 +875,7 @@ public class Japize {
    * @param cp The classpath to set.
    */
   public static void setClasspath(String cp) throws IOException {
-    if (useJode) {
-      JodeClass.setClassPath(cp);
-    } else {
-      ClassFile.setClasspath(cp);
-    }
+    ClassFile.setClasspath(cp);
   }
   /**
    * Construct the appropriate type of ClassWrapper object for the processing we
@@ -937,10 +887,6 @@ public class Japize {
    */
   public static ClassWrapper getClassWrapper(String className) 
       throws  ClassNotFoundException {
-    if (useJode) {
-      return new JodeClass(className);
-    } else {
-      return ClassFile.forName(className);
-    }
+    return ClassFile.forName(className);
   }
 }

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Japize - Output a machine-readable description of a Java API.
-// Copyright (C) 2000,2002,2003,2004  Stuart Ballard <stuart.a.ballard@gmail.com>
+// Copyright (C) 2000,2002,2003,2004,2005  Stuart Ballard <stuart.a.ballard@gmail.com>
 // 
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -19,16 +19,11 @@
 
 package net.wuffies.japi;
 
-interface CallWrapper extends Wrapper, Comparable {
-  String[] getParameterTypes();
-  String[] getExceptionTypes();
+public interface CallWrapper extends GenericWrapper, Comparable {
+  Type[] getParameterTypes();
+  ClassType[] getExceptionTypes();
   String getName();
-  String getReturnType();
+  Type getReturnType();
   ClassWrapper getDeclaringClass();
-  // Check for duplicates within the same Class object. This can happen in
-  // Reflection when an interface inherits from more than one interface (or
-  // from an interface and the Object class). In this case Reflection gives
-  // both methods as results, and we only want to present the data one time.
-  boolean isDup();
 }
 

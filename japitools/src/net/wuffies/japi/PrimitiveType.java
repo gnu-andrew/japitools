@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Japize - Output a machine-readable description of a Java API.
-// Copyright (C) 2000,2002,2003,2004  Stuart Ballard <stuart.a.ballard@gmail.com>
+// Copyright (C) 2000,2002,2003,2004,2005  Stuart Ballard <stuart.a.ballard@gmail.com>
 // 
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -19,17 +19,21 @@
 
 package net.wuffies.japi;
 
-public interface FieldWrapper extends Wrapper, Comparable {
-  String getName();
-  Type getType();
-  boolean isPrimitiveConstant();
-  Object getPrimitiveValue();
-  ClassWrapper getDeclaringClass();
-
-  /**
-   * True if this field is one of the special fields of an enum type that defines the
-   * values of the enumeration. FIXME: Is this actually something that can be got from
-   * the modifiers?
-   */
-  boolean isEnumField();
+public class PrimitiveType extends Type {
+  char code;
+  public PrimitiveType(char code) {
+    this.code = code;
+  }
+  public String getTypeSig() {
+    return "" + code;
+  }
+  static final PrimitiveType VOID = new PrimitiveType('V');
+  static final PrimitiveType BOOLEAN = new PrimitiveType('Z');
+  static final PrimitiveType CHAR = new PrimitiveType('C');
+  static final PrimitiveType BYTE = new PrimitiveType('B');
+  static final PrimitiveType SHORT = new PrimitiveType('S');
+  static final PrimitiveType INT = new PrimitiveType('I');
+  static final PrimitiveType LONG = new PrimitiveType('J');
+  static final PrimitiveType FLOAT = new PrimitiveType('F');
+  static final PrimitiveType DOUBLE = new PrimitiveType('D');
 }

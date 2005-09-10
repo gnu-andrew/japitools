@@ -226,7 +226,7 @@ public class ClassFile implements ClassWrapper
 		}
 		else if(attributeName.equals("Deprecated"))
 		{
-		    deprecated = true;
+		    this.deprecated = true;
 		}
 		else
 		{
@@ -240,9 +240,16 @@ public class ClassFile implements ClassWrapper
 	    return getUtf8String(name_index);
 	}
 
-	public String getType()
+	public Type getType()
 	{
-	    return getUtf8String(descriptor_index);
+	    // FIXME15 account for generics in the returned Type
+	    return Type.fromNonGenericSig(getUtf8String(descriptor_index));
+	}
+
+	public boolean isEnumField()
+	{
+	    // FIXME15 - or perhaps this is gettable from Modifiers?
+	    return false;
 	}
 
 	public boolean isPrimitiveConstant()
@@ -290,7 +297,7 @@ public class ClassFile implements ClassWrapper
 		}
 		else if(attributeName.equals("Deprecated"))
 		{
-		    deprecated = true;
+		    this.deprecated = true;
 		}
 		else
 		{
@@ -320,7 +327,7 @@ public class ClassFile implements ClassWrapper
 	    return getUtf8String(descriptor_index);
 	}
 
-	public String[] getParameterTypes()
+	public Type[] getParameterTypes()
 	{
 	    String sig = getUtf8String(descriptor_index);
 	    ArrayList l = new ArrayList();
@@ -331,24 +338,36 @@ public class ClassFile implements ClassWrapper
 		    i++;
 		if(sig.charAt(i) == 'L')
 		    i = sig.indexOf(';', i);
-		l.add(sig.substring(start, i + 1));
+		// FIXME15 - take into account generics here
+		l.add(Type.fromNonGenericSig(sig.substring(start, i + 1)));
 	    }
-	    String[] p = new String[l.size()];
+	    Type[] p = new Type[l.size()];
 	    l.toArray(p);
 	    return p;
 	}
 
-	public String[] getExceptionTypes()
+	public ClassType[] getExceptionTypes()
 	{
-	    return exceptions;
+	    ClassType[] excps = new ClassType[exceptions.length];
+	    for (int i = 0; i < exceptions.length; i++) {
+		// FIXME15 - can exceptions have type arguments? If so take them into account here
+		excps[i] = new ClassType(exceptions[i]);
+	    }
+	    return excps;
 	}
 
-	public String getReturnType()
+	public TypeParam[] getTypeParams() {
+	    // FIXME15 - implement this for generic static methods; other methods and constructors should return null
+	    return null;
+	}
+
+	public Type getReturnType()
 	{
 	    if(getUtf8String(name_index).equals("<init>"))
-		return "constructor";
+		return null;
 	    String sig = getUtf8String(descriptor_index);
-	    return sig.substring(sig.lastIndexOf(')') + 1);
+	    // FIXME15 - take into account generics here
+	    return Type.fromNonGenericSig(sig.substring(sig.lastIndexOf(')') + 1));
 	}
 
 	public ClassWrapper getDeclaringClass()
@@ -368,16 +387,17 @@ public class ClassFile implements ClassWrapper
 
 	private String sig;
 
+	// FIXME (SAB) - this may need to be removed entirely and the comparison of members be offloaded outside this class
 	String getSig() 
 	{
 	    if (sig == null) 
 	    {
 		sig = getName() + "(";
 		String comma = "";
-		String[] parameterTypes = getParameterTypes();
+		Type[] parameterTypes = getParameterTypes();
 		for (int j = 0; j < parameterTypes.length; j++) 
 		{
-		    sig += comma + parameterTypes[j];
+		    sig += comma + parameterTypes[j].getNonGenericTypeSig();
 		    comma = ",";
 		}
 		sig += ")";
@@ -387,7 +407,7 @@ public class ClassFile implements ClassWrapper
 
 	boolean isInheritable()
 	{
-	    return !Modifier.isPrivate(access_flags) && !getUtf8String(name_index).equals("<init>");
+	    return !Modifier.isPrivate(this.access_flags) && !getUtf8String(name_index).equals("<init>");
 	}
     }
 
@@ -539,12 +559,13 @@ public class ClassFile implements ClassWrapper
 	return name;
     }
 
-    public ClassWrapper getSuperclass()
+    public ClassType getSuperclass()
     {
 	if(superClass == null)
 	    return null;
 	else
-	    return forName(superClass);
+	    // FIXME15 - apply any type arguments that are applicable
+	    return new ClassType(superClass);
     }
     
     private static boolean gotSerializable = false;
@@ -647,7 +668,7 @@ public class ClassFile implements ClassWrapper
 		{
 		    if (f1.getName().equals(f2.getName())) 
 		    {
-			return f1.getType().compareTo(f2.getType());
+			return f1.getType().getNonGenericTypeSig().compareTo(f2.getType().getNonGenericTypeSig());
 		    } 
 		    else 
 		    {
@@ -669,7 +690,7 @@ public class ClassFile implements ClassWrapper
 
 		data_out.writeUTF(field.getName());
 		data_out.writeInt(modifiers);
-		data_out.writeUTF(field.getType());
+		data_out.writeUTF(field.getType().getNonGenericTypeSig());
 	    }
 
 	    Arrays.sort(methods, new Comparator() 
@@ -733,10 +754,10 @@ public class ClassFile implements ClassWrapper
 	if(allMethods == null)
 	{
 	    HashMap map = new HashMap();
-	    ClassWrapper[] ifaces = getInterfaces();
+	    ClassType[] ifaces = getInterfaces();
 	    for(int i = 0; i < ifaces.length; i++)
 	    {
-		MethodInfoItem[] m = (MethodInfoItem[])ifaces[i].getCalls();
+		MethodInfoItem[] m = (MethodInfoItem[])ifaces[i].getWrapper().getCalls();
 		for(int j = 0; j < m.length; j++)
 		{
 		    if(!map.containsKey(m[j].getSig()))
@@ -745,7 +766,7 @@ public class ClassFile implements ClassWrapper
 	    }
 	    if(superClass != null)
 	    {
-		MethodInfoItem[] m = (MethodInfoItem[])getSuperclass().getCalls();
+		MethodInfoItem[] m = (MethodInfoItem[])getSuperclass().getWrapper().getCalls();
 		for(int i = 0; i < m.length; i++)
 		{
 		    if(m[i].isInheritable())
@@ -769,13 +790,29 @@ public class ClassFile implements ClassWrapper
     {
 	return Modifier.isInterface(access_flags);
     }
-
-    public ClassWrapper[] getInterfaces()
+    public boolean isAnnotation()
     {
-	ClassWrapper[] interfaceNames = new ClassWrapper[interfaces.length];
+	// FIXME15
+	return false;
+    }
+    public boolean isEnum()
+    {
+	// FIXME15
+	return false;
+    }
+    public ClassWrapper getContainingClass()
+    {
+	// FIXME15
+	return null;
+    }
+
+    public ClassType[] getInterfaces()
+    {
+	ClassType[] interfaceNames = new ClassType[interfaces.length];
 	for(int i = 0; i < interfaces.length; i++)
 	{
-	    interfaceNames[i] = forName(interfaces[i]);
+	    // FIXME15 - apply any type arguments
+	    interfaceNames[i] = new ClassType(interfaces[i]);
 	}
 	return interfaceNames;
     }
@@ -787,16 +824,16 @@ public class ClassFile implements ClassWrapper
 	    HashMap map = new HashMap();
 	    if(superClass != null)
 	    {
-		FieldInfoItem[] f = (FieldInfoItem[])getSuperclass().getFields();
+		FieldInfoItem[] f = (FieldInfoItem[])getSuperclass().getWrapper().getFields();
 		for(int i = 0; i < f.length; i++)
 		{
 		    map.put(f[i].getName(), f[i]);
 		}
 	    }
-	    ClassWrapper[] ifaces = getInterfaces();
+	    ClassType[] ifaces = getInterfaces();
 	    for(int i = 0; i < ifaces.length; i++)
 	    {
-		FieldInfoItem[] f = (FieldInfoItem[])ifaces[i].getFields();
+		FieldInfoItem[] f = (FieldInfoItem[])ifaces[i].getWrapper().getFields();
 		for(int j = 0; j < f.length; j++)
 		{
 		    map.put(f[j].getName(), f[j]);
@@ -811,6 +848,12 @@ public class ClassFile implements ClassWrapper
 	    Arrays.sort(allFields);
 	}
 	return allFields;
+    }
+
+    public TypeParam[] getTypeParams()
+    {
+	// FIXME15
+	return null;
     }
 
     private static ClassPathEntry[] classpath;

@@ -19,14 +19,31 @@
 
 package net.wuffies.japi;
 
-interface ClassWrapper extends Wrapper {
+public interface ClassWrapper extends GenericWrapper {
   String getName();
-  ClassWrapper getSuperclass();
-  ClassWrapper[] getInterfaces();
+  ClassType getSuperclass();
+  ClassType[] getInterfaces();
   boolean isSerializable();
   long getSerialVersionUID();
   FieldWrapper[] getFields();
   CallWrapper[] getCalls();
+
+  /**
+   * True if this is an interface; also true for annotations.
+   */
   boolean isInterface();
+  /**
+   * True if this is an interface that is actually an annotation.
+   */
+  boolean isAnnotation();
+  /**
+   * True if this class is actually an enum.
+   */
+  boolean isEnum();
+
+  /**
+   * For inner classes, return the containing class. For top-level classes, return null here.
+   */
+  ClassWrapper getContainingClass();
 }
 

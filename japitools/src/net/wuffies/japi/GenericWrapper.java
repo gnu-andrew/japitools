@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Japize - Output a machine-readable description of a Java API.
-// Copyright (C) 2000,2002,2003,2004  Stuart Ballard <stuart.a.ballard@gmail.com>
+// Copyright (C) 2000,2002,2003,2004,2005  Stuart Ballard <stuart.a.ballard@gmail.com>
 // 
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -19,17 +19,13 @@
 
 package net.wuffies.japi;
 
-public interface FieldWrapper extends Wrapper, Comparable {
-  String getName();
-  Type getType();
-  boolean isPrimitiveConstant();
-  Object getPrimitiveValue();
-  ClassWrapper getDeclaringClass();
-
+/**
+ * ClassWrapper and CallWrapper implement this interface, because they can both have type parameters. Constructors and fields cannot.
+ */
+public interface GenericWrapper extends Wrapper {
   /**
-   * True if this field is one of the special fields of an enum type that defines the
-   * values of the enumeration. FIXME: Is this actually something that can be got from
-   * the modifiers?
+   * For generic classes and generic static methods, returns an array of TypeParam objects whose associatedWrappers are
+   * set to this object. For constructors, non-generic methods and non-generic classes, returns null.
    */
-  boolean isEnumField();
+  TypeParam[] getTypeParams();
 }

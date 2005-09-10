@@ -50,7 +50,6 @@
     <target name="jar" depends="compile" description="Create jar">
         <jar jarfile="${lib.dir}/${japi.jar}">
             <fileset dir="${build.classes.dir}" includes="net/wuffies/**"/>
-            <fileset dir="${build.classes.dir}" includes="jode/**"/>
         </jar>
     </target>
 	

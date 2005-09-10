@@ -19,7 +19,7 @@
 
 package net.wuffies.japi;
 
-interface Wrapper {
+public interface Wrapper {
   int getModifiers();
   boolean isDeprecated();
 }
