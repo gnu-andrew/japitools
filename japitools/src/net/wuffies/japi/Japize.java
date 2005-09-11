@@ -262,6 +262,7 @@ public class Japize {
     System.err.print(str);
     System.err.flush();
   }
+  // See design/japi-spec.txt for why this ends in a comma rather than the usual period.
   private static final String J_LANG = "java.lang,";
   private static final String J_L_OBJECT = J_LANG + "Object";
 
