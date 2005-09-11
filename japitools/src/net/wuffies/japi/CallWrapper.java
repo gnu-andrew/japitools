@@ -25,5 +25,12 @@ public interface CallWrapper extends GenericWrapper, Comparable {
   String getName();
   Type getReturnType();
   ClassWrapper getDeclaringClass();
+
+  /**
+   * For annotation methods, the default value, if there is one. If the method returns an annotation type
+   * this should return null for now until we can figure out a good way to get the info without having to
+   * load the annotation class into this JVM!
+   */
+  Object getDefaultValue();
 }
 

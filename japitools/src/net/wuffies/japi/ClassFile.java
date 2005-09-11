@@ -375,9 +375,11 @@ public class ClassFile implements ClassWrapper
 	    return ClassFile.this;
 	}
 
-	public boolean isDup()
+	public Object getDefaultValue()
 	{
-	    return false;
+	    // FIXME15 - implement this. Don't try to return anything if the value is an annotation type though
+	    // because we don't want to have to load the type into this JVM!
+	    return null;
 	}
 
 	public int compareTo(Object obj)

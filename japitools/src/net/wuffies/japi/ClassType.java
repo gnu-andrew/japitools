@@ -57,8 +57,20 @@ public class ClassType extends RefType {
     }
   }
 
-  public String getName(){
+  public String getName() {
     return name;
+  }
+  public String getJavaRepr() {
+    String repr = name;
+    if (typeArguments != null) {
+      repr += "<";
+      for (int i = 0; i < typeArguments.length; i++) {
+        if (i > 0) repr += ",";
+        repr += typeArguments[i].getTypeSig();
+      }
+      repr += ">";
+    }
+    return repr;
   }
   public ClassWrapper getWrapper() {
     if (classWrapper == null) {

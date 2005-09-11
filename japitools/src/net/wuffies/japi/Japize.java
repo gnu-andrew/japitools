@@ -533,10 +533,10 @@ public class Japize {
       // If the string does not already contain the interface, and the
       // interface is public/protected, then add it to the string and
       // also process *its* superinterfaces, recursively.
-      if ((s + "*").indexOf("*" + ifaces[i].getName() + "*") < 0) {
+      if ((s + "*").indexOf("*" + ifaces[i].getJavaRepr() + "*") < 0) {
         int mods = ifaces[i].getWrapper().getModifiers();
         if (Modifier.isPublic(mods) || Modifier.isProtected(mods)) {
-          s += "*" + ifaces[i].getName();
+          s += "*" + ifaces[i].getJavaRepr();
         }
         s = mkIfaceString(ifaces[i].getWrapper(), s);
       }
@@ -577,12 +577,22 @@ public class Japize {
       // Construct the basic strings that will be used in the output.
       String entry = toClassRoot(c.getName()) + "!";
       String classEntry = entry;
-      String type = "class";
-      if (c.isInterface()) {
+      String type;
+      if (c.isEnum()) {
+        type = "enum";
+      } else if (c.isAnnotation()) {
+        type = "annotation";
+      } else if (c.isInterface()) {
         type = "interface";
+      } else {
+        type = "class";
+      }
+
+      type += getTypeParamStr(c.getTypeParams());
+      
+      if (c.isInterface()) {
         mods |= Modifier.ABSTRACT; // Interfaces are abstract by definition,
-                                   // but wrapper implementations are
-                                   // inconsistent in telling us this.
+
       } else {
 
         // Classes that happen to be Serializable get their SerialVersionUID
@@ -599,18 +609,19 @@ public class Japize {
       ClassWrapper sup = c;
       int smods = mods;
       while (sup.getSuperclass() != null) {
-        sup = sup.getSuperclass().getWrapper();
+        ClassType supt = sup.getSuperclass();
+        sup = supt.getWrapper();
         smods = sup.getModifiers();
         if (!Modifier.isPublic(smods) && !Modifier.isProtected(smods)) {
           progress('^');
         } else {
-          type += ":" + sup.getName();
+          type += ":" + supt.getJavaRepr();
         }
       }
       type += mkIfaceString(c, "");
 
       // Print out the japi entry for the class itself.
-      printEntry(entry, type, mods, c.isDeprecated());
+      printEntry(entry, type, mods, c.isDeprecated(), false);
 
       // Get the class's members.
       FieldWrapper[] fields = c.getFields();
@@ -685,7 +696,7 @@ public class Japize {
 
         // Output the japi entry for the field.
         printEntry(classEntry + "#" + fields[i].getName(), type, mods,
-                   fields[i].isDeprecated());
+                   fields[i].isDeprecated(), fields[i].isEnumField());
       }
 
       // Iterate over the methods and constructors in the class.
@@ -718,11 +729,16 @@ public class Japize {
         entry += ")";
 
         // Construct the "type" field, of the form returnType*exception*except2...
+        type = "";
+
+        // ... but if it's a generic static method it gets the type parameters first
+        type += getTypeParamStr(calls[i].getTypeParams());
+
         Type rtnType = calls[i].getReturnType();
-        type = (rtnType == null) ? "constructor" : calls[i].getReturnType().getTypeSig();
+        type += (rtnType == null) ? "constructor" : calls[i].getReturnType().getTypeSig();
         ClassType[] excps = calls[i].getExceptionTypes();
         for (int j = 0; j < excps.length; j++) {
-          if (includeException(excps, j)) type += "*" + excps[j].getName();
+          if (includeException(excps, j)) type += "*" + excps[j].getJavaRepr();
         }
 
         // Get the modifiers for this method. Methods of interfaces are
@@ -746,7 +762,7 @@ public class Japize {
         }
 
         // Print the japi entry for the method.
-        printEntry(entry, type, mmods, calls[i].isDeprecated());
+        printEntry(entry, type, mmods, calls[i].isDeprecated(), false);
       }
 
       // Return true because we did parse this class.
@@ -768,6 +784,20 @@ public class Japize {
     return false;
   }
 
+  private static String getTypeParamStr(TypeParam[] tparams) {
+    String type = "";
+    if (tparams != null) {
+      type += "<";
+      for (int i = 0; i < tparams.length; i++) {
+        if (i > 0) type += ",";
+        type += tparams[i].getPrimaryConstraint().getTypeSig();
+      }
+      type += ">";
+    }
+    return type;
+  }
+
+
   /**
    * Print a japi file entry. The format of a japi file entry is space-separated
    * with 3 fields - the name of the "thing", the modifiers, and the type
@@ -785,7 +815,7 @@ public class Japize {
    * @param deprecated Whether the thing is deprecated.
    */
   public static void printEntry(String thing, String type, int mods,
-                                boolean deprecated) {
+                                boolean deprecated, boolean enumField) {
     if (!Modifier.isPublic(mods) && !Modifier.isProtected(mods)) return;
     if (thing.startsWith("java.lang,Object!")) out.print('+');
     if (thing.startsWith("java.lang,") ||
@@ -795,7 +825,7 @@ public class Japize {
     out.print(Modifier.isPublic(mods) ? 'P' : 'p');
     out.print(Modifier.isAbstract(mods) ? 'a' : 'c');
     out.print(Modifier.isStatic(mods) ? 's' : 'i');
-    out.print(Modifier.isFinal(mods) ? 'f' : 'n');
+    out.print(enumField ? 'e' : Modifier.isFinal(mods) ? 'f' : 'n');
     out.print(deprecated ? 'd' : 'u');
     out.print(' ');
     out.println(type);
