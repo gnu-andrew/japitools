@@ -40,10 +40,5 @@ public interface ClassWrapper extends GenericWrapper {
    * True if this class is actually an enum.
    */
   boolean isEnum();
-
-  /**
-   * For inner classes, return the containing class. For top-level classes, return null here.
-   */
-  ClassWrapper getContainingClass();
 }
 

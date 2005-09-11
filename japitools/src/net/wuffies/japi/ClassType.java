@@ -99,4 +99,12 @@ public class ClassType extends RefType {
   public String getNonGenericTypeSig() {
     return "L" + name.replace('.', '/') + ";";
   }
+
+  public void resolveTypeParameters() {
+    if (typeArguments != null) {
+      for (int i = 0; i < typeArguments.length; i++) {
+        typeArguments[i] = resolveTypeParameter(typeArguments[i]);
+      }
+    }
+  }
 }

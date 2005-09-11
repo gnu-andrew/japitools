@@ -54,6 +54,10 @@ public class ClassFile implements ClassWrapper
     private MethodInfoItem[] methods;
     private MethodInfoItem[] allMethods;
     private boolean deprecated;
+    private TypeParam[] typeParameters;
+    private ClassType superclassType;
+    private ClassType[] interfaceTypes;
+    private GenericWrapper containingWrapper;
 
     private class ConstantPoolItem
     {
@@ -248,8 +252,7 @@ public class ClassFile implements ClassWrapper
 
 	public boolean isEnumField()
 	{
-	    // FIXME15 - or perhaps this is gettable from Modifiers?
-	    return false;
+	    return (access_flags & 0x4000) != 0;
 	}
 
 	public boolean isPrimitiveConstant()
@@ -276,6 +279,7 @@ public class ClassFile implements ClassWrapper
     private class MethodInfoItem extends FMInfoItem implements CallWrapper
     {
 	private String[] exceptions;
+        private TypeParam[] typeParameters;
 
 	MethodInfoItem(DataInputStream in) throws IOException
 	{
@@ -299,6 +303,14 @@ public class ClassFile implements ClassWrapper
 		{
 		    this.deprecated = true;
 		}
+                else if(attributeName.equals("Signature"))
+                {
+                    int signature_index = in.readUnsignedShort();
+                    String signature = getUtf8String(signature_index);
+                    //System.out.println(signature);
+                    MethodSignatureParser p = new MethodSignatureParser(this, signature);
+                    typeParameters = p.getTypeParameters();
+                }
 		else
 		{
 		    skip(in, attribute_length);
@@ -356,9 +368,9 @@ public class ClassFile implements ClassWrapper
 	    return excps;
 	}
 
-	public TypeParam[] getTypeParams() {
-	    // FIXME15 - implement this for generic static methods; other methods and constructors should return null
-	    return null;
+	public TypeParam[] getTypeParams()
+        {
+	    return typeParameters;
 	}
 
 	public Type getReturnType()
@@ -411,6 +423,11 @@ public class ClassFile implements ClassWrapper
 	{
 	    return !Modifier.isPrivate(this.access_flags) && !getUtf8String(name_index).equals("<init>");
 	}
+
+        public GenericWrapper getContainingWrapper()
+        {
+            return ClassFile.this;
+        }
     }
 
     private class AttributeInfoItem
@@ -522,6 +539,10 @@ public class ClassFile implements ClassWrapper
                         int mask = Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PROTECTED | Modifier.STATIC;
 			this.access_flags &= ~mask;
                         this.access_flags |= access_flags & mask;
+                        if(outer_class != 0 && !Modifier.isStatic(access_flags))
+                        {
+                            containingWrapper = ClassFile.forName(getClassConstantName(outer_class));
+                        }
 		    }
 		}
 	    }
@@ -529,11 +550,397 @@ public class ClassFile implements ClassWrapper
 	    {
 		deprecated = true;
 	    }
+            else if(attributeName.equals("Signature"))
+            {
+                int signature_index = in.readUnsignedShort();
+                String signature = getUtf8String(signature_index);
+                //System.out.println(signature);
+                ClassSignatureParser p = new ClassSignatureParser(this, signature);
+                typeParameters = p.getTypeParameters();
+                superclassType = p.getSuperclassType();
+                interfaceTypes = p.getInterfaceTypes();
+            }
+            else if(attributeName.equals("EnclosingMethod"))
+            {
+                int class_index = in.readUnsignedShort();
+                int method_index = in.readUnsignedShort();
+                ClassFile containingClass = ClassFile.forName(getClassConstantName(class_index));
+                if(method_index == 0)
+                {
+                    containingWrapper = containingClass;
+                }
+                else
+                {
+                    NameAndTypeConstantPoolItem cpi = (NameAndTypeConstantPoolItem)constant_pool[method_index];
+                    String name = getUtf8String(cpi.name_index);
+                    String descriptor = getUtf8String(cpi.descriptor_index);
+                    containingWrapper = containingClass.findMethod(name, descriptor);
+                }
+            }
 	    else
 	    {
 		skip(in, attribute_length);
 	    }
 	}
+        if (superclassType == null)
+        {
+            superclassType = new ClassType(superClass);
+        }
+        if (interfaceTypes == null)
+        {
+            interfaceTypes = new ClassType[interfaces.length];
+            for(int i = 0; i < interfaces.length; i++)
+            {
+                interfaceTypes[i] = new ClassType(interfaces[i]);
+            }
+        }
+        if(typeParameters != null)
+        {
+            for(int i = 0; i < typeParameters.length; i++)
+            {
+                typeParameters[i].resolveTypeParameters();
+            }
+        }
+        superclassType.resolveTypeParameters();
+        for(int i = 0; i < interfaceTypes.length; i++)
+        {
+            interfaceTypes[i].resolveTypeParameters();
+        }
+        for(int i = 0; i < methods.length; i++)
+        {
+            TypeParam[] typeParams = methods[i].getTypeParams();
+            if(typeParams != null)
+            {
+                for(int j = 0; j < typeParams.length; j++)
+                {
+                    typeParams[j].resolveTypeParameters();
+                }
+            }
+        }
+    }
+
+    static class UnresolvedTypeParam extends RefType
+    {
+        private GenericWrapper associatedWrapper;
+        private String name;
+
+        UnresolvedTypeParam(GenericWrapper associatedWrapper, String name)
+        {
+            this.associatedWrapper = associatedWrapper;
+            this.name = name;
+        }
+
+        public String getTypeSig()
+        {
+            throw new Error();
+        }
+
+        public void resolveTypeParameters()
+        {
+            throw new Error();
+        }
+
+        public RefType resolve()
+        {
+            GenericWrapper container = associatedWrapper;
+            do
+            {
+                //System.out.println("Searching for " + name + " in " + container);
+                TypeParam[] typeParams = container.getTypeParams();
+                if(typeParams != null)
+                {
+                    for(int i = 0; i < typeParams.length; i++)
+                    {
+                        if(typeParams[i].getName().equals(name))
+                        {
+                            return typeParams[i];
+                        }
+                    }
+                }
+                container = container.getContainingWrapper();
+            } while (container != null);
+            throw new ClassFormatError("TypeParameter '" + name + "' does not exist");
+        }
+    }
+ 
+    private static class SignatureParser
+    {
+        private GenericWrapper container;
+        private String signature;
+        private int pos;
+
+        SignatureParser(GenericWrapper container, String signature)
+        {
+            this.container = container;
+            this.signature = signature;
+        }
+
+        TypeParam[] readFormalTypeParameters()
+        {
+            consume('<');
+            ArrayList params = new ArrayList();
+            do
+            {
+                params.add(readFormalTypeParameter());
+            } while(peekChar() != '>');
+            consume('>');
+            TypeParam[] list = new TypeParam[params.size()];
+            params.toArray(list);
+            return list;
+        }
+
+        private TypeParam readFormalTypeParameter()
+        {
+            String identifier = readIdentifier();
+            consume(':');
+            ClassType classBound;
+            if(peekChar() != ':')
+            {
+                classBound = (ClassType)readFieldTypeSignature();
+            }
+            else
+            {
+                classBound = new ClassType("java.lang.Object");
+            }
+            while(peekChar() == ':')
+            {
+                consume(':');
+                RefType interfaceBound = readFieldTypeSignature();
+            }
+            return new TypeParam(container, identifier, classBound);
+        }
+
+        private RefType readFieldTypeSignature()
+        {
+            switch(peekChar())
+            {
+                case 'L':
+                    return readClassTypeSignature();
+                case '[':
+                    return readArrayTypeSignature();
+                case 'T':
+                    return readTypeVariableSignature();
+                default:
+                    throw new ClassFormatError("at pos = " + pos);
+            }
+        }
+
+        RefType readClassTypeSignature()
+        {
+            consume('L');
+            String className = "";
+            for(;;)
+            {
+                String part = readIdentifier();
+                if(peekChar() != '/')
+                {
+                    className += part;
+                    break;
+                }
+                consume('/');
+                className += part + ".";
+            }
+            RefType[] typeArguments = null;
+            if(peekChar() == '<')
+            {
+                typeArguments = readTypeArguments();
+            }
+            while(peekChar() == '.')
+            {
+                consume('.');
+                String simpleClassName = readIdentifier();
+                if(peekChar() == '<')
+                {
+                    readTypeArguments();
+                }
+            }
+            consume(';');
+            return new ClassType(className, typeArguments);
+        }
+
+        private RefType[] readTypeArguments()
+        {
+            consume('<');
+            ArrayList list = new ArrayList();
+            do
+            {
+                list.add(readTypeArgument());
+            } while((peekChar() != '>'));
+            consume('>');
+            RefType[] arr = new RefType[list.size()];
+            list.toArray(arr);
+            return arr;
+        }
+
+        private RefType readTypeArgument()
+        {
+            char c = peekChar();
+            if(c == '+' || c == '-')
+            {
+                readChar();
+                // FIXME add wildcard indicator
+                return readFieldTypeSignature();
+            }
+            else if(c == '*')
+            {
+                // FIXME what does this mean?
+                consume('*');
+                return new ClassType("java.lang.Object");
+            }
+            else
+            {
+                return readFieldTypeSignature();
+            }
+        }
+
+        RefType readArrayTypeSignature()
+        {
+            consume('[');
+            switch(peekChar())
+            {
+                case 'L':
+                case '[':
+                case 'T':
+                    return new ArrayType(readFieldTypeSignature());
+                default:
+                    return new ArrayType(PrimitiveType.fromSig(readChar()));
+            }
+        }
+
+        RefType readTypeVariableSignature()
+        {
+            consume('T');
+            String identifier = readIdentifier();
+            consume(';');
+            return new UnresolvedTypeParam(container, identifier);
+        }
+
+        private String readIdentifier()
+        {
+            int start = pos;
+            char c;
+            do
+            {
+                readChar();
+                c = peekChar();
+            } while(";:./<>-+*".indexOf(c) == -1);
+            return signature.substring(start, pos);
+        }
+
+        char peekChar()
+        {
+            if(pos == signature.length())
+                return '\u0000';
+            else
+                return signature.charAt(pos);
+        }
+
+        char readChar()
+        {
+            return signature.charAt(pos++);
+        }
+
+        void consume(char c)
+        {
+            if(readChar() != c)
+                throw new ClassFormatError("at pos = " + pos);
+        }
+    }
+
+    private static class ClassSignatureParser extends SignatureParser
+    {
+        private TypeParam[] typeParameters;
+        private ClassType superclassType;
+        private ClassType[] interfaceTypes;
+
+        ClassSignatureParser(ClassWrapper container, String signature)
+        {
+            super(container, signature);
+
+            if(peekChar() == '<')
+            {
+                typeParameters = readFormalTypeParameters();
+            }
+            // SuperclassSignature
+            superclassType = (ClassType)readClassTypeSignature();
+            ArrayList interfaces = new ArrayList();
+            while(peekChar() == 'L')
+            {
+                // SuperinterfaceSignature
+                interfaces.add(readClassTypeSignature());
+            }
+            interfaceTypes = new ClassType[interfaces.size()];
+            interfaces.toArray(interfaceTypes);
+        }
+
+        TypeParam[] getTypeParameters()
+        {
+            return typeParameters;
+        }
+
+        ClassType getSuperclassType()
+        {
+            return superclassType;
+        }
+
+        ClassType[] getInterfaceTypes()
+        {
+            return interfaceTypes;
+        }
+    }
+
+    private static class MethodSignatureParser extends SignatureParser
+    {
+        private TypeParam[] typeParameters;
+
+        MethodSignatureParser(CallWrapper wrapper, String signature)
+        {
+            super(wrapper, signature);
+
+            if(peekChar() == '<')
+            {
+                typeParameters = readFormalTypeParameters();
+            }
+            consume('(');
+            while(peekChar() != ')')
+            {
+                readTypeSignature();
+            }
+            consume(')');
+            readTypeSignature();
+            while(peekChar() == '^')
+            {
+                consume('^');
+                if(peekChar() == 'T')
+                {
+                    readTypeVariableSignature();
+                }
+                else
+                {
+                    readClassTypeSignature();
+                }
+            }
+        }
+
+        TypeParam[] getTypeParameters()
+        {
+            return typeParameters;
+        }
+
+        private Type readTypeSignature()
+        {
+            switch(peekChar())
+            {
+                case 'T':
+                    return readTypeVariableSignature();
+                case 'L':
+                    return readClassTypeSignature();
+                case '[':
+                    return readArrayTypeSignature();
+                default:
+                    return PrimitiveType.fromSig(readChar());
+            }
+        }
     }
 
     private String getClassConstantName(int idx)
@@ -566,8 +973,7 @@ public class ClassFile implements ClassWrapper
 	if(superClass == null)
 	    return null;
 	else
-	    // FIXME15 - apply any type arguments that are applicable
-	    return new ClassType(superClass);
+	    return superclassType;
     }
     
     private static boolean gotSerializable = false;
@@ -751,6 +1157,21 @@ public class ClassFile implements ClassWrapper
 	}
     }
 
+    private CallWrapper findMethod(String name, String descriptor)
+    {
+        for(int i = 0; i < methods.length; i++)
+        {
+            if(methods[i].getRawName().equals(name) && methods[i].getDescriptor().equals(descriptor))
+            {
+                return methods[i];
+            }
+        }
+        if(superClass != null)
+            return ClassFile.forName(superClass).findMethod(name, descriptor);
+        else
+            throw new NoSuchMethodError(name + descriptor);
+    }
+
     public CallWrapper[] getCalls()
     {
 	if(allMethods == null)
@@ -794,29 +1215,20 @@ public class ClassFile implements ClassWrapper
     }
     public boolean isAnnotation()
     {
-	// FIXME15
-	return false;
+	return (access_flags & 0x2000) != 0;
     }
     public boolean isEnum()
     {
-	// FIXME15
-	return false;
+        return (access_flags & 0x4000) != 0;
     }
-    public ClassWrapper getContainingClass()
+    public GenericWrapper getContainingWrapper()
     {
-	// FIXME15
-	return null;
+	return containingWrapper;
     }
 
     public ClassType[] getInterfaces()
     {
-	ClassType[] interfaceNames = new ClassType[interfaces.length];
-	for(int i = 0; i < interfaces.length; i++)
-	{
-	    // FIXME15 - apply any type arguments
-	    interfaceNames[i] = new ClassType(interfaces[i]);
-	}
-	return interfaceNames;
+        return interfaceTypes;
     }
 
     public FieldWrapper[] getFields()
@@ -854,8 +1266,7 @@ public class ClassFile implements ClassWrapper
 
     public TypeParam[] getTypeParams()
     {
-	// FIXME15
-	return null;
+	return typeParameters;
     }
 
     private static ClassPathEntry[] classpath;

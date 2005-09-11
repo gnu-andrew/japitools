@@ -33,29 +33,15 @@ public abstract class Type {
   }
 
   public static Type fromNonGenericSig(String sig) {
-    switch (sig.charAt(0)) {
+    if (sig.length() == 1)
+      return PrimitiveType.fromSig(sig.charAt(0));
+
+    switch (sig.charAt(0)) 
+    {
       case '[':
         return new ArrayType(fromNonGenericSig(sig.substring(1)));
       case 'L':
         return new ClassType(sig.substring(1, sig.length() - 1).replace('/', '.'));
-      case 'V':
-        return PrimitiveType.VOID;
-      case 'Z':
-        return PrimitiveType.BOOLEAN;
-      case 'C':
-        return PrimitiveType.CHAR;
-      case 'B':
-        return PrimitiveType.BYTE;
-      case 'S':
-        return PrimitiveType.SHORT;
-      case 'I':
-        return PrimitiveType.INT;
-      case 'J':
-        return PrimitiveType.LONG;
-      case 'F':
-        return PrimitiveType.FLOAT;
-      case 'D':
-        return PrimitiveType.DOUBLE;
       default:
         throw new RuntimeException("Illegal type: " + sig);
     }

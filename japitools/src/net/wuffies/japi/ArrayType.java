@@ -33,4 +33,9 @@ public class ArrayType extends RefType {
   public String getNonGenericTypeSig() {
     return "[" + getElementType().getNonGenericTypeSig();
   }
+  public void resolveTypeParameters() {
+    if (elementType instanceof RefType) {
+      elementType = resolveTypeParameter((RefType)elementType);
+    }
+  }
 }

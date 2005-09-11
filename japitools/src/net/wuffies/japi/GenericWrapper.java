@@ -27,7 +27,13 @@ public interface GenericWrapper extends Wrapper {
    * For generic classes and generic static methods, returns an array of TypeParam objects whose associatedWrappers are
    * set to this object. For constructors, non-generic methods and non-generic classes, returns null.
    * Note that for nonstatic inner classes, the type parameters of the containing class should *not* be included.
-   * When these are needed they can be accessed by getContainingClass().getTypeParams().
+   * When these are needed they can be accessed by getContainingWrapper().getTypeParams().
    */
   TypeParam[] getTypeParams();
+
+  /**
+   * This returns the containing wrapper (to be able to get at the type parameters).
+   * This can be both a ClassWrapper and CallWrapper. Anonymous classes are contained in a CallWrapper.
+   */
+  GenericWrapper getContainingWrapper();
 }

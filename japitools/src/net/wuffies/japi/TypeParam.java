@@ -24,9 +24,11 @@ import java.lang.reflect.Modifier;
 // getAssociatedWrapper().getTypeParams() array.
 public class TypeParam extends RefType {
   private GenericWrapper associatedWrapper;
+  private String name;
   private ClassType primaryConstraint;
-  public TypeParam(GenericWrapper associatedWrapper, ClassType primaryConstraint) {
+  public TypeParam(GenericWrapper associatedWrapper, String name, ClassType primaryConstraint) {
     this.associatedWrapper = associatedWrapper;
+    this.name = name;
     this.primaryConstraint = primaryConstraint;
   }
   // Later we'll support other constraints once we understand better what's permitted
@@ -35,20 +37,20 @@ public class TypeParam extends RefType {
   public GenericWrapper getAssociatedWrapper() {
     return associatedWrapper;
   }
+  public String getName() {
+    return name;
+  }
   public ClassType getPrimaryConstraint() {
     return primaryConstraint;
   }
   public int getIndex() {
     int base = 0;
-    if (getAssociatedWrapper() instanceof ClassWrapper) {
-      ClassWrapper cls = (ClassWrapper) getAssociatedWrapper();
-      while (cls != null && (cls.getModifiers() & Modifier.STATIC) == 0) {
-        ClassWrapper container = cls.getContainingClass();
-        if (container != null && container.getTypeParams() != null) {
-          base += container.getTypeParams().length;
-        }
-        cls = container;
+    GenericWrapper container = associatedWrapper.getContainingWrapper();
+    while (container != null) {
+      if (container.getTypeParams() != null) {
+        base += container.getTypeParams().length;
       }
+      container = container.getContainingWrapper();
     }
     TypeParam[] params = getAssociatedWrapper().getTypeParams();
     for (int i = 0; i < params.length; i++) {
@@ -61,5 +63,8 @@ public class TypeParam extends RefType {
   }
   public String getNonGenericTypeSig() {
     return getPrimaryConstraint().getNonGenericTypeSig();
+  }
+  public void resolveTypeParameters() {
+    primaryConstraint.resolveTypeParameters();
   }
 }

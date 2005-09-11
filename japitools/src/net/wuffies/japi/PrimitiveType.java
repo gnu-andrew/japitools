@@ -21,11 +21,35 @@ package net.wuffies.japi;
 
 public class PrimitiveType extends Type {
   char code;
-  public PrimitiveType(char code) {
+  private PrimitiveType(char code) {
     this.code = code;
   }
   public String getTypeSig() {
     return "" + code;
+  }
+  public static PrimitiveType fromSig(char c) {
+    switch (c) {
+      case 'V':
+        return PrimitiveType.VOID;
+      case 'Z':
+        return PrimitiveType.BOOLEAN;
+      case 'C':
+        return PrimitiveType.CHAR;
+      case 'B':
+        return PrimitiveType.BYTE;
+      case 'S':
+        return PrimitiveType.SHORT;
+      case 'I':
+        return PrimitiveType.INT;
+      case 'J':
+        return PrimitiveType.LONG;
+      case 'F':
+        return PrimitiveType.FLOAT;
+      case 'D':
+        return PrimitiveType.DOUBLE;
+      default:
+        throw new RuntimeException("Illegal type: " + c);
+    }
   }
   static final PrimitiveType VOID = new PrimitiveType('V');
   static final PrimitiveType BOOLEAN = new PrimitiveType('Z');
