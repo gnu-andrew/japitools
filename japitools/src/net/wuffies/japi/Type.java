@@ -21,17 +21,45 @@ package net.wuffies.japi;
 
 public abstract class Type {
   /**
-   * Return the type signature (as described in the japi file spec)
+   * Return the type signature (as described in the japi file spec). An exception
+   * is thrown if any type parameters appear that are not on g or one of its
+   * containers.
    */
-  public abstract String getTypeSig();
+  public String getTypeSig(GenericWrapper wrapper) {
+    return getNonGenericTypeSig();
+  }
 
   /**
    * Return the 1.4-compatible non-generic type signature
    */
-  public String getNonGenericTypeSig() {
-    return getTypeSig();
+  public abstract String getNonGenericTypeSig();
+
+  /**
+   * Return a copy of this type with all type parameters on t bound to the value
+   * of t's corresponding type argument. Type parameters on t that are unbound,
+   * because t was specified as a raw type, will result in null. That opens up
+   * the possibility that bind() will itself return null. If that's unacceptable,
+   * consider using bindWithFallback() instead.
+   */
+  public abstract Type bind(ClassType t);
+
+  /**
+   * Return the result of bind(t), except that in the case of an unbound type
+   * parameter (where bind() would return null), return the result of binding the
+   * primary constraint instead (which is a ClassType and cannot itself result in
+   * null when bound). (The implementation in Type throws if bind() returns null;
+   * this method is overridden in TypeParam which is the only subclass that
+   * actually returns null from bind()).
+   */
+  public Type bindWithFallback(ClassType t) {
+    Type result = bind(t);
+    if (result == null) throw new NullPointerException("bind() resulted in null, unhandled");
+    return result;
   }
 
+  /**
+   * Construct a type based on a non-generic signature string, eg Z, [[I, Ljava/lang/String;.
+   */
   public static Type fromNonGenericSig(String sig) {
     if (sig.length() == 1)
       return PrimitiveType.fromSig(sig.charAt(0));

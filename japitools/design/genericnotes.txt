@@ -57,12 +57,6 @@ We should change the japi file spec so that it understands the inheritance from 
 and represents fairyland better, which is the whole point really.
 
 
-TODO:
-- DON'T FORGET TO ELIMINATE INTERFACE METHODS THAT ARE ALSO IN OBJECT
-- Also be more intelligent about the tostring-independent floats and doubles bit when deciding what errors to ignore
-
-
-
 Interesting issue. This is a setup that could not occur under 1.4.
 
 class Super<T> {
@@ -196,3 +190,22 @@ p,Sub!getFoo()- Pcinu Ljava/lang/Object;
 p,Sub!getFoo()+ Pcinu @0
 
 because @0 resolves to String.
+
+
+
+TODO:
+- Fix bugs that show up today in the results:
+  * Eliminate interface methods that are also in Object (GSSCredential!hashCode is the test)
+  - Be more intelligent about the tostring-independent floats and doubles bit when deciding what errors to ignore
+- Generic support:
+  - Bind type parameters correctly in superclasses and superinterfaces
+  - Make Japize, not ClassFile, responsible for recursing up through superclasses and superinterfaces to find methods and fields.
+  - Figure out the situations where the inherited method gets a different sig than the real method and produce "+" and "-"
+    annotated versions of the method.
+  - Start testing japicompat between these japis
+  - Add a flag to toggle between 1.5-style and 1.4-style comparison because simply looking at the method isn't sufficient - Sub should still be equally compatible even if Super doesn't have a foo method.
+  - Update the japi spec to discuss + and - annotated methods and other changes, like the fact that inner classes are considered to automatically inherit the type params of the container
+- Open questions:
+  - Should 1.4 style comparison actually include both methods?
+
+Say we have Foo<T> extends Bar<T> implements Baz<T>

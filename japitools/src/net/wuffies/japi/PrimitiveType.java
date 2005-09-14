@@ -24,8 +24,11 @@ public class PrimitiveType extends Type {
   private PrimitiveType(char code) {
     this.code = code;
   }
-  public String getTypeSig() {
+  public String getNonGenericTypeSig() {
     return "" + code;
+  }
+  public Type bind(ClassType t) {
+    return this;
   }
   public static PrimitiveType fromSig(char c) {
     switch (c) {
@@ -50,6 +53,9 @@ public class PrimitiveType extends Type {
       default:
         throw new RuntimeException("Illegal type: " + c);
     }
+  }
+  public String toString() {
+    return "Primitive:" + code;
   }
   static final PrimitiveType VOID = new PrimitiveType('V');
   static final PrimitiveType BOOLEAN = new PrimitiveType('Z');

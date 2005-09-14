@@ -252,7 +252,7 @@ public class ClassFile implements ClassWrapper
 
 	public boolean isEnumField()
 	{
-	    return (access_flags & 0x4000) != 0;
+	    return (this.access_flags & 0x4000) != 0;
 	}
 
 	public boolean isPrimitiveConstant()
@@ -327,6 +327,11 @@ public class ClassFile implements ClassWrapper
 		return "";
 	    else
 		return name;
+	}
+
+	public String toString()
+	{
+	    return "MethodInfoItem:" + ClassFile.this.getName() + "." + this.getName();
 	}
 
 	public String getRawName()
@@ -630,7 +635,7 @@ public class ClassFile implements ClassWrapper
             this.name = name;
         }
 
-        public String getTypeSig()
+        public String getNonGenericTypeSig()
         {
             throw new Error();
         }
@@ -639,6 +644,10 @@ public class ClassFile implements ClassWrapper
         {
             throw new Error();
         }
+	public Type bind(ClassType t)
+	{
+	    throw new Error();
+	}
 
         public RefType resolve()
         {
@@ -966,6 +975,10 @@ public class ClassFile implements ClassWrapper
     public String getName()
     {
 	return name;
+    }
+    public String toString()
+    {
+	return "ClassFile:" + getName();
     }
 
     public ClassType getSuperclass()

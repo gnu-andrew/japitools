@@ -20,8 +20,6 @@
 package net.wuffies.japi;
 
 public abstract class RefType extends Type {
-  // no implementation here. RefType simply exists to allow code to be specific
-  // about whether primitive types are possible or not.
 
   public abstract void resolveTypeParameters();
 

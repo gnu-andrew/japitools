@@ -22,16 +22,25 @@ package net.wuffies.japi;
 public class ArrayType extends RefType {
   private Type elementType;
   public ArrayType(Type elementType) {
+    if (elementType == null) {
+      throw new NullPointerException("Cannot have an array with an unbound element type!");
+    }
     this.elementType = elementType;
   }
   public Type getElementType() {
     return elementType;
   }
-  public String getTypeSig() {
-    return "[" + getElementType().getTypeSig();
+  public String getTypeSig(GenericWrapper wrapper) {
+    return "[" + getElementType().getTypeSig(wrapper);
   }
   public String getNonGenericTypeSig() {
     return "[" + getElementType().getNonGenericTypeSig();
+  }
+  public String toString() {
+    return "Array:" + getElementType();
+  }
+  public Type bind(ClassType t) {
+    return new ArrayType(getElementType().bindWithFallback(t));
   }
   public void resolveTypeParameters() {
     if (elementType instanceof RefType) {

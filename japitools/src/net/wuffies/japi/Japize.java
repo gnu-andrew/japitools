@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.HashSet;
 import java.io.Writer;
 import java.util.Iterator;
 import java.io.PrintWriter;
@@ -265,6 +266,9 @@ public class Japize {
   // See design/japi-spec.txt for why this ends in a comma rather than the usual period.
   private static final String J_LANG = "java.lang,";
   private static final String J_L_OBJECT = J_LANG + "Object";
+  
+  private static ClassWrapper jlObjectWrapper;
+  private static HashSet objCalls = new HashSet();
 
   private static void doJapize()
       throws NoSuchMethodException, IllegalAccessException, IOException,
@@ -310,6 +314,12 @@ public class Japize {
 //  for (Iterator i = langRoots.iterator(); i.hasNext(); ) {
 //    i.next(); i.remove();
 //  }
+
+    jlObjectWrapper = getClassWrapper(J_L_OBJECT.replace(',', '.'));
+    CallWrapper[] calls = jlObjectWrapper.getCalls();
+    for (int i = 0; i < calls.length; i++) {
+      if (!"".equals(calls[i].getName())) objCalls.add(getObjComparableString(calls[i]));
+    }
 
     // Now process all the roots that are left.
     processRootSet(roots);
@@ -526,26 +536,48 @@ public class Japize {
    * with a leading "*".
    */
   public static String mkIfaceString(ClassWrapper c, String s) {
+    return mkIfaceString(c, s, null, c);
+  }
+  /**
+   * Construct a String consisting of every super-interface of a class
+   * separated by "*".
+   *
+   * @param c The class to process.
+   * @param s Initially "" should be passed; during recursion the string
+   * produced so far is passed. This is used to ensure the same interface
+   * does not appear twice in the string.
+   * @param ctype If non-null, all interfaces will first be bound against
+   * this type before being displayed.
+   * @param wrapper The wrapper to verify type parameters against.
+   * @return The name of every super-interface of c, separated by "*" and
+   * with a leading "*".
+   */
+  public static String mkIfaceString(ClassWrapper c, String s, ClassType ctype, GenericWrapper wrapper) {
 
     // First iterate over the class's direct superinterfaces.
     ClassType[] ifaces = c.getInterfaces();
     for (int i = 0; i < ifaces.length; i++) {
 
+      // Bind the interface against ctype, if supplied.
+      ClassType iface = ifaces[i];
+      if (ctype != null) iface = (ClassType) iface.bind(ctype);
+
       // If the string does not already contain the interface, and the
       // interface is public/protected, then add it to the string and
       // also process *its* superinterfaces, recursively.
-      if ((s + "*").indexOf("*" + ifaces[i].getJavaRepr() + "*") < 0) {
-        int mods = ifaces[i].getWrapper().getModifiers();
+      String repr = iface.getJavaRepr(wrapper);
+      if ((s + "*").indexOf("*" + repr + "*") < 0) {
+        int mods = iface.getWrapper().getModifiers();
         if (Modifier.isPublic(mods) || Modifier.isProtected(mods)) {
-          s += "*" + ifaces[i].getJavaRepr();
+          s += "*" + repr;
         }
-        s = mkIfaceString(ifaces[i].getWrapper(), s);
+        s = mkIfaceString(ifaces[i].getWrapper(), s, ifaces[i], wrapper);
       }
     }
 
     // Finally, recursively process the class's superclass, if it has one.
     if (c.getSuperclass() != null) {
-      s = mkIfaceString(c.getSuperclass().getWrapper(), s);
+      s = mkIfaceString(c.getSuperclass().getWrapper(), s, c.getSuperclass(), wrapper);
     }
     return s;
   }
@@ -589,7 +621,7 @@ public class Japize {
         type = "class";
       }
 
-      type += getTypeParamStr(c.getTypeParams());
+      type += getTypeParamStr(c);
       
       if (c.isInterface()) {
         mods |= Modifier.ABSTRACT; // Interfaces are abstract by definition,
@@ -607,16 +639,20 @@ public class Japize {
 
       // Iterate over the class's superclasses adding them to its "type" name,
       // skipping any superclasses that are not public/protected.
-      ClassWrapper sup = c;
       int smods = mods;
-      while (sup.getSuperclass() != null) {
-        ClassType supt = sup.getSuperclass();
-        sup = supt.getWrapper();
+      ClassType supt = c.getSuperclass();
+      while (supt != null) {
+        ClassWrapper sup = supt.getWrapper();
         smods = sup.getModifiers();
         if (!Modifier.isPublic(smods) && !Modifier.isProtected(smods)) {
           progress('^');
         } else {
-          type += ":" + supt.getJavaRepr();
+          type += ":" + supt.getJavaRepr(c);
+        }
+        if (sup.getSuperclass() == null) {
+          supt = null;
+        } else {
+          supt = (ClassType) sup.getSuperclass().bind(supt);
         }
       }
       type += mkIfaceString(c, "");
@@ -647,7 +683,7 @@ public class Japize {
         if (fields[i].getDeclaringClass().isInterface()) {
           mods |= Modifier.PUBLIC | Modifier.FINAL | Modifier.STATIC;
         }
-        type = fields[i].getType().getTypeSig();
+        type = fields[i].getType().getTypeSig(c);
 
         // A static, final field is a primitive constant if it is initialized to
         // a compile-time constant.
@@ -719,12 +755,26 @@ public class Japize {
           continue;
         }
 
+        // Skip methods in interfaces that are also defined identically in
+        // Object. Specifically, it needs to be defined in Object with
+        // *exactly* the same parameter types, return types *and* thrown
+        // exceptions (because it *is* legal for an interface to specify,
+        // say, "Object clone();" and thereby specify that implementors must
+        // not throw CloneNotSupportedException from their clone method.
+        // Surprisingly, Cloneable doesn't do this...)
+        if (c.isInterface()) {
+          if (objCalls.contains(getObjComparableString(calls[i]))) {
+            progress(';');
+            continue;
+          }
+        }
+
         // Construct the name of the method, of the form Class!method(params).
         entry = classEntry + calls[i].getName() + "(";
         Type[] params = calls[i].getParameterTypes();
         String comma = "";
         for (int j = 0; j < params.length; j++) {
-          entry += comma + params[j].getTypeSig();
+          entry += comma + params[j].getTypeSig(calls[i]);
           comma = ",";
         }
         entry += ")";
@@ -732,14 +782,14 @@ public class Japize {
         // Construct the "type" field, of the form returnType*exception*except2...
         type = "";
 
-        // ... but if it's a generic static method it gets the type parameters first
-        type += getTypeParamStr(calls[i].getTypeParams());
+        // ... but if it's a generic method it gets the type parameters first
+        type += getTypeParamStr(calls[i]);
 
         Type rtnType = calls[i].getReturnType();
-        type += (rtnType == null) ? "constructor" : calls[i].getReturnType().getTypeSig();
+        type += (rtnType == null) ? "constructor" : rtnType.getTypeSig(calls[i]);
         ClassType[] excps = calls[i].getExceptionTypes();
         for (int j = 0; j < excps.length; j++) {
-          if (includeException(excps, j)) type += "*" + excps[j].getJavaRepr();
+          if (includeException(excps, j)) type += "*" + excps[j].getJavaRepr(calls[i]);
         }
 
         // Get the modifiers for this method. Methods of interfaces are
@@ -785,17 +835,46 @@ public class Japize {
     return false;
   }
 
-  private static String getTypeParamStr(TypeParam[] tparams) {
+  private static String getTypeParamStr(GenericWrapper wrapper) {
+    TypeParam[] tparams = wrapper.getTypeParams();
     String type = "";
     if (tparams != null) {
       type += "<";
       for (int i = 0; i < tparams.length; i++) {
         if (i > 0) type += ",";
-        type += tparams[i].getPrimaryConstraint().getTypeSig();
+        type += tparams[i].getPrimaryConstraint().getTypeSig(wrapper);
       }
       type += ">";
     }
     return type;
+  }
+
+  /**
+   * Get a string containing the name, parameter types and thrown exceptions
+   * for a particular method. Returns null on a constructor. Designed to
+   * allow comparing interface methods against Object methods. NOTE that this will
+   * potentially not work correctly if generic methods are ever added to Object
+   * itself (because of "@0" etc meaning different things). Oh, how I hope that
+   * never happens...
+   */
+  private static String getObjComparableString(CallWrapper call) throws ClassNotFoundException {
+    if (call.getName().equals("")) return null;
+    String s = call.getName() + "(";
+    Type[] params = call.getParameterTypes();
+    for (int i = 0; i < params.length; i++) {
+      if (i > 0) s += ",";
+      s += params[i].getTypeSig(call);
+    }
+    s += ")" + call.getReturnType().getTypeSig(call);
+    ClassType[] excps = call.getExceptionTypes();
+    TreeSet exstrs = new TreeSet();
+    for (int i = 0; i < excps.length; i++) {
+      if (includeException(excps, i)) exstrs.add(excps[i].getJavaRepr(call));
+    }
+    for (Iterator i = exstrs.iterator(); i.hasNext(); ) {
+      s += "*" + i.next();
+    }
+    return s;
   }
 
 

@@ -43,28 +43,85 @@ public class TypeParam extends RefType {
   public ClassType getPrimaryConstraint() {
     return primaryConstraint;
   }
-  public int getIndex() {
-    int base = 0;
-    GenericWrapper container = associatedWrapper.getContainingWrapper();
-    while (container != null) {
-      if (container.getTypeParams() != null) {
-        base += container.getTypeParams().length;
-      }
-      container = container.getContainingWrapper();
-    }
-    TypeParam[] params = getAssociatedWrapper().getTypeParams();
+  public int getIndex(GenericWrapper wrapper) {
+    TypeParam[] params = getAllTypeParams(wrapper);
     for (int i = 0; i < params.length; i++) {
-      if (params[i] == this) return base + i;
+      if (params[i] == this) return i;
     }
-    throw new RuntimeException("TypeParam not found in associated class or method");
+    return -1;
   }
-  public String getTypeSig() {
-    return "@" + getIndex();
+  public String getTypeSig(GenericWrapper wrapper) {
+    int index = getIndex(wrapper);
+    if (index < 0) throw new RuntimeException("Unbound type parameter " + this + " not associated with current wrapper " + wrapper);
+    return "@" + index;
   }
   public String getNonGenericTypeSig() {
     return getPrimaryConstraint().getNonGenericTypeSig();
   }
   public void resolveTypeParameters() {
     primaryConstraint.resolveTypeParameters();
+  }
+
+  public Type bind(ClassType t) {
+    int index = getIndex(t.getWrapper());
+    if (index == -1) {
+      return new TypeParam(getAssociatedWrapper(), getName(), (ClassType) primaryConstraint.bind(t));
+    } else if (t.getTypeArguments() == null) {
+      return null;
+    } else {
+      return t.getTypeArguments()[index];
+    }
+  }
+
+  public Type bindWithFallback(ClassType t) {
+    Type result = bind(t);
+    return result != null ? result : getPrimaryConstraint().bind(t);
+  }
+
+  public String toString() {
+    return "TypeParam:" + associatedWrapper.toString() + "-" + name + "/" + primaryConstraint.toString();
+  }
+
+  /**
+   * Find all the type params of a particular GenericWrapper, including those inherited
+   * from its containers.
+   */
+  public static TypeParam[] getAllTypeParams(GenericWrapper wrapper) {
+    int count = 0;
+    GenericWrapper container = wrapper;
+    while (container != null) {
+      if (container.getTypeParams() != null) {
+        count += container.getTypeParams().length;
+      }
+      container = getContainingWrapper(container);
+    }
+
+    if (count == 0) return null;
+
+    TypeParam[] params = new TypeParam[count];
+    container = wrapper;
+    int start = params.length;
+    while (container != null) {
+      TypeParam[] cparams = container.getTypeParams();
+      if (container.getTypeParams() != null) {
+        start -= cparams.length;
+        for (int i = 0; i < cparams.length; i++) {
+          params[start + i] = cparams[i];
+        }
+      }
+      container = getContainingWrapper(container);
+    }
+    if (start != 0) throw new RuntimeException("Oops, internal error, didn't completely fill typeparams array");
+    return params;
+  }
+
+  // Static methods and static inner classes do not inherit their container's type params, but
+  // nonstatic things do.
+  private static GenericWrapper getContainingWrapper(GenericWrapper wrapper) {
+    if ((wrapper.getModifiers() & Modifier.STATIC) != 0) {
+      return null;
+    } else {
+      return wrapper.getContainingWrapper();
+    }
   }
 }

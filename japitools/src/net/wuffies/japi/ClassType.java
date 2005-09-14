@@ -46,11 +46,19 @@ public class ClassType extends RefType {
     classWrapper = wrapper;
     checkArgs();
   }
+  private ClassType(String name, ClassWrapper wrapper, RefType[] typeArguments) {
+    this.name = name;
+    this.classWrapper = wrapper;
+    this.typeArguments = typeArguments;
+  }
   private void checkArgs() {
-    TypeParam[] params = classWrapper.getTypeParams();
+    TypeParam[] params = TypeParam.getAllTypeParams(classWrapper);
     if (params == null && typeArguments != null) {
       throw new RuntimeException("Cannot supply type arguments to a non-generic class (" + name + ")!");
     }
+    // This check may be wrong because it appears to be possible to construct a case where a type is half-bound,
+    // using an unbound inner class of a generic containing class. Since I hope this isn't supposed to be legal,
+    // I'm leaving this check as is until I can verify it.
     if (params != null && typeArguments != null && params.length != typeArguments.length) {
       throw new RuntimeException("Cannot supply " + typeArguments.length + " type arguments to " +
                                  name + " that expects " + params.length + " parameters!");
@@ -60,13 +68,13 @@ public class ClassType extends RefType {
   public String getName() {
     return name;
   }
-  public String getJavaRepr() {
+  public String getJavaRepr(GenericWrapper wrapper) {
     String repr = name;
     if (typeArguments != null) {
       repr += "<";
       for (int i = 0; i < typeArguments.length; i++) {
         if (i > 0) repr += ",";
-        repr += typeArguments[i].getTypeSig();
+        repr += typeArguments[i].getTypeSig(wrapper);
       }
       repr += ">";
     }
@@ -82,14 +90,14 @@ public class ClassType extends RefType {
   public RefType[] getTypeArguments() {
     return typeArguments;
   }
-  public String getTypeSig() {
+  public String getTypeSig(GenericWrapper wrapper) {
     StringBuffer sb = new StringBuffer("L" + name.replace('.', '/'));
     RefType[] args = getTypeArguments();
     if (args != null && args.length > 0) {
       sb.append('<');
       for (int i = 0; i < args.length; i++) {
-        sb.append(args[i].getTypeSig());
         if (i > 0) sb.append(',');
+        if (args[i] != null) sb.append(args[i].getTypeSig(wrapper));
       }
       sb.append('>');
     }
@@ -98,6 +106,26 @@ public class ClassType extends RefType {
   }
   public String getNonGenericTypeSig() {
     return "L" + name.replace('.', '/') + ";";
+  }
+  public String toString() {
+    return "Class:" + getName() + (typeArguments == null ? "" : "<" + typeArguments.length + ">");
+  }
+
+  public Type bind(ClassType t) {
+    RefType[] typeArgs = getTypeArguments();
+
+    if (typeArgs == null) return this;
+
+    RefType[] boundArgs = new RefType[typeArgs.length];
+    boolean isRaw = true;
+    for (int i = 0; i < typeArgs.length; i++) {
+      boundArgs[i] = (RefType) typeArgs[i].bind(t);
+      if (boundArgs[i] != null) isRaw = false;
+    }
+    // If none of the args ended up bound to anything, it's effectively a raw type.
+    if (isRaw) boundArgs = null;
+    
+    return new ClassType(name, classWrapper, boundArgs);
   }
 
   public void resolveTypeParameters() {

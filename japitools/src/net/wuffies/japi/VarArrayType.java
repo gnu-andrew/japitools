@@ -23,7 +23,13 @@ public class VarArrayType extends ArrayType {
   public VarArrayType(Type elementType) {
     super(elementType);
   }
-  public String getTypeSig() {
-    return "." + getElementType().getTypeSig();
+  public String getTypeSig(GenericWrapper wrapper) {
+    return "." + getElementType().getTypeSig(wrapper);
+  }
+  public String toString() {
+    return "VarArray:" + getElementType();
+  }
+  public Type bind(ClassType t) {
+    return new VarArrayType(getElementType().bindWithFallback(t));
   }
 }
