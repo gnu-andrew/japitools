@@ -28,6 +28,8 @@ public class PrimitiveType extends Type {
     return "" + code;
   }
   public Type bind(ClassType t) {
+    debugStart("Bind", "to " + t);
+    debugEnd();
     return this;
   }
   public static PrimitiveType fromSig(char c) {
@@ -54,7 +56,7 @@ public class PrimitiveType extends Type {
         throw new RuntimeException("Illegal type: " + c);
     }
   }
-  public String toString() {
+  public String toStringImpl() {
     return "Primitive:" + code;
   }
   static final PrimitiveType VOID = new PrimitiveType('V');

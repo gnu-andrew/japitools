@@ -36,11 +36,16 @@ public class ArrayType extends RefType {
   public String getNonGenericTypeSig() {
     return "[" + getElementType().getNonGenericTypeSig();
   }
-  public String toString() {
+  public String toStringImpl() {
     return "Array:" + getElementType();
   }
   public Type bind(ClassType t) {
-    return new ArrayType(getElementType().bindWithFallback(t));
+    debugStart("Bind", "to " + t);
+    try {
+      return new ArrayType(getElementType().bindWithFallback(t));
+    } finally {
+      debugEnd();
+    }
   }
   public void resolveTypeParameters() {
     if (elementType instanceof RefType) {

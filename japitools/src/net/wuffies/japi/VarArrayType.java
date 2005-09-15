@@ -26,7 +26,7 @@ public class VarArrayType extends ArrayType {
   public String getTypeSig(GenericWrapper wrapper) {
     return "." + getElementType().getTypeSig(wrapper);
   }
-  public String toString() {
+  public String toStringImpl() {
     return "VarArray:" + getElementType();
   }
   public Type bind(ClassType t) {

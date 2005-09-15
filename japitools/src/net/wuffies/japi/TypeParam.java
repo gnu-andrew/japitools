@@ -63,13 +63,18 @@ public class TypeParam extends RefType {
   }
 
   public Type bind(ClassType t) {
-    int index = getIndex(t.getWrapper());
-    if (index == -1) {
-      return new TypeParam(getAssociatedWrapper(), getName(), (ClassType) primaryConstraint.bind(t));
-    } else if (t.getTypeArguments() == null) {
-      return null;
-    } else {
-      return t.getTypeArguments()[index];
+    debugStart("Bind", "to " + t);
+    try {
+      int index = getIndex(t.getWrapper());
+      if (index == -1) {
+        return new TypeParam(getAssociatedWrapper(), getName(), (ClassType) primaryConstraint.bind(t));
+      } else if (t.getTypeArguments() == null) {
+        return null;
+      } else {
+        return t.getTypeArguments()[index];
+      }
+    } finally {
+      debugEnd();
     }
   }
 
@@ -78,7 +83,7 @@ public class TypeParam extends RefType {
     return result != null ? result : getPrimaryConstraint().bind(t);
   }
 
-  public String toString() {
+  public String toStringImpl() {
     return "TypeParam:" + associatedWrapper.toString() + "-" + name + "/" + primaryConstraint.toString();
   }
 
@@ -103,7 +108,7 @@ public class TypeParam extends RefType {
     int start = params.length;
     while (container != null) {
       TypeParam[] cparams = container.getTypeParams();
-      if (container.getTypeParams() != null) {
+      if (cparams != null) {
         start -= cparams.length;
         for (int i = 0; i < cparams.length; i++) {
           params[start + i] = cparams[i];

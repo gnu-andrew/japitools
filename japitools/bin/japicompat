@@ -18,38 +18,6 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 ###############################################################################
 
-# Old-ish list of changes... stopped updating this list a while back but don't
-# want to lose the history...
-# - 2002/09/09: Abort on mis-ordered japi files since the results would be
-#   incorrect. Add "interfaces" back into the summary. Treat constructors as
-#   not inherited.
-# - 2002/08/01: Update to handle version 0.9 japi files. Add back the summary
-#   of errors at the end (minus "nnn good" which can't be calculated).
-# - 2002/07/31: Fixed a nasty hang-at-end-of-file bug and a bug that caused
-#   japicompat to think packages were missing when they weren't.
-# - 2002/07/30: Rewritten version works apparently correctly, for the first
-#   time. Summary information printed per-package as well as globally.
-# - 2002/07/08: Beginnings of major rewrite to process japis efficiently.
-#   Instead of loading a whole japi into memory, process the files in parallel.
-#   Defer dup-elimination to a second pass.
-# - 2002/06/27: Support new file format produced by japize 0.8.1. Remove ".pl"
-#   from the end of the filename. Automatically pipe through gzip if the
-#   filename ends with .gz.
-# - 2000/06/30: Detect old-style japis and give a useful error. Make this
-#   program -w clean. A few performance enhancements. Count abstract methods
-#   added to classes/interfaces if -s is off.
-# - 2000/06/29: Changes to support slight changes to file format.
-# - 2000/06/26: Added progress indicators. Turn them off with -q.
-# - 2000/06/23: Made compiletime-constants actually be understood, rather than
-#   just treated as part of the type. Added Meaningless, Arbitrary Percentage
-#   scores.
-# - 2000/06/18: Added support for SerialVersionUIDs, fixed a mis-counting bug
-#   caused by the elimination of duplicate errors ("missing" errors were being
-#   counted even if they were dups). Added getopt support.
-# - 2000/06/16: Finished the dup-removal code (Kaffe now shows 140 errors
-#   instead of 429).
-
-
 ## GLOBAL VARIABLES ##
 
 # Some global variables used for displaying stuff.

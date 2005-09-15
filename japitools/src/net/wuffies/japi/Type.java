@@ -20,6 +20,8 @@
 package net.wuffies.japi;
 
 public abstract class Type {
+  private static final boolean DEBUG = false;
+
   /**
    * Return the type signature (as described in the japi file spec). An exception
    * is thrown if any type parameters appear that are not on g or one of its
@@ -72,6 +74,43 @@ public abstract class Type {
         return new ClassType(sig.substring(1, sig.length() - 1).replace('/', '.'));
       default:
         throw new RuntimeException("Illegal type: " + sig);
+    }
+  }
+
+  // From here on down is debugging stuff. The toString method checks to see whether it's calling
+  // itself more than 15 times nested, in which case there's probably a circular data structure.
+  // That might be okay - class Enum<T extends Enum<T>> is an example - but you don't want a
+  // StackOverflowException trying to toString() it. toString() also returns "" if debugging is
+  // disabled. Subclasses must override toStringImpl instead of toString().
+  private static int nest;
+  public final String toString() {
+    // toString on these things is only used for debugging; shorting out the code otherwise
+    // avoids running redundant code calculating the parameter to the debug method.
+    if (!DEBUG) return "";
+    nest++;
+    try {
+      if (nest > 15) return "LOOOOP";
+      else return toStringImpl();
+    } finally {
+      nest--;
+    }
+  }
+  public String toStringImpl() {
+    return super.toString();
+  }
+
+  // You can wrap a method in "debugStart(...); try { ... } finally {debugEnd();}" to get
+  // some debugging output if debugging is enabled.
+  private static String indent = "";
+  protected void debugStart(String label, String msg) {
+    if (DEBUG) {
+      System.out.println(indent + label + ": " + this + " - " + msg);
+      indent += "+ ";
+    }
+  }
+  protected void debugEnd() {
+    if (DEBUG) {
+      indent = indent.substring(2);
     }
   }
 }

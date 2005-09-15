@@ -571,13 +571,15 @@ public class Japize {
         if (Modifier.isPublic(mods) || Modifier.isProtected(mods)) {
           s += "*" + repr;
         }
-        s = mkIfaceString(ifaces[i].getWrapper(), s, ifaces[i], wrapper);
+        s = mkIfaceString(iface.getWrapper(), s, iface, wrapper);
       }
     }
 
     // Finally, recursively process the class's superclass, if it has one.
-    if (c.getSuperclass() != null) {
-      s = mkIfaceString(c.getSuperclass().getWrapper(), s, c.getSuperclass(), wrapper);
+    ClassType sup = c.getSuperclass();
+    if (sup != null) {
+      if (ctype != null) sup = (ClassType) sup.bind(ctype);
+      s = mkIfaceString(sup.getWrapper(), s, sup, wrapper);
     }
     return s;
   }

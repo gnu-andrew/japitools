@@ -198,7 +198,7 @@ TODO:
   * Eliminate interface methods that are also in Object (GSSCredential!hashCode is the test)
   - Be more intelligent about the tostring-independent floats and doubles bit when deciding what errors to ignore
 - Generic support:
-  - Bind type parameters correctly in superclasses and superinterfaces
+  * Bind type parameters correctly in superclasses and superinterfaces
   - Make Japize, not ClassFile, responsible for recursing up through superclasses and superinterfaces to find methods and fields.
   - Figure out the situations where the inherited method gets a different sig than the real method and produce "+" and "-"
     annotated versions of the method.
@@ -207,5 +207,3 @@ TODO:
   - Update the japi spec to discuss + and - annotated methods and other changes, like the fact that inner classes are considered to automatically inherit the type params of the container
 - Open questions:
   - Should 1.4 style comparison actually include both methods?
-
-Say we have Foo<T> extends Bar<T> implements Baz<T>

@@ -107,25 +107,39 @@ public class ClassType extends RefType {
   public String getNonGenericTypeSig() {
     return "L" + name.replace('.', '/') + ";";
   }
-  public String toString() {
-    return "Class:" + getName() + (typeArguments == null ? "" : "<" + typeArguments.length + ">");
+  public String toStringImpl() {
+    String result = "Class:" + getName();
+    if (typeArguments != null) {
+      result += "<";
+      for (int i = 0; i < typeArguments.length; i++) {
+        if (i > 0) result += ",";
+        result += typeArguments[i];
+      }
+      result += ">";
+    }
+    return result;
   }
 
   public Type bind(ClassType t) {
-    RefType[] typeArgs = getTypeArguments();
+    debugStart("Bind", "to " + t);
+    try {
+      RefType[] typeArgs = getTypeArguments();
 
-    if (typeArgs == null) return this;
+      if (typeArgs == null) return this;
 
-    RefType[] boundArgs = new RefType[typeArgs.length];
-    boolean isRaw = true;
-    for (int i = 0; i < typeArgs.length; i++) {
-      boundArgs[i] = (RefType) typeArgs[i].bind(t);
-      if (boundArgs[i] != null) isRaw = false;
+      RefType[] boundArgs = new RefType[typeArgs.length];
+      boolean isRaw = true;
+      for (int i = 0; i < typeArgs.length; i++) {
+        boundArgs[i] = (RefType) typeArgs[i].bind(t);
+        if (boundArgs[i] != null) isRaw = false;
+      }
+      // If none of the args ended up bound to anything, it's effectively a raw type.
+      if (isRaw) boundArgs = null;
+      
+      return new ClassType(name, classWrapper, boundArgs);
+    } finally {
+      debugEnd();
     }
-    // If none of the args ended up bound to anything, it's effectively a raw type.
-    if (isRaw) boundArgs = null;
-    
-    return new ClassType(name, classWrapper, boundArgs);
   }
 
   public void resolveTypeParameters() {
