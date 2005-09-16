@@ -21,7 +21,7 @@
 ## GLOBAL VARIABLES ##
 
 # Some global variables used for displaying stuff.
-$japiver = "0.9.7";
+$japiver = "0.9.6";
 $buggyver = "0.9.5";
 @static = ('instance', 'static');
 @ofhs = ();
@@ -693,20 +693,22 @@ sub compare_japi_item($$$$) {
     if (defined $oitem->{constant}) {
       my $oconstant = $oitem->{constant};
       $oconstant .= " (0x$oitem->{constbits})" if defined $oitem->{constbits};
+      my $ocstr = (defined $oitem->{constbits}) ? "fp constant" : "constant";
       if (!defined $nitem->{constant}) {
         output_error($oitem, $nitem, $oclitem, $c, "bad",
-                     "constant [$oconstant]", "not constant");
+                     "$ocstr [$oconstant]", "not constant");
       } else {
         my $nconstant = $nitem->{constant};
         $nconstant .= " (0x$nitem->{constbits})" if defined $nitem->{constbits};
+        my $ncstr = (defined $nitem->{constbits}) ? "fp constant" : "constant";
         if (defined $nitem->{constbits} && defined $oitem->{constbits}) {
           if ($nitem->{constbits} ne $oitem->{constbits}) {
             output_error($oitem, $nitem, $oclitem, $c, "bad",
-                         "constant [$oconstant]", "constant [$nconstant]");
+                         "$ocstr [$oconstant]", "$ncstr [$nconstant]");
           }
         } elsif ($nitem->{constant} ne $oitem->{constant}) {
           output_error($oitem, $nitem, $oclitem, $c, "bad",
-                       "constant [$oconstant]", "constant [$nconstant]");
+                       "$ocstr [$oconstant]", "$ncstr [$nconstant]");
         }
       }
     }
@@ -724,8 +726,8 @@ sub compare_japi_item($$$$) {
   return $errhere;
 }
 
-sub load_ignore_file() {
-  my $ign = {};
+sub load_ignore_file($) {
+  my ($ign) = @_;
   if ($ignorefile) {
     if ($ignorefile =~ /\.japi(?:\.gz)?$/) {
       my $ct = 0; my $prog = $0;
@@ -757,6 +759,7 @@ sub load_ignore_file() {
         my ($class, $member) = split(/!/, $item, 2);
         my ($pkg, $cls) = split(/,/, $class, 2);
         my $dotclass = "$pkg.$cls";
+        $rest = "fp constant [$1]/fp constant [$2]" if $rest =~ /^fp constant \[[^ ]* \((0x[0-9a-z]+)\)\]\/fp constant \[[^ ]* \((0x[0-9a-z]+)\)\]$/;
         $ign->{"$dotclass\!$member $rest"} = 1;
       } elsif (/^end japio$/) {
         last;
@@ -764,13 +767,13 @@ sub load_ignore_file() {
     }
     close IGN;
   }
-  return $ign;
 }
 
 sub merge_results($) {
   my ($c) = @_;
   my $errs = {};
-  my $ign_errs = load_ignore_file();
+  my $ign_errs = {};
+  load_ignore_file($ign_errs);
   $sc = {};
   print STDERR "Merging results / eliminating duplicates...\n" if $dot;
   foreach my $fh (@ofhs) {
@@ -786,7 +789,9 @@ sub merge_results($) {
         my $dotclass = "$pkg.$cls";
         my @sups = split(/;/, $sups);
         my $insup = 0;
-        my $inign = ($ign_errs->{"$dotclass\!$member $rest"} ? 1 : 0);
+        my $prest = $rest;
+        $prest = "fp constant [$1]/fp constant [$2]" if $prest =~ /^fp constant \[[^ ]* \((0x[0-9a-z]+)\)\]\/fp constant \[[^ ]* \((0x[0-9a-z]+)\)\]$/;
+        my $inign = ($ign_errs->{"$dotclass\!$member $prest"} ? 1 : 0);
 
         # Determine whether the same error appears in any superclass, and if so
         # do not report this error. That doesn't apply, though, to missing
