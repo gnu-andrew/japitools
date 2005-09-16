@@ -70,7 +70,7 @@ public class TypeParam extends RefType {
     try {
       int index = getIndex(t.getWrapper());
       if (index == -1) {
-        return new TypeParam(getAssociatedWrapper(), getName(), (ClassType) primaryConstraint.bind(t));
+        return new TypeParam(getAssociatedWrapper(), getName(), (RefType) primaryConstraint.bind(t));
       } else if (t.getTypeArguments() == null) {
         return null;
       } else {
@@ -83,7 +83,7 @@ public class TypeParam extends RefType {
 
   public Type bindWithFallback(ClassType t) {
     Type result = bind(t);
-    return result != null ? result : getPrimaryConstraint().bind(t);
+    return result != null ? result : getPrimaryConstraint().bindWithFallback(t);
   }
 
   public String toStringImpl() {

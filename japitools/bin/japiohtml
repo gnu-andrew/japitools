@@ -35,6 +35,7 @@ $javatypes = {Z=>'boolean', B=>'byte', C=>'char', D=>'double', F=>'float',
 sub sig2type($);
 sub readable_member($);
 sub readable_item($);
+sub htmlencode($);
 
 my $verline = <>;
 chomp $verline;
@@ -440,8 +441,9 @@ EOF
         $is =~ s/~s/\//g; $is =~ s/~t/~/g;
         my $msg = $was ? "$was in $orig, but" : "";
         my $ritem = readable_item($item);
+        my $outline = htmlencode("$isa $ritem: $msg $is in $new");
         print <<EOF;
-        <li>$isa $ritem: $msg $is in $new</li>
+        <li>$outline</li>
 EOF
       }
       print <<EOF;
@@ -454,6 +456,14 @@ print <<EOF;
   </body>
 </html>
 EOF
+
+sub htmlencode($) {
+  my ($val) = @_;
+  $val =~ s/&/&amp;/g;
+  $val =~ s/</&lt;/g;
+  $val =~ s/>/&gt;/g;
+  return $val;
+}
 
 sub readable_item($) {
   my ($item) = @_;

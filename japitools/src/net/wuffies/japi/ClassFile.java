@@ -1185,6 +1185,7 @@ public class ClassFile implements ClassWrapper
             throw new NoSuchMethodError(name + descriptor);
     }
 
+//SABFIXME - only return declared methods, not inherited ones
     public CallWrapper[] getCalls()
     {
 	if(allMethods == null)
@@ -1243,7 +1244,7 @@ public class ClassFile implements ClassWrapper
     {
         return interfaceTypes;
     }
-
+//SABFIXME - only return declared fields, not inherited ones
     public FieldWrapper[] getFields()
     {
 	if(allFields == null)

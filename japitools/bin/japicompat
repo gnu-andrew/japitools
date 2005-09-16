@@ -27,8 +27,6 @@ $buggyver = "0.9.5";
 @ofhs = ();
 @summarypkgs = ();
 @allerrors = ();
-$ignore_orig = "";
-$ignore_new = "";
 $totalerrors = 0;
 
 # Requirements
@@ -146,7 +144,7 @@ sub read_japi_item($) {
   my $fh = $japi->{fh};
   my $line = $fh->getline;
   return undef unless $line;
-  chomp $line;
+  chomp $line; chomp $line; # doubled up, for poor windows people.
   
   # Parse and interpret the entry.
   my ($item, $flags, $type) = split / /, $line, 3;
@@ -409,10 +407,7 @@ sub dump_output($) {
   $newname .= "\@$new->{date}" if $new->{date};
 
   print OUT "%\%japio 0.9.2 $origname $newname\n";
-  if ($ignore_orig) {
-    print OUT "notify Differences due to incompatibility between $ignore_orig and $ignore_new have been ignored. Since these differences are not counted as good OR bad, they may cause percentages not to add up to 100%.\n";
-    print OUT "notify Warning: this may not make sense, because normally differences between $origsname and something should be ignored instead.\n" unless $ignore_orig eq $origsname;
-  }
+  print OUT $ignorenotes if $ignorenotes;
   if ($buggywarn) {
     if ($orig->{"origver"} && $orig->{"origver"} le $buggyver) {
       print OUT "notify Warning: $origsname API was read by a version of japitools that contained known bugs that cause inaccuracies in the output.\n";
@@ -726,8 +721,8 @@ sub compare_japi_item($$$$) {
   return $errhere;
 }
 
-sub load_ignore_file($) {
-  my ($ign) = @_;
+sub load_ignore_file($$) {
+  my ($ign, $ignorefile) = @_;
   if ($ignorefile) {
     if ($ignorefile =~ /\.japi(?:\.gz)?$/) {
       my $ct = 0; my $prog = $0;
@@ -749,9 +744,11 @@ sub load_ignore_file($) {
     my $japioline = <IGN>;
     die "Ignore file $ignorefile does not look like a japio file" if $japioline !~ /^\%\%japio /;
     die "Ignore file $ignorefile is not japio version 0.9.2" if $japioline !~ /^\%\%japio 0.9.2 ([^ \@]+)(?:\@[^ ]+) ([^ \@]+)(?:\@[^ ]+)/;
-    ($ignore_orig, $ignore_new) = ($1, $2);
+    my ($ignore_orig, $ignore_new) = ($1, $2);
     $ignore_orig =~ s/\.japi(\.gz)?$//;
     $ignore_new =~ s/\.japi(\.gz)?$//;
+    $ignorenotes .= "notify Differences due to incompatibility between $ignore_orig and $ignore_new have been ignored. Since these differences are not counted as good OR bad, they may cause percentages not to add up to 100%.\n";
+    $ignorenotes .= "notify Warning: this may not make sense, because normally differences between $origsname and something should be ignored instead.\n" unless $ignore_orig eq $origsname;
     while (<IGN>) {
       chomp;
       if (/^error /) {
@@ -773,7 +770,7 @@ sub merge_results($) {
   my ($c) = @_;
   my $errs = {};
   my $ign_errs = {};
-  load_ignore_file($ign_errs);
+  load_ignore_file($ign_errs, $ignorefile);
   $sc = {};
   print STDERR "Merging results / eliminating duplicates...\n" if $dot;
   foreach my $fh (@ofhs) {
