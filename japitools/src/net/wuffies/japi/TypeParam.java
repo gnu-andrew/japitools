@@ -26,10 +26,13 @@ public class TypeParam extends RefType {
   private GenericWrapper associatedWrapper;
   private String name;
   private ClassType primaryConstraint;
-  public TypeParam(GenericWrapper associatedWrapper, String name, ClassType primaryConstraint) {
+  public TypeParam(GenericWrapper associatedWrapper, String name, RefType primaryConstraint) {
     this.associatedWrapper = associatedWrapper;
     this.name = name;
-    this.primaryConstraint = primaryConstraint;
+    if (primaryConstraint instanceof ClassType)
+        this.primaryConstraint = (ClassType)primaryConstraint;
+    else
+        this.primaryConstraint = new ClassType("java.lang.Object");
   }
   // Later we'll support other constraints once we understand better what's permitted
   // and what's not.

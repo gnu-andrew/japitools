@@ -702,10 +702,10 @@ public class ClassFile implements ClassWrapper
         {
             String identifier = readIdentifier();
             consume(':');
-            ClassType classBound;
+            RefType classBound;
             if(peekChar() != ':')
             {
-                classBound = (ClassType)readFieldTypeSignature();
+                classBound = readFieldTypeSignature();
             }
             else
             {
