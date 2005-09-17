@@ -214,6 +214,7 @@ public class ClassFile implements ClassWrapper
     private class FieldInfoItem extends FMInfoItem implements FieldWrapper
     {
 	private Object constantValue;
+        private Type type;
 
 	FieldInfoItem(DataInputStream in) throws IOException
 	{
@@ -232,11 +233,22 @@ public class ClassFile implements ClassWrapper
 		{
 		    this.deprecated = true;
 		}
+                else if(attributeName.equals("Signature"))
+                {
+                    int signature_index = in.readUnsignedShort();
+                    String signature = getUtf8String(signature_index);
+                    FieldSignatureParser p = new FieldSignatureParser(ClassFile.this, signature);
+                    type = p.getFieldType();
+                }
 		else
 		{
 		    skip(in, attribute_length);
 		}
 	    }
+            if(type == null)
+            {
+                type = Type.fromNonGenericSig(getUtf8String(descriptor_index));
+            }
 	}
 
 	public String getName()
@@ -246,8 +258,7 @@ public class ClassFile implements ClassWrapper
 
 	public Type getType()
 	{
-	    // FIXME15 account for generics in the returned Type
-	    return Type.fromNonGenericSig(getUtf8String(descriptor_index));
+	    return type;
 	}
 
 	public boolean isEnumField()
@@ -274,17 +285,25 @@ public class ClassFile implements ClassWrapper
 	{
 	    return getName().compareTo(((FieldInfoItem)obj).getName());
 	}
+
+        void resolve()
+        {
+            type = Type.resolveTypeParameter(type);
+        }
     }
 
     private class MethodInfoItem extends FMInfoItem implements CallWrapper
     {
-	private String[] exceptions;
         private TypeParam[] typeParameters;
+        private Type[] parameterTypes;
+        private Type returnType;
+        private RefType[] exceptionTypes;
 
 	MethodInfoItem(DataInputStream in) throws IOException
 	{
 	    super(in);
 	    int attributes_count = in.readUnsignedShort();
+            String[] exceptions = null;
 	    for(int i = 0; i < attributes_count; i++)
 	    {
 		int attribute_name_index = in.readUnsignedShort();
@@ -310,14 +329,59 @@ public class ClassFile implements ClassWrapper
                     //System.out.println(signature);
                     MethodSignatureParser p = new MethodSignatureParser(this, signature);
                     typeParameters = p.getTypeParameters();
+                    parameterTypes = p.getParameterTypes();
+                    returnType = p.getReturnType();
+                    exceptionTypes = p.getExceptionTypes();
                 }
 		else
 		{
 		    skip(in, attribute_length);
 		}
 	    }
-	    if(exceptions == null)
-		exceptions = new String[0];
+            if(exceptionTypes == null)
+            {
+	        if(exceptions == null)
+                {
+		    exceptionTypes = new RefType[0];
+                }
+                else
+                {
+                    exceptionTypes = new RefType[exceptions.length];
+                    for(int i = 0; i < exceptions.length; i++)
+                    {
+                        exceptionTypes[i] = new ClassType(exceptions[i]);
+                    }
+                }
+            }
+            if(parameterTypes == null)
+            {
+                String sig = getUtf8String(descriptor_index);
+                ArrayList l = new ArrayList();
+                for(int i = 1; sig.charAt(i) != ')'; i++)
+                {
+                    int start = i;
+                    while(sig.charAt(i) == '[')
+                        i++;
+                    if(sig.charAt(i) == 'L')
+                        i = sig.indexOf(';', i);
+                    l.add(Type.fromNonGenericSig(sig.substring(start, i + 1)));
+                }
+                parameterTypes = new Type[l.size()];
+                l.toArray(parameterTypes);
+            }
+            if(returnType == null)
+            {
+                String sig = getUtf8String(descriptor_index);
+                returnType = Type.fromNonGenericSig(sig.substring(sig.lastIndexOf(')') + 1));
+            }
+            if(exceptionTypes == null)
+            {
+                exceptionTypes = new ClassType[exceptions.length];
+                for (int i = 0; i < exceptions.length; i++) 
+                {
+                    exceptionTypes[i] = new ClassType(exceptions[i]);
+                }
+            }
 	}
 
 	public String getName()
@@ -346,31 +410,23 @@ public class ClassFile implements ClassWrapper
 
 	public Type[] getParameterTypes()
 	{
-	    String sig = getUtf8String(descriptor_index);
-	    ArrayList l = new ArrayList();
-	    for(int i = 1; sig.charAt(i) != ')'; i++)
-	    {
-		int start = i;
-		while(sig.charAt(i) == '[')
-		    i++;
-		if(sig.charAt(i) == 'L')
-		    i = sig.indexOf(';', i);
-		// FIXME15 - take into account generics here
-		l.add(Type.fromNonGenericSig(sig.substring(start, i + 1)));
-	    }
-	    Type[] p = new Type[l.size()];
-	    l.toArray(p);
-	    return p;
+	    return parameterTypes;
 	}
 
 	public ClassType[] getExceptionTypes()
 	{
-	    ClassType[] excps = new ClassType[exceptions.length];
-	    for (int i = 0; i < exceptions.length; i++) {
-		// FIXME15 - can exceptions have type arguments? If so take them into account here
-		excps[i] = new ClassType(exceptions[i]);
-	    }
-	    return excps;
+            ArrayList l = new ArrayList();
+            for(int i = 0; i < exceptionTypes.length; i++)
+            {
+                if(exceptionTypes[i] instanceof ClassType)
+                {
+                    l.add(exceptionTypes[i]);
+                }
+            }
+            // FIXME
+            ClassType[] hack = new ClassType[l.size()];
+            l.toArray(hack);
+	    return hack;
 	}
 
 	public TypeParam[] getTypeParams()
@@ -382,9 +438,7 @@ public class ClassFile implements ClassWrapper
 	{
 	    if(getUtf8String(name_index).equals("<init>"))
 		return null;
-	    String sig = getUtf8String(descriptor_index);
-	    // FIXME15 - take into account generics here
-	    return Type.fromNonGenericSig(sig.substring(sig.lastIndexOf(')') + 1));
+	    return returnType;
 	}
 
 	public ClassWrapper getDeclaringClass()
@@ -432,6 +486,26 @@ public class ClassFile implements ClassWrapper
         public GenericWrapper getContainingWrapper()
         {
             return ClassFile.this;
+        }
+
+        void resolve()
+        {
+            if(typeParameters != null)
+            {
+                for(int i = 0; i < typeParameters.length; i++)
+                {
+                    typeParameters[i].resolveTypeParameters();
+                }
+            }
+            for(int i = 0; i < parameterTypes.length; i++)
+            {
+                parameterTypes[i] = Type.resolveTypeParameter(parameterTypes[i]);
+            }
+            returnType = Type.resolveTypeParameter(returnType);
+            for(int i = 0; i < exceptionTypes.length; i++)
+            {
+                exceptionTypes[i] = (RefType)Type.resolveTypeParameter(exceptionTypes[i]);
+            }
         }
     }
 
@@ -611,16 +685,13 @@ public class ClassFile implements ClassWrapper
         {
             interfaceTypes[i].resolveTypeParameters();
         }
+        for(int i = 0; i < fields.length; i++)
+        {
+            fields[i].resolve();
+        }
         for(int i = 0; i < methods.length; i++)
         {
-            TypeParam[] typeParams = methods[i].getTypeParams();
-            if(typeParams != null)
-            {
-                for(int j = 0; j < typeParams.length; j++)
-                {
-                    typeParams[j].resolveTypeParameters();
-                }
-            }
+            methods[i].resolve();
         }
     }
 
@@ -719,7 +790,7 @@ public class ClassFile implements ClassWrapper
             return new TypeParam(container, identifier, classBound);
         }
 
-        private RefType readFieldTypeSignature()
+        RefType readFieldTypeSignature()
         {
             switch(peekChar())
             {
@@ -898,9 +969,39 @@ public class ClassFile implements ClassWrapper
         }
     }
 
+    private static class FieldSignatureParser extends SignatureParser
+    {
+        private Type type;
+
+        FieldSignatureParser(ClassWrapper container, String signature)
+        {
+            super(container, signature);
+
+            switch(peekChar())
+            {
+                case 'L':
+                case '[':
+                case 'T':
+                    type = readFieldTypeSignature();
+                    break;
+                default:
+                    type = PrimitiveType.fromSig(readChar());
+                    break;
+            }
+        }
+
+        Type getFieldType()
+        {
+            return type;
+        }
+    }
+
     private static class MethodSignatureParser extends SignatureParser
     {
         private TypeParam[] typeParameters;
+        private Type[] argTypes;
+        private Type retType;
+        private RefType[] throwsSigs;
 
         MethodSignatureParser(CallWrapper wrapper, String signature)
         {
@@ -911,29 +1012,50 @@ public class ClassFile implements ClassWrapper
                 typeParameters = readFormalTypeParameters();
             }
             consume('(');
+            ArrayList args = new ArrayList();
             while(peekChar() != ')')
             {
-                readTypeSignature();
+                args.add(readTypeSignature());
             }
+            argTypes = new Type[args.size()];
+            args.toArray(argTypes);
             consume(')');
-            readTypeSignature();
+            retType = readTypeSignature();
+            ArrayList throwsSigs = new ArrayList();
             while(peekChar() == '^')
             {
                 consume('^');
                 if(peekChar() == 'T')
                 {
-                    readTypeVariableSignature();
+                    throwsSigs.add(readTypeVariableSignature());
                 }
                 else
                 {
-                    readClassTypeSignature();
+                    throwsSigs.add(readClassTypeSignature());
                 }
             }
+            this.throwsSigs = new RefType[throwsSigs.size()];
+            throwsSigs.toArray(this.throwsSigs);
         }
 
         TypeParam[] getTypeParameters()
         {
             return typeParameters;
+        }
+
+        Type[] getParameterTypes()
+        {
+            return argTypes;
+        }
+
+        Type getReturnType()
+        {
+            return retType;
+        }
+
+        RefType[] getExceptionTypes()
+        {
+            return throwsSigs;
         }
 
         private Type readTypeSignature()

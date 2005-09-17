@@ -37,6 +37,23 @@ public abstract class Type {
   public abstract String getNonGenericTypeSig();
 
   /**
+   * Used by ClassFile to resolve TypeParams
+   */
+  public abstract void resolveTypeParameters();
+
+  public static Type resolveTypeParameter(Type t) {
+    if (t instanceof ClassFile.UnresolvedTypeParam) 
+    {
+        return ((ClassFile.UnresolvedTypeParam)t).resolve();
+    } 
+    else 
+    {
+        t.resolveTypeParameters();
+        return t;
+    }
+  }
+
+  /**
    * Return a copy of this type with all type parameters on t bound to the value
    * of t's corresponding type argument. Type parameters on t that are unbound,
    * because t was specified as a raw type, will result in null. That opens up

@@ -20,15 +20,4 @@
 package net.wuffies.japi;
 
 public abstract class RefType extends Type {
-
-  public abstract void resolveTypeParameters();
-
-  public static RefType resolveTypeParameter(RefType t) {
-    if (t instanceof ClassFile.UnresolvedTypeParam) {
-      return ((ClassFile.UnresolvedTypeParam)t).resolve();
-    } else {
-      t.resolveTypeParameters();
-      return t;
-    }
-  }
 }

@@ -145,7 +145,7 @@ public class ClassType extends RefType {
   public void resolveTypeParameters() {
     if (typeArguments != null) {
       for (int i = 0; i < typeArguments.length; i++) {
-        typeArguments[i] = resolveTypeParameter(typeArguments[i]);
+        typeArguments[i] = (RefType)resolveTypeParameter(typeArguments[i]);
       }
     }
   }
