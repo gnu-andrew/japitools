@@ -59,7 +59,7 @@ my $outprog = $opts{"h"} ? "japiohtml" : $opts{"j"} ? undef : "japiotext";
 my $ignorefile = $opts{"i"};
 my ($origfile, $newfile) = @ARGV;
 if (!defined $newfile) {
-  print STDERR "Usage: japicompat [-svqhtjw] [-o outfile] [-i ignorefile] <original api> <api to check>\n";
+  print STDERR "Usage: japicompat [-svqhtjw] [-o outfile] [-i ignorefiles,commaseparated] <original api> <api to check>\n";
   exit 1;
 }
 
@@ -722,47 +722,49 @@ sub compare_japi_item($$$$) {
 }
 
 sub load_ignore_file($$) {
-  my ($ign, $ignorefile) = @_;
-  if ($ignorefile) {
-    if ($ignorefile =~ /\.japi(?:\.gz)?$/) {
-      my $ct = 0; my $prog = $0;
-      $prog = readlink $prog while -l $prog && $ct++ < 5;
-      $progdir = $1 if $prog =~ /^(.*)\/[^\/]+$/;
-      if ($progdir) {
-        $progdir .= "/";
+  my ($ign, $ignorefiles) = @_;
+  if ($ignorefiles) {
+    foreach my $ignorefile (split /,/, $ignorefiles) {
+      if ($ignorefile =~ /\.japi(?:\.gz)?$/) {
+        my $ct = 0; my $prog = $0;
+        $prog = readlink $prog while -l $prog && $ct++ < 5;
+        $progdir = $1 if $prog =~ /^(.*)\/[^\/]+$/;
+        if ($progdir) {
+          $progdir .= "/";
+        } else {
+          $progdir = $1 if $prog =~ /^(.*)\\[^\\]+$/;
+          $progdir .= "\\" if $progdir;
+        }
+        my $opts = "-j";
+        $opts .= "v" if $svuid_errors;
+        $opts .= "s" if $sun_only;
+        open IGN, "$^X \"${progdir}japicompat\" $opts \"$origfile\" \"$ignorefile\"|";
       } else {
-        $progdir = $1 if $prog =~ /^(.*)\\[^\\]+$/;
-        $progdir .= "\\" if $progdir;
+        open IGN, "<$ignorefile" or die "Could not open ignore file $ignorefile";
       }
-      my $opts = "-j";
-      $opts .= "v" if $svuid_errors;
-      $opts .= "s" if $sun_only;
-      open IGN, "$^X \"${progdir}japicompat\" $opts \"$origfile\" \"$ignorefile\"|";
-    } else {
-      open IGN, "<$ignorefile" or die "Could not open ignore file $ignorefile";
-    }
-    my $japioline = <IGN>;
-    die "Ignore file $ignorefile does not look like a japio file" if $japioline !~ /^\%\%japio /;
-    die "Ignore file $ignorefile is not japio version 0.9.2" if $japioline !~ /^\%\%japio 0.9.2 ([^ \@]+)(?:\@[^ ]+) ([^ \@]+)(?:\@[^ ]+)/;
-    my ($ignore_orig, $ignore_new) = ($1, $2);
-    $ignore_orig =~ s/\.japi(\.gz)?$//;
-    $ignore_new =~ s/\.japi(\.gz)?$//;
-    $ignorenotes .= "notify Differences due to incompatibility between $ignore_orig and $ignore_new have been ignored. Since these differences are not counted as good OR bad, they may cause percentages not to add up to 100%.\n";
-    $ignorenotes .= "notify Warning: this may not make sense, because normally differences between $origsname and something should be ignored instead.\n" unless $ignore_orig eq $origsname;
-    while (<IGN>) {
-      chomp;
-      if (/^error /) {
-        my ($error, $etype, $isa, $item, $sups, $rest) = split(/ /, $_, 6);
-        my ($class, $member) = split(/!/, $item, 2);
-        my ($pkg, $cls) = split(/,/, $class, 2);
-        my $dotclass = "$pkg.$cls";
-        $rest = "fp constant [$1]/fp constant [$2]" if $rest =~ /^fp constant \[[^ ]* \((0x[0-9a-z]+)\)\]\/fp constant \[[^ ]* \((0x[0-9a-z]+)\)\]$/;
-        $ign->{"$dotclass\!$member $rest"} = 1;
-      } elsif (/^end japio$/) {
-        last;
+      my $japioline = <IGN>;
+      die "Ignore file $ignorefile does not look like a japio file" if $japioline !~ /^\%\%japio /;
+      die "Ignore file $ignorefile is not japio version 0.9.2" if $japioline !~ /^\%\%japio 0.9.2 ([^ \@]+)(?:\@[^ ]+) ([^ \@]+)(?:\@[^ ]+)/;
+      my ($ignore_orig, $ignore_new) = ($1, $2);
+      $ignore_orig =~ s/\.japi(\.gz)?$//;
+      $ignore_new =~ s/\.japi(\.gz)?$//;
+      $ignorenotes .= "notify Differences due to incompatibility between $ignore_orig and $ignore_new have been ignored. Since these differences are not counted as good OR bad, they may cause percentages not to add up to 100%.\n";
+      $ignorenotes .= "notify Warning: this may not make sense, because normally differences between $origsname and something should be ignored instead.\n" unless $ignore_orig eq $origsname;
+      while (<IGN>) {
+        chomp;
+        if (/^error /) {
+          my ($error, $etype, $isa, $item, $sups, $rest) = split(/ /, $_, 6);
+          my ($class, $member) = split(/!/, $item, 2);
+          my ($pkg, $cls) = split(/,/, $class, 2);
+          my $dotclass = "$pkg.$cls";
+          $rest = "fp constant [$1]/fp constant [$2]" if $rest =~ /^fp constant \[[^ ]* \((0x[0-9a-z]+)\)\]\/fp constant \[[^ ]* \((0x[0-9a-z]+)\)\]$/;
+          $ign->{"$dotclass\!$member $rest"} = 1;
+        } elsif (/^end japio$/) {
+          last;
+        }
       }
+      close IGN;
     }
-    close IGN;
   }
 }
 
