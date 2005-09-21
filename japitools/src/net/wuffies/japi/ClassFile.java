@@ -413,7 +413,7 @@ public class ClassFile implements ClassWrapper
 	    return parameterTypes;
 	}
 
-	public ClassType[] getExceptionTypes()
+	public NonArrayRefType[] getExceptionTypes()
 	{
             ArrayList l = new ArrayList();
             for(int i = 0; i < exceptionTypes.length; i++)
@@ -478,7 +478,7 @@ public class ClassFile implements ClassWrapper
 	    return sig;
 	}
 
-	boolean isInheritable()
+	public boolean isInheritable()
 	{
 	    return !Modifier.isPrivate(this.access_flags) && !getUtf8String(name_index).equals("<init>");
 	}
@@ -695,7 +695,7 @@ public class ClassFile implements ClassWrapper
         }
     }
 
-    static class UnresolvedTypeParam extends RefType
+    static class UnresolvedTypeParam extends NonArrayRefType
     {
         private GenericWrapper associatedWrapper;
         private String name;
@@ -719,8 +719,12 @@ public class ClassFile implements ClassWrapper
 	{
 	    throw new Error();
 	}
+	public String getJavaRepr(GenericWrapper wrapper)
+	{
+	    throw new Error();
+	}
 
-        public RefType resolve()
+        public TypeParam resolve()
         {
             GenericWrapper container = associatedWrapper;
             do
@@ -787,7 +791,9 @@ public class ClassFile implements ClassWrapper
                 consume(':');
                 RefType interfaceBound = readFieldTypeSignature();
             }
-            return new TypeParam(container, identifier, classBound);
+	    // FIXME15 - should be possible to use NonArrayRefType everywhere leading
+	    // up to here and avoid this cast.
+            return new TypeParam(container, identifier, (NonArrayRefType) classBound);
         }
 
         RefType readFieldTypeSignature()
@@ -1307,42 +1313,46 @@ public class ClassFile implements ClassWrapper
             throw new NoSuchMethodError(name + descriptor);
     }
 
-//SABFIXME - only return declared methods, not inherited ones
     public CallWrapper[] getCalls()
     {
-	if(allMethods == null)
-	{
-	    HashMap map = new HashMap();
-	    ClassType[] ifaces = getInterfaces();
-	    for(int i = 0; i < ifaces.length; i++)
-	    {
-		MethodInfoItem[] m = (MethodInfoItem[])ifaces[i].getWrapper().getCalls();
-		for(int j = 0; j < m.length; j++)
-		{
-		    if(!map.containsKey(m[j].getSig()))
-			map.put(m[j].getSig(), m[j]);
-		}
-	    }
-	    if(superClass != null)
-	    {
-		MethodInfoItem[] m = (MethodInfoItem[])getSuperclass().getWrapper().getCalls();
-		for(int i = 0; i < m.length; i++)
-		{
-		    if(m[i].isInheritable())
-			map.put(m[i].getSig(), m[i]);
-		}
-	    }
-	    for(int i = 0; i < methods.length; i++)
-	    {
-		// JDK15: skip bridge methods (the ACC_VOLATILE bit corresponds to the ACC_BRIDGE bit)
-		if(!Modifier.isVolatile(methods[i].getModifiers()))
-		    map.put(methods[i].getSig(), methods[i]);
-	    }
-	    allMethods = new MethodInfoItem[map.size()];
-	    map.values().toArray(allMethods);
-	    Arrays.sort(allMethods);
-	}
-	return allMethods;
+	// FIXME - should we take a copy here to make sure the caller can't mess
+	// with this class's internal state?
+	return methods;
+
+	// Old code for comparison...
+//	if(allMethods == null)
+//	{
+//	    HashMap map = new HashMap();
+//	    ClassType[] ifaces = getInterfaces();
+//	    for(int i = 0; i < ifaces.length; i++)
+//	    {
+//		MethodInfoItem[] m = (MethodInfoItem[])ifaces[i].getWrapper().getCalls();
+//		for(int j = 0; j < m.length; j++)
+//		{
+//		    if(!map.containsKey(m[j].getSig()))
+//			map.put(m[j].getSig(), m[j]);
+//		}
+//	    }
+//	    if(superClass != null)
+//	    {
+//		MethodInfoItem[] m = (MethodInfoItem[])getSuperclass().getWrapper().getCalls();
+//		for(int i = 0; i < m.length; i++)
+//		{
+//		    if(m[i].isInheritable())
+//			map.put(m[i].getSig(), m[i]);
+//		}
+//	    }
+//	    for(int i = 0; i < methods.length; i++)
+//	    {
+//		// JDK15: skip bridge methods (the ACC_VOLATILE bit corresponds to the ACC_BRIDGE bit)
+//		if(!Modifier.isVolatile(methods[i].getModifiers()))
+//		    map.put(methods[i].getSig(), methods[i]);
+//	    }
+//	    allMethods = new MethodInfoItem[map.size()];
+//	    map.values().toArray(allMethods);
+//	    Arrays.sort(allMethods);
+//	}
+//	return allMethods;
     }
 
     public boolean isInterface()
@@ -1366,38 +1376,43 @@ public class ClassFile implements ClassWrapper
     {
         return interfaceTypes;
     }
-//SABFIXME - only return declared fields, not inherited ones
+
     public FieldWrapper[] getFields()
     {
-	if(allFields == null)
-	{
-	    HashMap map = new HashMap();
-	    if(superClass != null)
-	    {
-		FieldInfoItem[] f = (FieldInfoItem[])getSuperclass().getWrapper().getFields();
-		for(int i = 0; i < f.length; i++)
-		{
-		    map.put(f[i].getName(), f[i]);
-		}
-	    }
-	    ClassType[] ifaces = getInterfaces();
-	    for(int i = 0; i < ifaces.length; i++)
-	    {
-		FieldInfoItem[] f = (FieldInfoItem[])ifaces[i].getWrapper().getFields();
-		for(int j = 0; j < f.length; j++)
-		{
-		    map.put(f[j].getName(), f[j]);
-		}
-	    }
-	    for(int i = 0; i < fields.length; i++)
-	    {
-		map.put(fields[i].getName(), fields[i]);
-	    }
-	    allFields = new FieldInfoItem[map.size()];
-	    map.values().toArray(allFields);
-	    Arrays.sort(allFields);
-	}
-	return allFields;
+	// FIXME - should we take a copy here to make sure the caller can't mess
+	// with this class's internal state?
+	return fields;
+
+	// Old code, for comparison
+//	if(allFields == null)
+//	{
+//	    HashMap map = new HashMap();
+//	    if(superClass != null)
+//	    {
+//		FieldInfoItem[] f = (FieldInfoItem[])getSuperclass().getWrapper().getFields();
+//		for(int i = 0; i < f.length; i++)
+//		{
+//		    map.put(f[i].getName(), f[i]);
+//		}
+//	    }
+//	    ClassType[] ifaces = getInterfaces();
+//	    for(int i = 0; i < ifaces.length; i++)
+//	    {
+//		FieldInfoItem[] f = (FieldInfoItem[])ifaces[i].getWrapper().getFields();
+//		for(int j = 0; j < f.length; j++)
+//		{
+//		    map.put(f[j].getName(), f[j]);
+//		}
+//	    }
+//	    for(int i = 0; i < fields.length; i++)
+//	    {
+//		map.put(fields[i].getName(), fields[i]);
+//	    }
+//	    allFields = new FieldInfoItem[map.size()];
+//	    map.values().toArray(allFields);
+//	    Arrays.sort(allFields);
+//	}
+//	return allFields;
     }
 
     public TypeParam[] getTypeParams()

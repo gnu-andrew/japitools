@@ -53,8 +53,7 @@ The ClassWrapper of List is being used to represent the generic, un-instantiated
 
 We do this by having a hierarchy coming down from Type which knows how to represent instantiated types, potentially with arguments. It's possible to get from a ClassType to the associated ClassWrapper but to do the other direction you have to supply the type arguments, or say that there aren't any.
 
-We should change the japi file spec so that it understands the inheritance from containing classes because it makes the japi file clearer
-and represents fairyland better, which is the whole point really.
+We should change the japi file spec so that it understands the inheritance from containing classes because it makes the japi file clearer and represents fairyland better, which is the whole point really.
 
 
 Interesting issue. This is a setup that could not occur under 1.4.
@@ -194,12 +193,13 @@ because @0 resolves to String.
 
 
 TODO:
-- Fix bugs that show up today in the results:
+* Fix bugs that show up today in the results:
   * Eliminate interface methods that are also in Object (GSSCredential!hashCode is the test)
-  - Be more intelligent about the tostring-independent floats and doubles bit when deciding what errors to ignore
+  * Be more intelligent about the tostring-independent floats and doubles bit when deciding what errors to ignore
 - Generic support:
   * Bind type parameters correctly in superclasses and superinterfaces
   - Make Japize, not ClassFile, responsible for recursing up through superclasses and superinterfaces to find methods and fields.
+    - Trick is we need to be able to store the result of binding the parameters etc of the method and type of the field.
   - Figure out the situations where the inherited method gets a different sig than the real method and produce "+" and "-"
     annotated versions of the method.
   - Start testing japicompat between these japis
@@ -207,3 +207,21 @@ TODO:
   - Update the japi spec to discuss + and - annotated methods and other changes, like the fact that inner classes are considered to automatically inherit the type params of the container
 - Open questions:
   - Should 1.4 style comparison actually include both methods?
+
+
+
+
+My compiler is psychic...
+
+C:\projects\japitools\src>jikes -d .. net\wuffies\japi\*.java
+
+Found 1 syntax error in "C:/projects/japitools/src/net/wuffies/japi/Japize.java":
+
+   955.           if (i != index && excps[i] is ClassType &&
+                                             <>
+
+*** Syntax: instanceof expected instead of this token
+
+C:\projects\japitools\src>
+
+Talk about friendly error messages! How did it know?

@@ -121,7 +121,7 @@ public abstract class Type {
   private static String indent = "";
   protected void debugStart(String label, String msg) {
     if (DEBUG) {
-      System.out.println(indent + label + ": " + this + " - " + msg);
+      System.err.println(indent + label + ": " + this + " - " + msg);
       indent += "+ ";
     }
   }

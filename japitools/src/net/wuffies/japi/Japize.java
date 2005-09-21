@@ -30,6 +30,9 @@ import java.util.ArrayList;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Arrays;
 import java.io.Writer;
 import java.util.Iterator;
 import java.io.PrintWriter;
@@ -663,8 +666,15 @@ public class Japize {
       printEntry(entry, type, mods, c.isDeprecated(), false);
 
       // Get the class's members.
-      FieldWrapper[] fields = c.getFields();
-      CallWrapper[] calls = c.getCalls();
+      Map fieldMap = new HashMap();
+      Map callMap = new HashMap();
+      getFieldsAndCalls(c, null, fieldMap, callMap);
+      BoundField[] fields = new BoundField[fieldMap.size()];
+      fieldMap.values().toArray(fields);
+      Arrays.sort(fields);
+      BoundCall[] calls = new BoundCall[callMap.size()];
+      callMap.values().toArray(calls);
+      Arrays.sort(calls);
 
       // Iterate over the fields in the class.
       for (int i = 0; i < fields.length; i++) {
@@ -789,7 +799,7 @@ public class Japize {
 
         Type rtnType = calls[i].getReturnType();
         type += (rtnType == null) ? "constructor" : rtnType.getTypeSig(calls[i]);
-        ClassType[] excps = calls[i].getExceptionTypes();
+        NonArrayRefType[] excps = calls[i].getExceptionTypes();
         for (int j = 0; j < excps.length; j++) {
           if (includeException(excps, j)) type += "*" + excps[j].getJavaRepr(calls[i]);
         }
@@ -851,6 +861,46 @@ public class Japize {
     return type;
   }
 
+  private static void getFieldsAndCalls(ClassWrapper outer, ClassType ctype, Map fieldMap, Map callMap) {
+    ClassWrapper c = (ctype == null) ? outer : ctype.getWrapper();
+
+    ClassType[] ifaces = c.getInterfaces();
+    for (int i = 0; i < ifaces.length; i++) {
+      ClassType iface = ifaces[i];
+      if (ctype != null) iface = (ClassType) iface.bind(ctype);
+      getFieldsAndCalls(outer, iface, fieldMap, callMap);
+    }
+    ClassType sup = c.getSuperclass();
+    if (sup != null) {
+      if (ctype != null) sup = (ClassType) sup.bind(ctype);
+      getFieldsAndCalls(outer, sup, fieldMap, callMap);
+    }
+    FieldWrapper[] fields = c.getFields();
+    for (int i = 0; i < fields.length; i++) {
+      fieldMap.put(fields[i].getName(), new BoundField(fields[i]));
+    }
+    CallWrapper[] calls = c.getCalls();
+    for (int i = 0; i < calls.length; i++) {
+      // JDK15: skip bridge methods (the ACC_VOLATILE bit corresponds to the ACC_BRIDGE bit)
+      if (Modifier.isVolatile(calls[i].getModifiers())) continue;
+
+      BoundCall call = new BoundCall(calls[i], outer);
+      if (ctype == null || call.isInheritable()) {
+        callMap.put(call.getNonGenericSig(), call);
+      }
+    }
+    if (ctype != null) {
+      for (Iterator i = fieldMap.entrySet().iterator(); i.hasNext(); ) {
+        Map.Entry ent = (Map.Entry) i.next();
+        ent.setValue(((BoundField) ent.getValue()).bind(ctype));
+      }
+      for (Iterator i = callMap.entrySet().iterator(); i.hasNext(); ) {
+        Map.Entry ent = (Map.Entry) i.next();
+        ent.setValue(((BoundCall) ent.getValue()).bind(ctype));
+      }
+    }
+  }
+
   /**
    * Get a string containing the name, parameter types and thrown exceptions
    * for a particular method. Returns null on a constructor. Designed to
@@ -868,7 +918,7 @@ public class Japize {
       s += params[i].getTypeSig(call);
     }
     s += ")" + call.getReturnType().getTypeSig(call);
-    ClassType[] excps = call.getExceptionTypes();
+    NonArrayRefType[] excps = call.getExceptionTypes();
     TreeSet exstrs = new TreeSet();
     for (int i = 0; i < excps.length; i++) {
       if (includeException(excps, i)) exstrs.add(excps[i].getJavaRepr(call));
@@ -927,10 +977,20 @@ public class Japize {
    * Subclasses of RuntimeException and Error should be omitted, as should
    * subclasses of other exceptions also thrown.
    */
-  static boolean includeException(ClassType[] excps, int index)
+  static boolean includeException(NonArrayRefType[] excps, int index)
       throws ClassNotFoundException {
     boolean isSuper = false;
-    for (ClassWrapper supclass = excps[index].getWrapper();
+    ClassType excp;
+    if (excps[index] instanceof ClassType) {
+      excp = (ClassType) excps[index];
+    } else {
+      TypeParam tp = (TypeParam) excps[index];
+      while (tp.getPrimaryConstraint() instanceof TypeParam) {
+        tp = (TypeParam) tp.getPrimaryConstraint();
+      }
+      excp = (ClassType) tp.getPrimaryConstraint();
+    }
+    for (ClassWrapper supclass = excp.getWrapper();
          supclass != null;
          supclass = getWrapper(supclass.getSuperclass())) {
       String supname = supclass.getName();
@@ -940,7 +1000,8 @@ public class Japize {
       }
       if (isSuper) {
         for (int i = 0; i < excps.length; i++) {
-          if (i != index && supname.equals(excps[i].getName())) return false;
+          if (i != index && excps[i] instanceof ClassType &&
+              supname.equals(((ClassType) excps[i]).getName())) return false;
         }
       }
       isSuper = true;

@@ -22,7 +22,7 @@ package net.wuffies.japi;
 /**
  * Represents a class, interface, enum or annotation.
  */
-public class ClassType extends RefType {
+public class ClassType extends NonArrayRefType {
   private String name;
   private ClassWrapper classWrapper;
   private RefType[] typeArguments;

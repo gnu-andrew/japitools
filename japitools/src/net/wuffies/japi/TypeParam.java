@@ -22,19 +22,16 @@ import java.lang.reflect.Modifier;
 
 // Note that a TypeParam *must* correspond to one of the entries in its
 // getAssociatedWrapper().getTypeParams() array.
-public class TypeParam extends RefType {
+public class TypeParam extends NonArrayRefType {
   private GenericWrapper associatedWrapper;
   private String name;
-  private ClassType primaryConstraint;
-  public TypeParam(GenericWrapper associatedWrapper, String name, RefType primaryConstraint) {
+  private NonArrayRefType primaryConstraint;
+  public TypeParam(GenericWrapper associatedWrapper, String name, NonArrayRefType primaryConstraint) {
     this.associatedWrapper = associatedWrapper;
     this.name = name;
-    if (primaryConstraint instanceof ClassType)
-        this.primaryConstraint = (ClassType)primaryConstraint;
-    else
-        this.primaryConstraint = new ClassType("java.lang.Object");
+    this.primaryConstraint = primaryConstraint;
   }
-  // Later we'll support other constraints once we understand better what's permitted
+  // FIXME: Later we'll support other constraints once we understand better what's permitted
   // and what's not.
 
   public GenericWrapper getAssociatedWrapper() {
@@ -43,13 +40,15 @@ public class TypeParam extends RefType {
   public String getName() {
     return name;
   }
-  public ClassType getPrimaryConstraint() {
+  public NonArrayRefType getPrimaryConstraint() {
     return primaryConstraint;
   }
   public int getIndex(GenericWrapper wrapper) {
     TypeParam[] params = getAllTypeParams(wrapper);
-    for (int i = 0; i < params.length; i++) {
-      if (params[i] == this) return i;
+    if (params != null) {
+      for (int i = 0; i < params.length; i++) {
+        if (params[i] == this) return i;
+      }
     }
     return -1;
   }
@@ -58,19 +57,28 @@ public class TypeParam extends RefType {
     if (index < 0) throw new RuntimeException("Unbound type parameter " + this + " not associated with current wrapper " + wrapper);
     return "@" + index;
   }
+  public String getJavaRepr(GenericWrapper wrapper) {
+    return getTypeSig(wrapper);
+  }
   public String getNonGenericTypeSig() {
     return getPrimaryConstraint().getNonGenericTypeSig();
   }
   public void resolveTypeParameters() {
+    if (primaryConstraint instanceof ClassFile.UnresolvedTypeParam) {
+      primaryConstraint = ((ClassFile.UnresolvedTypeParam) primaryConstraint).resolve();
+    }
     primaryConstraint.resolveTypeParameters();
   }
 
+  private boolean binding = false;
   public Type bind(ClassType t) {
     debugStart("Bind", "to " + t);
     try {
       int index = getIndex(t.getWrapper());
       if (index == -1) {
-        return new TypeParam(getAssociatedWrapper(), getName(), (RefType) primaryConstraint.bind(t));
+        return this;
+        // SABFIXME: No idea why the following doesn't work - it should be better, but apparently it isn't.
+        // return new TypeParam(getAssociatedWrapper(), getName(), (NonArrayRefType) primaryConstraint.bindWithFallback(t));
       } else if (t.getTypeArguments() == null) {
         return null;
       } else {
