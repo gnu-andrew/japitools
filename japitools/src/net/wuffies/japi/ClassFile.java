@@ -31,6 +31,8 @@ import java.security.NoSuchAlgorithmException;
 
 public class ClassFile implements ClassWrapper
 {
+    private static final boolean DEBUG_SVUID = false;
+
     private static final int CONSTANT_Class = 7;
     private static final int CONSTANT_Fieldref = 9;
     private static final int CONSTANT_Methodref = 10;
@@ -723,6 +725,10 @@ public class ClassFile implements ClassWrapper
 	{
 	    throw new Error();
 	}
+	public Type getNonGenericType()
+	{
+	    throw new Error();
+	}
 
         public TypeParam resolve()
         {
@@ -1158,7 +1164,7 @@ public class ClassFile implements ClassWrapper
 	for(int i = 0; i < fields.length; i++)
 	{
 	    if(fields[i].getName().equals("serialVersionUID") &&
-		fields[i].getType().equals("J") &&
+		fields[i].getType() == PrimitiveType.LONG &&
 		Modifier.isStatic(fields[i].getModifiers()) &&
 		Modifier.isFinal(fields[i].getModifiers()))
 	    {
@@ -1180,13 +1186,30 @@ public class ClassFile implements ClassWrapper
 	    final MessageDigest md = MessageDigest.getInstance("SHA");
 	    OutputStream digest = new OutputStream() 
 	    {
+		private boolean text = false;
+		private void p(byte b) {
+		    char ch = (char) b;
+		    if (ch > ' ' && ch <= '~' && ch != '\"') {
+			if (!text) System.out.print("\"");
+			text = true;
+			System.out.print(ch);
+		    } else {
+			if (text) System.out.print("\", ");
+			text = false;
+			System.out.print(b + ", ");
+		    }
+		}
 		public void write(int b) 
 		{
+		    if (DEBUG_SVUID) p((byte) b);
 		    md.update((byte) b);
 		}
 
 		public void write(byte[] data, int offset, int length) 
 		{
+		    if (DEBUG_SVUID) {
+			for (int i = 0; i < length; i++) p(data[offset + i]);
+		    }
 		    md.update(data, offset, length);
 		}
 	    };
@@ -1194,7 +1217,7 @@ public class ClassFile implements ClassWrapper
 
 	    data_out.writeUTF(getName());
 
-	    int modifiers = raw_access_flags;
+	    int modifiers = access_flags;
 	    // just look at interesting bits
 	    modifiers = modifiers & (Modifier.ABSTRACT  | Modifier.FINAL |
 		Modifier.INTERFACE | Modifier.PUBLIC);

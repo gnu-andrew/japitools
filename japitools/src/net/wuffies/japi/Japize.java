@@ -790,6 +790,11 @@ public class Japize {
           comma = ",";
         }
         entry += ")";
+        if (calls[i].getExclude14()) {
+          entry += "+";
+        } else if (calls[i].getExclude15()) {
+          entry += "-";
+        }
 
         // Construct the "type" field, of the form returnType*exception*except2...
         type = "";
@@ -843,6 +848,9 @@ public class Japize {
     } catch (IndexOutOfBoundsException e) {
       System.err.println("\nFailed to Japize " + n + ": " + e);
       e.printStackTrace();
+    } catch (RuntimeException e) {
+      System.err.println("\nFailed to Japize " + n + ": " + e);
+      e.printStackTrace();
     }
     return false;
   }
@@ -861,6 +869,37 @@ public class Japize {
     return type;
   }
 
+  /**
+   * Load all the fields and calls for a particular class, taking inheritance into account.
+   * fieldMap and callMap will be maps from string to BoundField and BoundCall respectively.
+   * You can ignore the strings and just sort the values afterwards.
+   */
+   // Plan to handle overriding:
+   // * BoundCall defines exclude15 and exclude14 fields and corresponding getters. Both default to false.
+   // * It's an exception to end up with both true :)
+   // * If bind() is called on an item with exclude15=true it returns this.
+   // * If bind() is called on an item with exclude14=true, exclude14 is true in the result.
+   // * The bind() method checks to see whether the nonGenericSig of its return value is different than its
+   //   own. If it is, its return value gets created with exclude14=true.
+   // * There's a new bind14() method which returns an exact clone of the BoundCall but with exclude15 set
+   //   and all generic information dropped - all type params replaced with their bounds etc. This probably
+   //   needs a new getNonGenericType() method on Type, which probably ought to be used in bindWithFallback().
+   //   BUT if bind14 is called on something that's exclude14 already, it returns null.
+   // - In the loop marked HERE below, where we're going through and binding all the calls, we look to see
+   //   whether the newly-bound method has exclude14 set. If it is, we create a new entry for the newly-bound
+   //   method (with the new nonGenericSig) and update the existing one to the result of bind14() on the
+   //   original (or drop the entry entirely if bind14() gives null).
+   // - When outputting, we output a "-" after anything with exclude15 and a "+" after anything with
+   //   exclude14.
+   // - Process bridge methods but create them with exclude15 right off the bat? Seems
+   //   reasonable. That means creating the BoundCall and instantly bind14()ing it.
+   // NOTE: This algorithm does not handle methods that differ only in return value but are all present.
+   // BUT it seems likely that an algorithm like this will work for that situation. The trick is that
+   // when there *is* such a "confusion", we want getNonGenericTypeSig to include the return value for
+   // correct behavior. But for other cases we don't. Do we? Perhaps the existence of bridge methods to
+   // "mask out" the subclass versions as exclude15 might be enough here. But it is relying on the
+   // compiler to get that right...
+   // Perhaps getNonGenericSig on something that's exclude15 includes the return type? Not sure, at all.
   private static void getFieldsAndCalls(ClassWrapper outer, ClassType ctype, Map fieldMap, Map callMap) {
     ClassWrapper c = (ctype == null) ? outer : ctype.getWrapper();
 
@@ -894,9 +933,16 @@ public class Japize {
         Map.Entry ent = (Map.Entry) i.next();
         ent.setValue(((BoundField) ent.getValue()).bind(ctype));
       }
-      for (Iterator i = callMap.entrySet().iterator(); i.hasNext(); ) {
+      for (Iterator i = new ArrayList(callMap.entrySet()).iterator(); i.hasNext(); ) {
         Map.Entry ent = (Map.Entry) i.next();
-        ent.setValue(((BoundCall) ent.getValue()).bind(ctype));
+        String nonGenSig = (String) ent.getKey();
+        BoundCall call = (BoundCall) ent.getValue();
+        if (!call.getNonGenericSig().equals(nonGenSig)) throw new RuntimeException("unmatched sigs: " + nonGenSig + ", " + call.getNonGenericSig());
+        BoundCall boundCall = call.bind(ctype);
+        if (boundCall.getExclude14() && !call.getExclude14()) {
+          callMap.put(nonGenSig, call.bind14());
+        }
+        callMap.put(boundCall.getNonGenericSig(), boundCall);
       }
     }
   }

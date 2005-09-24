@@ -107,6 +107,12 @@ public class ClassType extends NonArrayRefType {
   public String getNonGenericTypeSig() {
     return "L" + name.replace('.', '/') + ";";
   }
+  public Type getNonGenericType() {
+    if (typeArguments == null) return this;
+
+    return new ClassType(name, classWrapper, null);
+  }
+
   public String toStringImpl() {
     String result = "Class:" + getName();
     if (typeArguments != null) {

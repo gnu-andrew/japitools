@@ -37,6 +37,11 @@ public abstract class Type {
   public abstract String getNonGenericTypeSig();
 
   /**
+   * Strip all generic information and return a plain old type.
+   */
+  public abstract Type getNonGenericType();
+
+  /**
    * Used by ClassFile to resolve TypeParams
    */
   public abstract void resolveTypeParameters();

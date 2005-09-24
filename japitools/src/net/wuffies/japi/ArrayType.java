@@ -36,6 +36,9 @@ public class ArrayType extends RefType {
   public String getNonGenericTypeSig() {
     return "[" + getElementType().getNonGenericTypeSig();
   }
+  public Type getNonGenericType() {
+    return new ArrayType(elementType.getNonGenericType());
+  }
   public String toStringImpl() {
     return "Array:" + getElementType();
   }

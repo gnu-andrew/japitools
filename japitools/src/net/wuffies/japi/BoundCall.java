@@ -26,20 +26,26 @@ class BoundCall implements CallWrapper, Comparable {
   private NonArrayRefType[] exceptionTypes;
   private TypeParam[] typeParams;
   private GenericWrapper containingWrapper;
+  private boolean exclude14;
+  private boolean exclude15;
 
   private BoundCall(CallWrapper base, GenericWrapper containingWrapper,
                     Type returnType, Type[] parameterTypes,
-                    NonArrayRefType[] exceptionTypes, TypeParam[] typeParams) {
+                    NonArrayRefType[] exceptionTypes, TypeParam[] typeParams,
+                    boolean exclude14, boolean exclude15) {
     this.base = base;
     this.containingWrapper = containingWrapper;
     this.returnType = returnType;
     this.parameterTypes = parameterTypes;
     this.exceptionTypes = exceptionTypes;
     this.typeParams = typeParams;
+    if (exclude14 && exclude15) throw new RuntimeException("Can't be excluded from *everywhere*!");
+    this.exclude14 = exclude14;
+    this.exclude15 = exclude15;
   }
   public BoundCall(CallWrapper base, GenericWrapper containingWrapper) {
     this(base, containingWrapper, base.getReturnType(), base.getParameterTypes(),
-         base.getExceptionTypes(), base.getTypeParams());
+         base.getExceptionTypes(), base.getTypeParams(), false, false);
   }
 
   public Type getReturnType() {
@@ -57,8 +63,16 @@ class BoundCall implements CallWrapper, Comparable {
   public GenericWrapper getContainingWrapper() {
     return containingWrapper;
   }
+  public boolean getExclude14() {
+    return exclude14;
+  }
+  public boolean getExclude15() {
+    return exclude15;
+  }
 
   public BoundCall bind(ClassType t) {
+    if (exclude15) return this;
+
     Type[] newParameterTypes = new Type[parameterTypes.length];
     for (int i = 0; i < parameterTypes.length; i++) {
       newParameterTypes[i] = parameterTypes[i].bindWithFallback(t);
@@ -74,8 +88,29 @@ class BoundCall implements CallWrapper, Comparable {
         newTypeParams[i] = (TypeParam) typeParams[i].bindWithFallback(t);
       }
     }
-    return new BoundCall(base, containingWrapper, returnType.bindWithFallback(t),
-                         newParameterTypes, newExceptionTypes, newTypeParams);
+    BoundCall result = new BoundCall(base, containingWrapper, returnType.bindWithFallback(t),
+                                    newParameterTypes, newExceptionTypes, newTypeParams,
+                                    exclude14, exclude15);
+    if (!getNonGenericSig().equals(result.getNonGenericSig())) {
+      // shouldn't happen - exclude15 was handled above...
+      if (result.exclude15) throw new RuntimeException("Can't be excluded from *everywhere*!");
+      result.exclude14 = true;
+    }
+    return result;
+  }
+  public BoundCall bind14() {
+    if (exclude14) return null;
+
+    Type[] newParameterTypes = new Type[parameterTypes.length];
+    for (int i = 0; i < parameterTypes.length; i++) {
+      newParameterTypes[i] = parameterTypes[i].getNonGenericType();
+    }
+    NonArrayRefType[] newExceptionTypes = new NonArrayRefType[exceptionTypes.length];
+    for (int i = 0; i < exceptionTypes.length; i++) {
+      newExceptionTypes[i] = (NonArrayRefType) exceptionTypes[i].getNonGenericType();
+    }
+    return new BoundCall(base, containingWrapper, returnType.getNonGenericType(),
+                         newParameterTypes, newExceptionTypes, null, exclude14, true);
   }
 
   public int getModifiers() {return base.getModifiers();}
@@ -105,5 +140,9 @@ class BoundCall implements CallWrapper, Comparable {
   }
   public int compareTo(Object o) {
     return compareTo((CallWrapper) o);
+  }
+
+  public String toString() {
+    return containingWrapper + "." + getNonGenericSig();
   }
 }

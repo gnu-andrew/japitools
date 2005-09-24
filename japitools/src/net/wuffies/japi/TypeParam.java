@@ -63,6 +63,9 @@ public class TypeParam extends NonArrayRefType {
   public String getNonGenericTypeSig() {
     return getPrimaryConstraint().getNonGenericTypeSig();
   }
+  public Type getNonGenericType() {
+    return getPrimaryConstraint().getNonGenericType();
+  }
   public void resolveTypeParameters() {
     if (primaryConstraint instanceof ClassFile.UnresolvedTypeParam) {
       primaryConstraint = ((ClassFile.UnresolvedTypeParam) primaryConstraint).resolve();
@@ -78,6 +81,8 @@ public class TypeParam extends NonArrayRefType {
       if (index == -1) {
         return this;
         // SABFIXME: No idea why the following doesn't work - it should be better, but apparently it isn't.
+        // Probably because in the case of Enum<T extends Enum<T>> primaryConstraint == Enum<this> and you hit an infinite
+        // loop. getNonGenericType() instead of bindWithFallback() might be better, or some loopbreaking code.
         // return new TypeParam(getAssociatedWrapper(), getName(), (NonArrayRefType) primaryConstraint.bindWithFallback(t));
       } else if (t.getTypeArguments() == null) {
         return null;

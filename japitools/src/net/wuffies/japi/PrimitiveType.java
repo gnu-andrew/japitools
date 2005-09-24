@@ -27,6 +27,9 @@ public class PrimitiveType extends Type {
   public String getNonGenericTypeSig() {
     return "" + code;
   }
+  public Type getNonGenericType() {
+    return this;
+  }
   public void resolveTypeParameters() {
   }
   public Type bind(ClassType t) {
