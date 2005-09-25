@@ -20,6 +20,12 @@
 
 ## GLOBAL VARIABLES ##
 
+#FIXME15: Add "-4" option which switches to 1.4 mode but throws an error if any
+# "+" or "-" annotated methods, generic types, annotations or enums are found in
+# $orig.
+#FIXME15: Do the right thing with dropping the "+" and "-" annotations
+#FIXME15: Handle multiple "-" annotated methods with different return values
+
 # Some global variables used for displaying stuff.
 $japiver = "0.9.6";
 $buggyver = "0.9.5";
@@ -143,6 +149,11 @@ sub read_japi_item($) {
   my ($japi) = @_;
   my $fh = $japi->{fh};
   my $line = $fh->getline;
+  # FIXME15 - this forces unconditionally to 1.5 mode, should be more intelligent
+  # also this ought to only check the right part of the string instead of all of it
+  while ($line =~ /\)- /) {
+    $line = $fh->getline;
+  }
   return undef unless $line;
   chomp $line; chomp $line; # doubled up, for poor windows people.
   
@@ -161,6 +172,10 @@ sub read_japi_item($) {
   my ($fqcn, $member) = split /!/, $item, 2;
   my ($pkg, $class) = split /,/, $fqcn, 2;
   my $isa;
+
+  #FIXME15: This just forces unconditionally to 1.5 mode; should be more intelligent
+  $member =~ s/\)\+/\)/;
+
   if ($member eq "") {
     $isa = $type =~ /^class/ ? "class" :
            $type =~ /^interface/ ? "interface" :
@@ -185,16 +200,7 @@ EOF
   }
 
   # Store information about the entry in $japi->{$pkg}->{$class}->{$member}.
-  # FIXME inner classes should get *both* the if and the else here
-  # see TODO for 0.9.6 for more details as to why
-  # BUT check the spec because it seems that currently we're requiring the inner class to redeclare
-  # all the generic params of the outer class anyway, in which case we don't actually need that context.
   my $mitem = {};
-  if ($member eq "") {
-    $japi->{clitem} = $mitem;
-  } else {
-    $mitem->{clitem} = $japi->{clitem};
-  }
   $mitem->{rawitem} = $rawitem;
   $mitem->{item} = $item;
   $mitem->{isa} = $isa;
@@ -210,6 +216,21 @@ EOF
   $mitem->{deprecated} = ($deprecated eq 'd' ? 1 :
                           $deprecated eq 'u' ? 0 : undef);
 
+  # Store information about the containing class
+  if ($member ne "") {
+    $mitem->{clitem} = $japi->{clitem};
+  } else {
+    my $cli = $japi->{clitem};
+    while ($cli) {
+      if ($cli->{item} =~ /^\Q$item\E\$/) {
+        $mitem->{clitem} = $cli;
+        last;
+      }
+      $cli = $cli->{clitem};
+    }
+    $japi->{clitem} = $mitem;
+  }
+  
   # Classes and interfaces have superclasses and implemented interfaces tacked
   # on to the "type" field. We store this information in the $japi hash also.
   if ($member eq "") {
@@ -290,8 +311,10 @@ EOF
   $mitem->{member} = sanitize_member($mitem, $member);
 
   # Ensure that this item is correctly ordered.
-  # FIXME we need to ensure we sanitize $rawitem appropriately here, or
-  # reconstruct it from its constituent parts.
+  #my $brawitem = $rawitem;
+  $rawitem =~ s/\Q$mitem->{gmember}\E/$mitem->{member}/ if $mitem->{gmember};
+  #print "Before: $brawitem\n After: $rawitem\n" if $brawitem ne $rawitem;
+
   die "\nIncorrect ordering of $japi->{name}:\n$japi->{last_item} >=\n$item"
     if defined($japi->{last_item}) && $japi->{last_item} ge $rawitem;
   $japi->{last_item} = $rawitem;
@@ -876,15 +899,19 @@ sub sig2type($) {
   $sig;
 }
 
+sub getgenparams($) {
+  my ($item) = @_;
+  my $gps = [];
+  unless ($item->{static}) {
+    push @$gps, @{getgenparams($item->{clitem})} if $item->{clitem};
+  }
+  push @$gps, @{$item->{genericparams}} if $item->{genericparams};
+  return $gps;
+}
+
 sub sanitize_typesig($$) {
   my ($str, $item) = @_;
-  if ($item->{isa} eq "method" && $item->{static}) {
-    $gparams = $item->{genericparams};
-  } elsif ($item->{isa} eq "method" || $item->{isa} eq "constructor") {
-    $gparams = $item->{clitem}->{genericparams};
-  } else {
-    $gparams = [];
-  }
+  my $gparams = getgenparams($item);
   $str =~ s/^\./\[/;
   my $newstr = $str;
   $newstr =~ s/<[^<>]*>//g;
@@ -892,13 +919,15 @@ sub sanitize_typesig($$) {
     $str = $newstr;
     $newstr =~ s/<[^<>]*>//g;
   }
+  #print "\n${lastsanitized}Sub: $str with gparams=@$gparams\n" if $str =~ /\@[0-9]/;
   $str =~ s/\@([0-9]+)/$gparams->[$1]/g;
   return $str;
 }
 
 sub sanitize_member($) {
   my ($item) = @_;
-  if ($item->{gmember} =~ /\(([^\)]+\))/) {
+  $lastsanitized= "Sanitizing $item->{rawitem}\n";
+  if ($item->{gmember} =~ /\(([^\)]+)\)/) {
     my $params = join(',', map {sanitize_typesig($_, $item)} split(/,/, $1));
     my $result = $item->{gmember};
     $result =~ s/\([^\)]+\)/\($params\)/;
