@@ -139,7 +139,7 @@ public class TypeParam extends NonArrayRefType {
   // Static methods and static inner classes do not inherit their container's type params, but
   // nonstatic things do.
   private static GenericWrapper getContainingWrapper(GenericWrapper wrapper) {
-    if ((wrapper.getModifiers() & Modifier.STATIC) != 0) {
+    if (Modifier.isStatic(wrapper.getModifiers())) {
       return null;
     } else {
       return wrapper.getContainingWrapper();
