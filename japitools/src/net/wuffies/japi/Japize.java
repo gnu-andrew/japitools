@@ -862,7 +862,11 @@ public class Japize {
       type += "<";
       for (int i = 0; i < tparams.length; i++) {
         if (i > 0) type += ",";
-        type += tparams[i].getPrimaryConstraint().getTypeSig(wrapper);
+        // FIXME15: Temporary hack until I can figure out how to get japicompat to parse constraints that are
+        // themselves generic.
+        type += tparams[i].getPrimaryConstraint().getNonGenericTypeSig();
+        // At which point we can reinstate this instead:
+        //type += tparams[i].getPrimaryConstraint().getTypeSig(wrapper);
       }
       type += ">";
     }

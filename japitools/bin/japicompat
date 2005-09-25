@@ -51,6 +51,7 @@ sub compare_japi_item($$$$);
 sub merge_results($);
 sub print_summary();
 sub sig2type($);
+sub getgenparams($);
 
 
 ## MAIN LOOP ##
@@ -151,7 +152,7 @@ sub read_japi_item($) {
   my $line = $fh->getline;
   # FIXME15 - this forces unconditionally to 1.5 mode, should be more intelligent
   # also this ought to only check the right part of the string instead of all of it
-  while ($line =~ /\)- /) {
+  while ($line && $line =~ /\)- /) {
     $line = $fh->getline;
   }
   return undef unless $line;
@@ -159,6 +160,9 @@ sub read_japi_item($) {
   
   # Parse and interpret the entry.
   my ($item, $flags, $type) = split / /, $line, 3;
+
+  #FIXME15: This just forces unconditionally to 1.5 mode; should be more intelligent
+  $item =~ s/\)\+$/\)/;
 
   my $rawitem = $item;
 
@@ -172,9 +176,6 @@ sub read_japi_item($) {
   my ($fqcn, $member) = split /!/, $item, 2;
   my ($pkg, $class) = split /,/, $fqcn, 2;
   my $isa;
-
-  #FIXME15: This just forces unconditionally to 1.5 mode; should be more intelligent
-  $member =~ s/\)\+/\)/;
 
   if ($member eq "") {
     $isa = $type =~ /^class/ ? "class" :
@@ -926,7 +927,7 @@ sub sanitize_typesig($$) {
 
 sub sanitize_member($) {
   my ($item) = @_;
-  $lastsanitized= "Sanitizing $item->{rawitem}\n";
+  #$lastsanitized = "Sanitizing $item->{rawitem}\n";
   if ($item->{gmember} =~ /\(([^\)]+)\)/) {
     my $params = join(',', map {sanitize_typesig($_, $item)} split(/,/, $1));
     my $result = $item->{gmember};
