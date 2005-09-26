@@ -159,7 +159,7 @@ sub read_japi_item($$) {
 
   # Ignore "-" annotated methods unless -4 was specified in which case ignore
   # "+" ones.
-  if ($refusegen && $line =~ /^[^ ]+\)[+-] /) {
+  if ($line && $refusegen && $line =~ /^[^ ]+\)[+-] /) {
     die "Cannot use 1.4-compatible mode when $japi->{name} contains 1.5-only items";
   }
   if ($nongen) {
