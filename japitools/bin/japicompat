@@ -39,6 +39,7 @@ $buggyver = "0.9.5";
 @summarypkgs = ();
 @allerrors = ();
 $totalerrors = 0;
+$ignorenotes = "";
 
 # Requirements
 use IO::Handle;
@@ -458,7 +459,10 @@ sub dump_output($) {
   $newname .= "\@$new->{date}" if $new->{date};
 
   print OUT "%\%japio 0.9.2 $origname $newname\n";
-  print OUT $ignorenotes if $ignorenotes;
+  if ($ignorenotes) {
+    print OUT $ignorenotes;
+    print OUT "notify Since these differences are not counted as good OR bad, they may cause percentages not to add up to 100%.\n";
+  }
   if ($buggywarn) {
     if ($orig->{"origver"} && $orig->{"origver"} le $buggyver) {
       print OUT "notify Warning: $origsname API was read by a version of japitools that contained known bugs that cause inaccuracies in the output.\n";
@@ -817,7 +821,8 @@ sub load_ignore_file($$) {
       my ($ignore_orig, $ignore_new) = ($1, $2);
       $ignore_orig =~ s/\.japi(\.gz)?$//;
       $ignore_new =~ s/\.japi(\.gz)?$//;
-      $ignorenotes .= "notify Differences due to incompatibility between $ignore_orig and $ignore_new have been ignored. Since these differences are not counted as good OR bad, they may cause percentages not to add up to 100%.\n";
+      $ignorenotes .= "notify Differences due to incompatibility between $ignore_orig and $ignore_new have been ignored.\n";
+      my $origsname = $origfile; $origsname =~ s/\.japi(?:\.gz)?$//;
       $ignorenotes .= "notify Warning: this may not make sense, because normally differences between $origsname and something should be ignored instead.\n" unless $ignore_orig eq $origsname;
       while (<IGN>) {
         chomp;
