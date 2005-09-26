@@ -18,13 +18,18 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 ###############################################################################
 
-## GLOBAL VARIABLES ##
+#FIXME: Go through all the places that say "OPENQ" and figure out what
+# the right thing to do is.
+#FIXME: Handle multiple "-" annotated methods with different return values
+# (can't happen yet though)
+#FIXME: Handle the relationship between a raw type and an instantiated type
+# when dealing with superclasses and superinterfaces, eg:
+# "implements java.util.Comparable<java.lang.Boolean> in jdk15 but implements raw java.util.Comparable in classpath-generics"
+#FIXME: Check whether it's really true that every single generic type except for three is already generic in generics-branch
+#FIXME: Check whether it's really right that the gmember equality check is passing for every single item in generics-branch
 
-#FIXME15: Add "-4" option which switches to 1.4 mode but throws an error if any
-# "+" or "-" annotated methods, generic types, annotations or enums are found in
-# $orig.
-#FIXME15: Do the right thing with dropping the "+" and "-" annotations
-#FIXME15: Handle multiple "-" annotated methods with different return values
+
+## GLOBAL VARIABLES ##
 
 # Some global variables used for displaying stuff.
 $japiver = "0.9.6";
@@ -43,7 +48,7 @@ use Getopt::Std;
 
 # Function prototypes
 sub open_japi($);
-sub read_japi_item($);
+sub read_japi_item($$);
 sub close_japi($);
 sub output_error($$$$$$$;$);
 sub compare_japis($$);
@@ -57,16 +62,17 @@ sub getgenparams($);
 ## MAIN LOOP ##
 
 # Parse cmdline and give a usage message.
-getopts("svqhtjwo:i:", \%opts);
+getopts("svqhtjw4o:i:", \%opts);
 my $sun_only = 1 if $opts{"s"};
 my $svuid_errors = 1 if $opts{"v"};
 my $buggywarn = 1 unless $opts{"w"};
 my $dot = $opts{"q"} ? "" : ".";
 my $outprog = $opts{"h"} ? "japiohtml" : $opts{"j"} ? undef : "japiotext";
+my $nongen = 1 if $opts{"4"};
 my $ignorefile = $opts{"i"};
 my ($origfile, $newfile) = @ARGV;
 if (!defined $newfile) {
-  print STDERR "Usage: japicompat [-svqhtjw] [-o outfile] [-i ignorefiles,commaseparated] <original api> <api to check>\n";
+  print STDERR "Usage: japicompat [-svqhtjw4] [-o outfile] [-i ignorefiles,commaseparated] <original api> <api to check>\n";
   exit 1;
 }
 
@@ -146,14 +152,24 @@ EOF
   return $japi;
 }
 
-sub read_japi_item($) {
-  my ($japi) = @_;
+sub read_japi_item($$) {
+  my ($japi, $refusegen) = @_;
   my $fh = $japi->{fh};
   my $line = $fh->getline;
-  # FIXME15 - this forces unconditionally to 1.5 mode, should be more intelligent
-  # also this ought to only check the right part of the string instead of all of it
-  while ($line && $line =~ /\)- /) {
-    $line = $fh->getline;
+
+  # Ignore "-" annotated methods unless -4 was specified in which case ignore
+  # "+" ones.
+  if ($refusegen && $line =~ /^[^ ]+\)[+-] /) {
+    die "Cannot use 1.4-compatible mode when $japi->{name} contains 1.5-only items";
+  }
+  if ($nongen) {
+    while ($line && $line =~ /^[^ ]+\)\+ /) {
+      $line = $fh->getline;
+    }
+  } else {
+    while ($line && $line =~ /^[^ ]+\)- /) {
+      $line = $fh->getline;
+    }
   }
   return undef unless $line;
   chomp $line; chomp $line; # doubled up, for poor windows people.
@@ -161,8 +177,8 @@ sub read_japi_item($) {
   # Parse and interpret the entry.
   my ($item, $flags, $type) = split / /, $line, 3;
 
-  #FIXME15: This just forces unconditionally to 1.5 mode; should be more intelligent
-  $item =~ s/\)\+$/\)/;
+  # Strip off the "+" or "-" annotation.
+  $item =~ s/\)[+-]$/\)/;
 
   my $rawitem = $item;
 
@@ -183,6 +199,9 @@ sub read_japi_item($) {
            $type =~ /^enum/ ? "enum" :
            $type =~ /^annotation/ ? "annotation" :
            die "\nUnknown kind of Type: $type";
+    if ($refusegen && ($isa eq "enum" || $isa eq "annotation")) {
+      die "Cannot use 1.4-compatible mode when $japi->{name} contains 1.5-only items";
+    }
   } elsif ($member =~ /^\(.*\)$/) {
     $isa = "constructor";
   } elsif ($member =~ /\(.*\)$/) {
@@ -261,6 +280,9 @@ EOF
     my $genericparams;
     ($type, $genericparams) = ($1, $2) if $type =~ /^([^<>]+)<([^<>]+)>$/;
     if (defined $genericparams) {
+      die "Cannot use 1.4-compatible mode when $japi->{name} contains 1.5-only items"
+        if $refusegen;
+      $mitem->{gparamstr} = $genericparams;
       $mitem->{genericparams} = [];
       my $ct = 0;
       foreach my $gparam (split /,/, $genericparams) {
@@ -283,6 +305,9 @@ EOF
     my $genericparams;
     ($genericparams, $type) = ($1, $2) if $type =~ /^<([^<>]+)>(.+)$/;
     if (defined $genericparams) {
+      die "Cannot use 1.4-compatible mode when $japi->{name} contains 1.5-only items"
+        if $refusegen;
+      $mitem->{gparamstr} = $genericparams;
       $mitem->{genericparams} = [];
       my $ct = 0;
       foreach my $gparam (split /,/, $genericparams) {
@@ -312,9 +337,11 @@ EOF
   $mitem->{member} = sanitize_member($mitem, $member);
 
   # Ensure that this item is correctly ordered.
-  #my $brawitem = $rawitem;
+  my $brawitem = $rawitem;
   $rawitem =~ s/\Q$mitem->{gmember}\E/$mitem->{member}/ if $mitem->{gmember};
-  #print "Before: $brawitem\n After: $rawitem\n" if $brawitem ne $rawitem;
+  if ($refusegen && $rawitem ne $brawitem) {
+    die "Cannot use 1.4-compatible mode when $japi->{name} contains 1.5-only items";
+  }
 
   die "\nIncorrect ordering of $japi->{name}:\n$japi->{last_item} >=\n$item"
     if defined($japi->{last_item}) && $japi->{last_item} ge $rawitem;
@@ -473,8 +500,8 @@ sub compare_japis($$) {
   my $pkg = "";
   my $class = "";
   my $c = {}; # counts
-  my $oitem = read_japi_item($orig);
-  my $nitem = read_japi_item($new);
+  my $oitem = read_japi_item($orig, $nongen);
+  my $nitem = read_japi_item($new, 0);
   my $class_has_ctors = 0;
   my ($oclitem, $nclitem);
   print STDERR "Comparing...\n" if $dot;
@@ -490,7 +517,7 @@ sub compare_japis($$) {
       # Keep an eye out for members that are abstract that are also not in
       # the original. This check is not in the JLS, so only do it if sun_only
       # is false.
-      # FIXME: Maybe New annotation methods should be legal, esp. if there's a
+      # OPENQ: Maybe New annotation methods should be legal, esp. if there's a
       # default value?
       if (!$sun_only && !$first && $class_has_ctors && $nitem->{abstract} &&
           $nitem->{package} eq $pkg && $nitem->{class} eq $class) {
@@ -499,7 +526,7 @@ sub compare_japis($$) {
                      "", "new $mtype method");
       }
       $first = 0;
-      $nitem = read_japi_item($new);
+      $nitem = read_japi_item($new, 0);
     }
     if ($isnewpkg) {
       short_summary($c, $pkg) if $pkg;
@@ -521,7 +548,7 @@ sub compare_japis($$) {
         $eitem->{class} = "";
         $eitem->{item} = "$pkg,!";
         while (defined $oitem && $oitem->{package} eq $pkg) {
-          $oitem = read_japi_item($orig);
+          $oitem = read_japi_item($orig, $nongen);
           if (defined $oitem && $oitem->{package} eq $pkg) {
             inc($c, $pkg, $oitem->{isa}, "total");
             $ecount++;
@@ -530,7 +557,7 @@ sub compare_japis($$) {
       } elsif ($isnewclass) {
         while (defined $oitem && $oitem->{package} eq $pkg &&
                $oitem->{class} eq $class) {
-          $oitem = read_japi_item($orig);
+          $oitem = read_japi_item($orig, $nongen);
           if (defined $oitem && $oitem->{package} eq $pkg &&
               $oitem->{class} eq $class) {
             inc($c, $pkg, $oitem->{isa}, "total");
@@ -538,7 +565,7 @@ sub compare_japis($$) {
           }
         }
       } else {
-        $oitem = read_japi_item($orig);
+        $oitem = read_japi_item($orig, $nongen);
       }
       output_error($eitem, undef, $oclitem, $c, "missing",
                    "", "missing", $ecount);
@@ -546,7 +573,7 @@ sub compare_japis($$) {
       $nclitem = $nitem if $isnewclass;
       inc($c, $pkg, $oitem->{isa}, "good")
         unless compare_japi_item($oitem, $nitem, $oclitem, $c);
-      $oitem = read_japi_item($orig);
+      $oitem = read_japi_item($orig, $nongen);
     }
   }
 
@@ -566,7 +593,7 @@ sub compare_japis($$) {
                    "", "new $mtype method");
     }
     $first = 0;
-    $nitem = read_japi_item($new);
+    $nitem = read_japi_item($new, 0);
   }
   short_summary($c, $pkg) if $pkg;
   short_summary($c, "");
@@ -579,13 +606,9 @@ sub compare_japi_item($$$$) {
   my $isa = $oitem->{isa};
   my $member = $oitem->{member};
 
-  # FIXME: Check that the generic parameter types haven't changed
-  # FIXME: Check that the "gmember" string hasn't changed
-  # FIXME: Check that the annotation default hasn't changed
-
   # Check that the item hasn't gone from class to interface, annotation to
   # class etc.
-  # FIXME: we treat it as legal for a class to turn into an enum, and an
+  # OPENQ: we treat it as legal for a class to turn into an enum, and an
   # interface to turn into an annotation. Should it be?
   if ($oitem->{isa} ne $nitem->{isa}) {
     if ($oitem->{isa} eq "class" && $nitem->{isa} eq "enum") {
@@ -638,6 +661,28 @@ sub compare_japi_item($$$$) {
     # Do I win the award for "most consecutive close brackets"?
   }
 
+  # Check that generic type parameters are the same. It's legal to add type
+  # parameters to something that wasn't generic at all before, though.
+  if ($oitem->{gparamstr}) {
+    if (!$nitem->{gparamstr}) {
+      output_error($oitem, $nitem, $oclitem, $c, "bad",
+                   "has generic type parameters bounded by $oitem->{gparamstr}", "not generic");
+    } elsif ($nitem->{gparamstr} ne $oitem->{gparamstr}) {
+      output_error($oitem, $nitem, $oclitem, $c, "bad",
+                   "has generic type parameters bounded by $oitem->{gparamstr}",
+                   "has generic type parameters bounded by $nitem->{gparamstr}");
+    }
+  }
+
+  # Check that the generic parts of method signatures, etc, have remained the
+  # same. If the original wasn't generic at all, though, it's legal for the
+  # new one to become generic.
+  if ($oitem->{gmember} ne $oitem->{member} &&
+      $oitem->{gmember} ne $nitem->{gmember}) {
+    output_error($oitem, $nitem, $oclitem, $c, "bad",
+                 "really $oitem->{gmember}", "really $nitem->{gmember}");
+  }
+
   # For classes and interfaces, check that nothing has been removed from
   # the set of super-interfaces or superclasses.
   if ($member eq "") {
@@ -683,7 +728,7 @@ sub compare_japi_item($$$$) {
     }
 
     # Check the default value if applicable
-    # FIXME Assuming for now that it's legal to add a default where one wasn't
+    # OPENQ Assuming for now that it's legal to add a default where one wasn't
     # before. Not sure if this is true...
     if (defined $oitem->{default}) {
       my $odefault = $oitem->{default};
