@@ -25,6 +25,7 @@
 #FIXME: Handle the relationship between a raw type and an instantiated type
 # when dealing with superclasses and superinterfaces, eg:
 # "implements java.util.Comparable<java.lang.Boolean> in jdk15 but implements raw java.util.Comparable in classpath-generics"
+#FIXME: Also in return types and exception types
 #FIXME: Check whether it's really true that every single generic type except for three is already generic in generics-branch
 #FIXME: Check whether it's really right that the gmember equality check is passing for every single item in generics-branch
 
@@ -32,7 +33,7 @@
 ## GLOBAL VARIABLES ##
 
 # Some global variables used for displaying stuff.
-$japiver = "0.9.6";
+$japiver = "0.9.7";
 $buggyver = "0.9.5";
 @static = ('instance', 'static');
 @ofhs = ();
@@ -338,11 +339,11 @@ EOF
   $mitem->{member} = sanitize_member($mitem, $member);
 
   # Ensure that this item is correctly ordered.
-  my $brawitem = $rawitem;
   $rawitem =~ s/\Q$mitem->{gmember}\E/$mitem->{member}/ if $mitem->{gmember};
-  if ($refusegen && $rawitem ne $brawitem) {
+  if ($refusegen && $rawitem ne $mitem->{rawitem}) {
     die "Cannot use 1.4-compatible mode when $japi->{name} contains 1.5-only items";
   }
+  $mitem->{rawitem} = $rawitem;
 
   die "\nIncorrect ordering of $japi->{name}:\n$japi->{last_item} >=\n$item"
     if defined($japi->{last_item}) && $japi->{last_item} ge $rawitem;

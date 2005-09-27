@@ -280,7 +280,7 @@ public class Japize {
     // Print the header identifier. The syntax is "%%japi ver anything".
     // The "anything" is currently used for name/value pairs indicating the
     // creation date and creation tool.
-    out.println("%%japi 0.9.6 creator=japize date=" +
+    out.println("%%japi 0.9.7 creator=japize date=" +
         new SimpleDateFormat("yyyy/MM/dd_hh:mm:ss_z").format(new Date()));
 
     // Identify whether java.lang,Object fits into our list of things to
