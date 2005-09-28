@@ -47,6 +47,7 @@ public abstract class Type {
   public abstract void resolveTypeParameters();
 
   public static Type resolveTypeParameter(Type t) {
+    if (t == null) return null;
     if (t instanceof ClassFile.UnresolvedTypeParam) 
     {
         return ((ClassFile.UnresolvedTypeParam)t).resolve();

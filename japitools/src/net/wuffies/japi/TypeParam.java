@@ -25,14 +25,13 @@ import java.lang.reflect.Modifier;
 public class TypeParam extends NonArrayRefType {
   private GenericWrapper associatedWrapper;
   private String name;
-  private NonArrayRefType primaryConstraint;
-  public TypeParam(GenericWrapper associatedWrapper, String name, NonArrayRefType primaryConstraint) {
+  private NonArrayRefType[] bounds;
+  public TypeParam(GenericWrapper associatedWrapper, String name, NonArrayRefType[] bounds) {
+    if (bounds == null || bounds.length == 0) bounds = new NonArrayRefType[] {new ClassType("java.lang.Object")};
     this.associatedWrapper = associatedWrapper;
     this.name = name;
-    this.primaryConstraint = primaryConstraint;
+    this.bounds = bounds;
   }
-  // FIXME: Later we'll support other constraints once we understand better what's permitted
-  // and what's not.
 
   public GenericWrapper getAssociatedWrapper() {
     return associatedWrapper;
@@ -41,7 +40,10 @@ public class TypeParam extends NonArrayRefType {
     return name;
   }
   public NonArrayRefType getPrimaryConstraint() {
-    return primaryConstraint;
+    return bounds[0];
+  }
+  public NonArrayRefType[] getBounds() {
+    return bounds;
   }
   public int getIndex(GenericWrapper wrapper) {
     TypeParam[] params = getAllTypeParams(wrapper);
@@ -67,10 +69,12 @@ public class TypeParam extends NonArrayRefType {
     return getPrimaryConstraint().getNonGenericType();
   }
   public void resolveTypeParameters() {
-    if (primaryConstraint instanceof ClassFile.UnresolvedTypeParam) {
-      primaryConstraint = ((ClassFile.UnresolvedTypeParam) primaryConstraint).resolve();
+    for (int i = 0; i < bounds.length; i++) {
+      if (bounds[i] instanceof ClassFile.UnresolvedTypeParam) {
+        bounds[i] = ((ClassFile.UnresolvedTypeParam) bounds[i]).resolve();
+      }
+      bounds[i].resolveTypeParameters();
     }
-    primaryConstraint.resolveTypeParameters();
   }
 
   private boolean binding = false;
@@ -84,6 +88,7 @@ public class TypeParam extends NonArrayRefType {
         // Probably because in the case of Enum<T extends Enum<T>> primaryConstraint == Enum<this> and you hit an infinite
         // loop. getNonGenericType() instead of bindWithFallback() might be better, or some loopbreaking code.
         // return new TypeParam(getAssociatedWrapper(), getName(), (NonArrayRefType) primaryConstraint.bindWithFallback(t));
+        // Obviously the line above also would need changing now that bounds is an array instead of a single primaryConstraint.
       } else if (t.getTypeArguments() == null) {
         return null;
       } else {
@@ -100,7 +105,11 @@ public class TypeParam extends NonArrayRefType {
   }
 
   public String toStringImpl() {
-    return "TypeParam:" + associatedWrapper.toString() + "-" + name + "/" + primaryConstraint.toString();
+    String s = "TypeParam:" + associatedWrapper.toString() + "-" + name;
+    for (int i = 0; i < bounds.length; i++) {
+      s += "/" + bounds[i].toString();
+    }
+    return s;
   }
 
   /**

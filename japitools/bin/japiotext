@@ -207,6 +207,8 @@ sub sig2type($) {
   $sig =~ s/^L//g;
   $sig =~ s/([<,])L/$1/g;
   $sig =~ s/;//g;
+  $sig =~ s/\}/? super /g;
+  $sig =~ s/\{/? extends /g;
   $sig;
 }
 

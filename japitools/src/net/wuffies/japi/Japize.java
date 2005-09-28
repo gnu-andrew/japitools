@@ -866,7 +866,10 @@ public class Japize {
       type += "<";
       for (int i = 0; i < tparams.length; i++) {
         if (i > 0) type += ",";
-        type += tparams[i].getPrimaryConstraint().getTypeSig(wrapper);
+        for (int j = 0; j < tparams[i].getBounds().length; j++) {
+          if (j > 0) type += "&";
+          type += tparams[i].getBounds()[j].getTypeSig(wrapper);
+        }
       }
       type += ">";
     }
@@ -889,11 +892,11 @@ public class Japize {
    //   and all generic information dropped - all type params replaced with their bounds etc. This probably
    //   needs a new getNonGenericType() method on Type, which probably ought to be used in bindWithFallback().
    //   BUT if bind14 is called on something that's exclude14 already, it returns null.
-   // - In the loop marked HERE below, where we're going through and binding all the calls, we look to see
+   // * In the loop marked HERE below, where we're going through and binding all the calls, we look to see
    //   whether the newly-bound method has exclude14 set. If it is, we create a new entry for the newly-bound
    //   method (with the new nonGenericSig) and update the existing one to the result of bind14() on the
    //   original (or drop the entry entirely if bind14() gives null).
-   // - When outputting, we output a "-" after anything with exclude15 and a "+" after anything with
+   // * When outputting, we output a "-" after anything with exclude15 and a "+" after anything with
    //   exclude14.
    // - Process bridge methods but create them with exclude15 right off the bat? Seems
    //   reasonable. That means creating the BoundCall and instantly bind14()ing it.

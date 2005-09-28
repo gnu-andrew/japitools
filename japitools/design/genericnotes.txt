@@ -222,6 +222,20 @@ TODO:
       java/util/Map<java/lang/String,java/util/ist<Ljava/lang/Integer>> Ooops!
       Even the trick we're using now doesn't work because we also want to handle lists of the things.
 
-
   * Recognizing the end of a <>-contained list that may include such things
   * De-generifying backrefs
+
+
+- Wildcard types and multiple bounds:
+
+Foo<T extends Serializable & Comparable>
+
+Foo! Pcsnu class<java.io.Serializable&java.lang.Comparable>
+
+? extends T becomes {@0
+? super T becomes }@0
+
+? is naturally {Ljava/lang/Object; but of course should be specialcased.
+
+You can't specify both extends and super on the same wildcard so no syntax is needed for that.
+

@@ -783,23 +783,20 @@ public class ClassFile implements ClassWrapper
         {
             String identifier = readIdentifier();
             consume(':');
-            RefType classBound;
+            // FIXME15 Jeroen, please look and see if I did the right thing here
+            ArrayList bounds = new ArrayList();
             if(peekChar() != ':')
             {
-                classBound = readFieldTypeSignature();
-            }
-            else
-            {
-                classBound = new ClassType("java.lang.Object");
+                bounds.add(readFieldTypeSignature());
             }
             while(peekChar() == ':')
             {
                 consume(':');
-                RefType interfaceBound = readFieldTypeSignature();
+                bounds.add(readFieldTypeSignature());
             }
-	    // FIXME15 - should be possible to use NonArrayRefType everywhere leading
-	    // up to here and avoid this cast.
-            return new TypeParam(container, identifier, (NonArrayRefType) classBound);
+	    NonArrayRefType[] boundsArray = new NonArrayRefType[bounds.size()];
+	    bounds.toArray(boundsArray);
+            return new TypeParam(container, identifier, boundsArray);
         }
 
         RefType readFieldTypeSignature()
@@ -867,17 +864,25 @@ public class ClassFile implements ClassWrapper
         private RefType readTypeArgument()
         {
             char c = peekChar();
-            if(c == '+' || c == '-')
+	    // FIXME15 Jeroen, please check that I did the right thing here
+            if(c == '+')
             {
-                readChar();
-                // FIXME add wildcard indicator
-                return readFieldTypeSignature();
+		consume('+');
+		return new WildcardType((NonArrayRefType) readFieldTypeSignature());
             }
+            else if(c == '-')
+            {
+		consume('-');
+		return new WildcardType(null, (NonArrayRefType) readFieldTypeSignature());
+	    }
             else if(c == '*')
             {
                 // FIXME what does this mean?
+		// FIXME15 Jeroen, I'm taking a totally wild guess that "*" means
+		// "?", equivalent to "? extends Object". Returning a WildcardType
+		// accordingly. Does this seem right?
                 consume('*');
-                return new ClassType("java.lang.Object");
+                return new WildcardType();
             }
             else
             {
