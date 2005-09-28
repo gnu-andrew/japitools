@@ -697,6 +697,10 @@ public class Japize {
         }
         type = fields[i].getType().getTypeSig(c);
 
+        if (!fields[i].getDeclaringClass().getName().equals(c.getName())) {
+          type += "=" + fields[i].getDeclaringClass().getName();
+        }
+
         // A static, final field is a primitive constant if it is initialized to
         // a compile-time constant.
         if (fields[i].isPrimitiveConstant()) {
@@ -862,11 +866,7 @@ public class Japize {
       type += "<";
       for (int i = 0; i < tparams.length; i++) {
         if (i > 0) type += ",";
-        // FIXME15: Temporary hack until I can figure out how to get japicompat to parse constraints that are
-        // themselves generic.
-        type += tparams[i].getPrimaryConstraint().getNonGenericTypeSig();
-        // At which point we can reinstate this instead:
-        //type += tparams[i].getPrimaryConstraint().getTypeSig(wrapper);
+        type += tparams[i].getPrimaryConstraint().getTypeSig(wrapper);
       }
       type += ">";
     }

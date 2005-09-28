@@ -471,7 +471,7 @@ sub readable_item($) {
   my ($pkg, $class) = split /,/, $fqclass, 2;
   my $ritem = $pkg;
   if ($class) {
-    $class =~ s/\$/./;
+    $class =~ s/\$/./g;
     $ritem .= ".$class";
   }
   $ritem .= "." . readable_member($member) if $member;
@@ -482,11 +482,14 @@ sub readable_item($) {
 sub sig2type($) {
   my ($sig) = @_;
   return sig2type($1) . '[]' if $sig =~ /^\[(.*)$/;
-  return sig2type($1) . '...' if $sig =~ /^\.(.*)$/;
+  return sig2type($1) . "..." if $sig =~ /^\.(.*)$/;
   return $javatypes->{$sig} if $javatypes->{$sig};
-  if ($sig =~ /^L(.*);$/) {
-    $sig = $1; $sig =~ s-/-.-g;
-  }
+  $sig =~ s-/-.-g;
+  $sig =~ s/\$/./g;
+  $sig =~ s/,/, /g;
+  $sig =~ s/^L//g;
+  $sig =~ s/([<,])L/$1/g;
+  $sig =~ s/;//g;
   $sig;
 }
 

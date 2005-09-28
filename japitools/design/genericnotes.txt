@@ -196,27 +196,32 @@ TODO:
 * Fix bugs that show up today in the results:
   * Eliminate interface methods that are also in Object (GSSCredential!hashCode is the test)
   * Be more intelligent about the tostring-independent floats and doubles bit when deciding what errors to ignore
-- Generic support:
+* Generic support:
   * Bind type parameters correctly in superclasses and superinterfaces
   * Make Japize, not ClassFile, responsible for recursing up through superclasses and superinterfaces to find methods and fields.
     * Trick is we need to be able to store the result of binding the parameters etc of the method and type of the field.
-  - Figure out the situations where the inherited method gets a different sig than the real method and produce "+" and "-"
-    annotated versions of the method.
-    - Example: Boolean.compareTo()
-      - Inherited compareTo(T) with T constrained to Object but set to Boolean
-      - Bridge compareTo(Object)
-      - Actual implementation of compareTo(Boolean)
+  * Start testing japicompat between these japis
+  * Add a flag to toggle between 1.5-style and 1.4-style comparison because simply looking at the method isn't sufficient - Sub should still be equally compatible even if Super doesn't have a foo method.
+- Update the japi spec to discuss + and - annotated methods and other changes, like the fact that inner classes are considered to automatically inherit the type params of the container
+- Getting japicompat to handle prettifying generic types and handle them in bounds, various problems:
+  - Parsing nested <> is tough, can we actually avoid it?
+  - Basic prettification of either a single gen type or a list of them
+    - Superclasses
+    - Interfaces
+    - Exceptions
+    - Method parameters
+    - Return types and field types
+    - The problem of a list of them is almost idential to the problem of a single one because a single one can have
+      a list of parameter types Ljava/util/Map<Ljava/lang/String;,Ljava/util/List<Ljava/lang/Integer;>;>;
+      s/L([^;]+);/$1/g gives:
+      The L has to be at the beginning or after a , or <.
+      That works if you stick a , at the beginning and remove it afterwards...
+      java/util/Map<Ljava/lang/String ,java/util/List<Ljava/lang/Integer>;>;
+      again gives
+      java/util/Map<java/lang/String,java/util/List<Ljava/lang/Integer>>;
+      java/util/Map<java/lang/String,java/util/ist<Ljava/lang/Integer>> Ooops!
+      Even the trick we're using now doesn't work because we also want to handle lists of the things.
 
-      - Desired japi representation:
-        compareTo(Object)-
-        compareTo(Boolean)
 
-    - Goal is to achieve the following end result:
-      - Bridge methods get "-" annotation
-      - Methods inherited from a superclass get "+" and "-" versions inserted. Both sort based on getNonGenericSig but the "-" version doesn't get bind() called on it.
-      - If "+" and "-" versions end up with the same nonGenericSig then they go in as a single item with neither "+" nor "-".
-  - Start testing japicompat between these japis
-  - Add a flag to toggle between 1.5-style and 1.4-style comparison because simply looking at the method isn't sufficient - Sub should still be equally compatible even if Super doesn't have a foo method.
-  - Update the japi spec to discuss + and - annotated methods and other changes, like the fact that inner classes are considered to automatically inherit the type params of the container
-- Open questions:
-  - Should 1.4 style comparison actually include both methods?
+  * Recognizing the end of a <>-contained list that may include such things
+  * De-generifying backrefs

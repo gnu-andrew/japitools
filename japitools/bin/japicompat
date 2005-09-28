@@ -25,10 +25,8 @@
 #FIXME: Handle the relationship between a raw type and an instantiated type
 # when dealing with superclasses and superinterfaces, eg:
 # "implements java.util.Comparable<java.lang.Boolean> in jdk15 but implements raw java.util.Comparable in classpath-generics"
-#FIXME: Also in return types and exception types
-#FIXME: Check whether it's really true that every single generic type except for three is already generic in generics-branch
-#FIXME: Check whether it's really right that the gmember equality check is passing for every single item in generics-branch
-
+#FIXME: Also in exception types
+#FIXME: Font.getAttributes has an extra "L"
 
 ## GLOBAL VARIABLES ##
 
@@ -41,6 +39,9 @@ $buggyver = "0.9.5";
 @allerrors = ();
 $totalerrors = 0;
 $ignorenotes = "";
+
+$javatypes = {Z=>'boolean', B=>'byte', C=>'char', D=>'double', F=>'float',
+                  I=>'int', J=>'long', S=>'short', V=>'void'};
 
 # Requirements
 use IO::Handle;
@@ -58,6 +59,7 @@ sub compare_japi_item($$$$);
 sub merge_results($);
 sub print_summary();
 sub sig2type($);
+sub sig2typelist($);
 sub getgenparams($);
 
 
@@ -280,7 +282,7 @@ EOF
     $mitem->{svuid} = $svuid if defined $svuid;
 
     my $genericparams;
-    ($type, $genericparams) = ($1, $2) if $type =~ /^([^<>]+)<([^<>]+)>$/;
+    ($type, $genericparams) = ($1, $2) if $type =~ /^([^<>]+)<(.+)>$/;
     if (defined $genericparams) {
       die "Cannot use 1.4-compatible mode when $japi->{name} contains 1.5-only items"
         if $refusegen;
@@ -305,7 +307,7 @@ EOF
     }
 
     my $genericparams;
-    ($genericparams, $type) = ($1, $2) if $type =~ /^<([^<>]+)>(.+)$/;
+    ($genericparams, $type) = ($1, $2) if $type =~ /<(.*?)>([^>,;].*)?$/;
     if (defined $genericparams) {
       die "Cannot use 1.4-compatible mode when $japi->{name} contains 1.5-only items"
         if $refusegen;
@@ -331,6 +333,12 @@ EOF
       if ($type eq 'F'||$type eq 'D') && defined $val && $val =~ /^(.*)\/(.*)$/;
     $mitem->{constbits} = $bits if defined $bits;
     $mitem->{constant} = $val if defined $val;
+
+    # Fields also get the declaring class separated by = unless they're declared
+    # in this class.
+    my $decl;
+    ($type, $decl) = split(/=/, $type, 2);
+    $mitem->{decl} = $decl if defined $decl;
   }
 
   # Store what's left of the type after parsing off all of those parts.
@@ -659,6 +667,19 @@ sub compare_japi_item($$$$) {
                  "enum field", "normal field");
   }
 
+  # Check that generic type parameters are the same. It's legal to add type
+  # parameters to something that wasn't generic at all before, though.
+  if ($oitem->{gparamstr}) {
+    if (!$nitem->{gparamstr}) {
+      output_error($oitem, $nitem, $oclitem, $c, "bad",
+                   "has generic type parameters bounded by <@{[sig2type($oitem->{gparamstr})]}>", "not generic");
+    } elsif ($nitem->{gparamstr} ne $oitem->{gparamstr}) {
+      output_error($oitem, $nitem, $oclitem, $c, "bad",
+                   "has generic type parameters bounded by <@{[sig2type($oitem->{gparamstr})]}>",
+                   "has generic type parameters bounded by <@{[sig2type($nitem->{gparamstr})]}>");
+    }
+  }
+
   # Check that the item's type has remained the same.
   if ($oitem->{type} ne $nitem->{type}) {
     output_error($oitem, $nitem, $oclitem, $c, "bad",
@@ -666,26 +687,16 @@ sub compare_japi_item($$$$) {
     # Do I win the award for "most consecutive close brackets"?
   }
 
-  # Check that generic type parameters are the same. It's legal to add type
-  # parameters to something that wasn't generic at all before, though.
-  if ($oitem->{gparamstr}) {
-    if (!$nitem->{gparamstr}) {
-      output_error($oitem, $nitem, $oclitem, $c, "bad",
-                   "has generic type parameters bounded by $oitem->{gparamstr}", "not generic");
-    } elsif ($nitem->{gparamstr} ne $oitem->{gparamstr}) {
-      output_error($oitem, $nitem, $oclitem, $c, "bad",
-                   "has generic type parameters bounded by $oitem->{gparamstr}",
-                   "has generic type parameters bounded by $nitem->{gparamstr}");
-    }
-  }
-
   # Check that the generic parts of method signatures, etc, have remained the
   # same. If the original wasn't generic at all, though, it's legal for the
   # new one to become generic.
   if ($oitem->{gmember} ne $oitem->{member} &&
       $oitem->{gmember} ne $nitem->{gmember}) {
+    my $oparams = sig2typelist($1) if $oitem->{gmember} =~ /\(([^()]+)\)$/;
+    my $nparams = sig2typelist($1) if $nitem->{gmember} =~ /\(([^()]+)\)$/;
+    die "unexpectedly found gmember unequal to member" unless $oparams && $nparams;
     output_error($oitem, $nitem, $oclitem, $c, "bad",
-                 "really $oitem->{gmember}", "really $nitem->{gmember}");
+                 "parameters ($oparams)", "parameters ($nparams)");
   }
 
   # For classes and interfaces, check that nothing has been removed from
@@ -694,13 +705,13 @@ sub compare_japi_item($$$$) {
     foreach my $iface (keys %{$oitem->{ifaces}}) {
       unless ($nitem->{ifaces}->{$iface}) {
         output_error($oitem, $nitem, $oclitem, $c, "bad",
-                     "implements $iface", "doesn't implement $iface");
+                     "implements @{[sig2type($iface)]}", "doesn't implement @{[sig2type($iface)]}");
       }
     }
     my $super = $oitem->{supers}->[0];
     if (defined $super and !$nitem->{superset}->{$super}) {
       output_error($oitem, $nitem, $oclitem, $c, "bad",
-                   "subclass of $super", "not a subclass of $super");
+                   "subclass of @{[sig2type($super)]}", "not a subclass of @{[sig2type($super)]}");
     }
 
     # Also check the SerialVersionUID if that is turned on. Do this last, to
@@ -780,6 +791,13 @@ sub compare_japi_item($$$$) {
                        "$ocstr [$oconstant]", "$ncstr [$nconstant]");
         }
       }
+    }
+
+    my $odecl = defined($oitem->{decl}) ? "in $oitem->{decl}" : "here";
+    my $ndecl = defined($nitem->{decl}) ? "in $nitem->{decl}" : "here";
+    if ($odecl ne $ndecl) {
+      output_error($oitem, $nitem, $oclitem, $c, "bad",
+                   "declared $odecl", "declared $ndecl");
     }
   }
 
@@ -945,10 +963,18 @@ sub sig2type($) {
   return sig2type($1) . '[]' if $sig =~ /^\[(.*)$/;
   return sig2type($1) . "..." if $sig =~ /^\.(.*)$/;
   return $javatypes->{$sig} if $javatypes->{$sig};
-  if ($sig =~ /^L(.*);$/) {
-    $sig = $1; $sig =~ s-/-.-g;
-  }
+  $sig =~ s-/-.-g;
+  $sig =~ s/\$/./g;
+  $sig =~ s/,/, /g;
+  $sig =~ s/^L//g;
+  $sig =~ s/([<,])L/$1/g;
+  $sig =~ s/;//g;
   $sig;
+}
+sub sig2typelist($) {
+  my ($list) = @_;
+  my @sigs = split /,/, $list;
+  return join(", ", map {sig2type($_)} @sigs);
 }
 
 sub getgenparams($) {
@@ -965,14 +991,15 @@ sub sanitize_typesig($$) {
   my ($str, $item) = @_;
   my $gparams = getgenparams($item);
   $str =~ s/^\./\[/;
-  my $newstr = $str;
-  $newstr =~ s/<[^<>]*>//g;
-  while ($newstr ne $str) {
-    $str = $newstr;
-    $newstr =~ s/<[^<>]*>//g;
+  my $oldstr = "";
+  while ($oldstr ne $str) {
+    while ($oldstr ne $str) {
+      $oldstr = $str;
+      $str =~ s/<[^<>]*>//g;
+    }
+    $str =~ s/\@([0-9]+)/$gparams->[$1]/g;
   }
   #print "\n${lastsanitized}Sub: $str with gparams=@$gparams\n" if $str =~ /\@[0-9]/;
-  $str =~ s/\@([0-9]+)/$gparams->[$1]/g;
   return $str;
 }
 
