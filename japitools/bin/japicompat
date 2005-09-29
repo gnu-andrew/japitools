@@ -692,7 +692,7 @@ sub compare_japi_item($$$$) {
                    "type @{[sig2type($oitem->{type})]}", "type @{[sig2type($nitem->{type})]}");
     } else {
       # FIXME: Is it legal to do this on an array type? cf classpath's java.util.Vector
-      print "\npermitting $oitem->{rawitem} to change from $oitem->{type} to $nitem->{type}\n";
+      #print "\npermitting $oitem->{rawitem} to change from $oitem->{type} to $nitem->{type}\n";
     }
     # Do I win the award for "most consecutive close brackets"?
   }
