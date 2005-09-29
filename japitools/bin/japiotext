@@ -195,30 +195,12 @@ sub readable_item($) {
   return $ritem;
 }
 
-# Convert a type signature as used in a japi file to a displayable type.
-sub sig2type($) {
-  my ($sig) = @_;
-  return sig2type($1) . '[]' if $sig =~ /^\[(.*)$/;
-  return sig2type($1) . "..." if $sig =~ /^\.(.*)$/;
-  return $javatypes->{$sig} if $javatypes->{$sig};
-  $sig =~ s-/-.-g;
-  $sig =~ s/\$/./g;
-  $sig =~ s/,/, /g;
-  $sig =~ s/^L//g;
-  $sig =~ s/([<,])L/$1/g;
-  $sig =~ s/;//g;
-  $sig =~ s/\}/? super /g;
-  $sig =~ s/\{/? extends /g;
-  $sig;
-}
-
 # Convert all the type signatures in a method name...
 sub readable_member($) {
   my ($member) = @_;
   if ($member =~ /^(.*)\((.*)\)$/) {
     my ($name, $params) = ($1, $2);
-    my @params = split /,/, $2;
-    $params = join(", ", map {sig2type($_)} @params);
+    $params = sig2typelist($params);
     $member = "$name($params)";
   } elsif ($member =~ /^#(.*)$/) {
     $member = $1;
@@ -226,3 +208,48 @@ sub readable_member($) {
   $member;
 }
 
+# Convert a type signature as used in a japi file to a displayable type.
+sub sig2type($) {
+  my ($sig) = @_;
+  return sig2type($1) . '[]' if $sig =~ /^\[(.*)$/;
+  return sig2type($1) . "..." if $sig =~ /^\.(.*)$/;
+  return "? super " . sig2type($1) if $sig =~ /^\}(.*)$/;
+  return "?" if $sig eq "{Ljava/lang/Object;";
+  return "? extends " . sig2type($1) if $sig =~ /^\{(.*)$/;
+  return $javatypes->{$sig} if $javatypes->{$sig};
+  my $gparams;
+  $sig = $1 if $sig =~ /^L(.*);$/;
+  ($sig, $gparams) = ($1, $2) if $sig =~ /^([^<>]+)<(.*)>$/;
+  $sig =~ s-/-.-g;
+  $sig =~ s/\$/./g;
+  $sig = "$sig<" . sig2typelist($gparams) . ">" if defined($gparams);
+  return $sig;
+}
+sub sig2typelist($) {
+  my ($list) = @_;
+  my @sigs = splitgenstr($list);
+  return join(", ", map {sig2type($_)} @sigs);
+}
+sub countchar($$) {
+  my ($str, $char) = @_;
+  $str =~ s/[^$char]//g;
+  return length $str;
+}
+
+sub splitgenstr($) {
+  my ($str) = @_;
+  my @items = split(/,/, $str);
+  my @result = ();
+
+  my $class = "";
+  foreach my $item (@items) {
+    $class .= "," if $class;
+    $class .= $item;
+    if (countchar($class, "<") == countchar($class, ">")) {
+      push @result, $class;
+      $class = "";
+    }
+  }
+  push @result, $class if $class;
+  return @result;
+}

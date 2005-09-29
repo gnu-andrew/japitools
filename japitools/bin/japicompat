@@ -61,6 +61,7 @@ sub print_summary();
 sub sig2type($);
 sub sig2typelist($);
 sub getgenparams($);
+sub splitgenstr($);
 
 
 ## MAIN LOOP ##
@@ -289,7 +290,7 @@ EOF
       $mitem->{gparamstr} = $genericparams;
       $mitem->{genericparams} = [];
       my $ct = 0;
-      foreach my $gparam (split /,/, $genericparams) {
+      foreach my $gparam (splitgenstr($genericparams)) {
         $mitem->{genericparams}->[$ct++] = $gparam;
       }
     }
@@ -314,7 +315,7 @@ EOF
       $mitem->{gparamstr} = $genericparams;
       $mitem->{genericparams} = [];
       my $ct = 0;
-      foreach my $gparam (split /,/, $genericparams) {
+      foreach my $gparam (splitgenstr($genericparams)) {
         $mitem->{genericparams}->[$ct++] = $gparam;
       }
     }
@@ -957,27 +958,6 @@ sub print_summary() {
   count_summary($sc, "#method");
   print STDERR "$totalerrors unique errors found.\n" if $dot;
 }
-# Convert a type signature as used in a japi file to a displayable type.
-sub sig2type($) {
-  my ($sig) = @_;
-  return sig2type($1) . '[]' if $sig =~ /^\[(.*)$/;
-  return sig2type($1) . "..." if $sig =~ /^\.(.*)$/;
-  return $javatypes->{$sig} if $javatypes->{$sig};
-  $sig =~ s-/-.-g;
-  $sig =~ s/\$/./g;
-  $sig =~ s/,/, /g;
-  $sig =~ s/^L//g;
-  $sig =~ s/([<,])L/$1/g;
-  $sig =~ s/;//g;
-  $sig =~ s/\}/? super /g;
-  $sig =~ s/\{/? extends /g;
-  $sig;
-}
-sub sig2typelist($) {
-  my ($list) = @_;
-  my @sigs = split /,/, $list;
-  return join(", ", map {sig2type($_)} @sigs);
-}
 
 sub getgenparams($) {
   my ($item) = @_;
@@ -1009,11 +989,59 @@ sub sanitize_member($) {
   my ($item) = @_;
   #$lastsanitized = "Sanitizing $item->{rawitem}\n";
   if ($item->{gmember} =~ /\(([^\)]+)\)/) {
-    my $params = join(',', map {sanitize_typesig($_, $item)} split(/,/, $1));
+    my $params = join(',', map {sanitize_typesig($_, $item)} splitgenstr($1));
     my $result = $item->{gmember};
     $result =~ s/\([^\)]+\)/\($params\)/;
     return $result;
   } else {
     return $item->{gmember};
   }
+}
+
+# Convert a type signature as used in a japi file to a displayable type.
+sub sig2type($) {
+  my ($sig) = @_;
+  return sig2type($1) . '[]' if $sig =~ /^\[(.*)$/;
+  return sig2type($1) . "..." if $sig =~ /^\.(.*)$/;
+  return "? super " . sig2type($1) if $sig =~ /^\}(.*)$/;
+  return "?" if $sig eq "{Ljava/lang/Object;";
+  return "? extends " . sig2type($1) if $sig =~ /^\{(.*)$/;
+  return $javatypes->{$sig} if $javatypes->{$sig};
+  my $gparams;
+  $sig = $1 if $sig =~ /^L(.*);$/;
+  ($sig, $gparams) = ($1, $2) if $sig =~ /^([^<>]+)<(.*)>$/;
+  $sig =~ s-/-.-g;
+  $sig =~ s/\$/./g;
+  $sig = "$sig<" . sig2typelist($gparams) . ">" if defined($gparams);
+  return $sig;
+}
+sub sig2typelist($) {
+  my ($list) = @_;
+  my @sigs = splitgenstr($list);
+#  print "sig2typelist of $list gives @sigs\n";
+#  print "returning " .join(", ", map {sig2type($_)} @sigs) . "\n";
+  return join(", ", map {sig2type($_)} @sigs);
+}
+sub countchar($$) {
+  my ($str, $char) = @_;
+  $str =~ s/[^$char]//g;
+  return length $str;
+}
+
+sub splitgenstr($) {
+  my ($str) = @_;
+  my @items = split(/,/, $str);
+  my @result = ();
+
+  my $class = "";
+  foreach my $item (@items) {
+    $class .= "," if $class;
+    $class .= $item;
+    if (countchar($class, "<") == countchar($class, ">")) {
+      push @result, $class;
+      $class = "";
+    }
+  }
+  push @result, $class if $class;
+  return @result;
 }

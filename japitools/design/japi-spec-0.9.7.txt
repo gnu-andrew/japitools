@@ -17,8 +17,6 @@ representation in this version of the format:
 - Annotations applied to classes and members. The plan is to include all
   annotations that are @Documented.
 - Default values of annotation methods that are of Array and Annotation types.
-- Constraints on generic type parameters, other than the primary constraint to
-  a single non-generic constraining type.
 
 
 Types
