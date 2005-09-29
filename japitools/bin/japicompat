@@ -690,9 +690,6 @@ sub compare_japi_item($$$$) {
             sanitize_typesig($nitem->{type}, $nitem) eq $oitem->{type}) {
       output_error($oitem, $nitem, $oclitem, $c, "bad",
                    "type @{[sig2type($oitem->{type})]}", "type @{[sig2type($nitem->{type})]}");
-    } else {
-      # FIXME: Is it legal to do this on an array type? cf classpath's java.util.Vector
-      #print "\npermitting $oitem->{rawitem} to change from $oitem->{type} to $nitem->{type}\n";
     }
     # Do I win the award for "most consecutive close brackets"?
   }
@@ -817,11 +814,11 @@ sub compare_japi_item($$$$) {
       }
     }
 
-    my $odecl = defined($oitem->{decl}) ? "in $oitem->{decl}" : "here";
-    my $ndecl = defined($nitem->{decl}) ? "in $nitem->{decl}" : "here";
+    my $odecl = $oitem->{decl} || "$oitem->{package}.$oitem->{class}";
+    my $ndecl = $nitem->{decl} || "$oitem->{package}.$oitem->{class}";
     if ($odecl ne $ndecl) {
       output_error($oitem, $nitem, $oclitem, $c, "bad",
-                   "declared $odecl", "declared $ndecl");
+                   "declared in $odecl", "declared in $ndecl");
     }
   }
 
