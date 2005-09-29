@@ -340,7 +340,7 @@ public class ClassFile implements ClassWrapper
 		    skip(in, attribute_length);
 		}
 	    }
-            if(exceptionTypes == null)
+            if(exceptionTypes == null || exceptionTypes.length == 0)
             {
 	        if(exceptions == null)
                 {
@@ -617,7 +617,7 @@ public class ClassFile implements ClassWrapper
 		    int access_flags = in.readUnsignedShort();
 		    if(getClassConstantName(inner_class).equals(name))
 		    {
-                        int mask = Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PROTECTED | Modifier.STATIC;
+                        int mask = Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PRIVATE | Modifier.STATIC;
 			this.access_flags &= ~mask;
                         this.access_flags |= access_flags & mask;
                         if(outer_class != 0 && !Modifier.isStatic(access_flags))
