@@ -22,11 +22,6 @@
 # the right thing to do is.
 #FIXME: Handle multiple "-" annotated methods with different return values
 # (can't happen yet though)
-#FIXME: Handle the relationship between a raw type and an instantiated type
-# when dealing with superclasses and superinterfaces, eg:
-# "implements java.util.Comparable<java.lang.Boolean> in jdk15 but implements raw java.util.Comparable in classpath-generics"
-#FIXME: Also in exception types
-#FIXME: Font.getAttributes has an extra "L"
 
 ## GLOBAL VARIABLES ##
 
@@ -62,6 +57,7 @@ sub sig2type($);
 sub sig2typelist($);
 sub getgenparams($);
 sub splitgenstr($);
+sub gentypestr($);
 
 
 ## MAIN LOOP ##
@@ -266,6 +262,8 @@ EOF
     $mitem->{ifaces} = {};
     foreach my $iface (@ifaces) {
       $mitem->{ifaces}->{$iface} = 1;
+      my $rawiface = $iface; $rawiface = $1 if $iface =~ /^([^<>]+)</;
+      $mitem->{rawifaces}->{$rawiface} = 1;
     }
 
     # Get the class's superclasses, which are separated by ':'s.
@@ -276,6 +274,8 @@ EOF
     foreach my $super (@supers) {
       $mitem->{superset}->{$super} = 1;
       $mitem->{supers}->[$ct++] = $super;
+      my $rawsuper = $super; $rawsuper = $1 if $super =~ /^([^<>]+)</;
+      $mitem->{rawsupers}->{$rawsuper} = 1;
     }
 
     my $svuid;
@@ -673,18 +673,27 @@ sub compare_japi_item($$$$) {
   if ($oitem->{gparamstr}) {
     if (!$nitem->{gparamstr}) {
       output_error($oitem, $nitem, $oclitem, $c, "bad",
-                   "has generic type parameters bounded by <@{[sig2type($oitem->{gparamstr})]}>", "not generic");
+                   gentypestr($oitem), "not generic");
     } elsif ($nitem->{gparamstr} ne $oitem->{gparamstr}) {
       output_error($oitem, $nitem, $oclitem, $c, "bad",
-                   "has generic type parameters bounded by <@{[sig2type($oitem->{gparamstr})]}>",
-                   "has generic type parameters bounded by <@{[sig2type($nitem->{gparamstr})]}>");
+                   gentypestr($oitem), gentypestr($nitem));
     }
   }
 
   # Check that the item's type has remained the same.
   if ($oitem->{type} ne $nitem->{type}) {
-    output_error($oitem, $nitem, $oclitem, $c, "bad",
-                 "type @{[sig2type($oitem->{type})]}", "type @{[sig2type($nitem->{type})]}");
+
+    # If the original type is entirely non-generic (sanitizing it makes no difference) and
+    # the new type sanitizes to the same thing, that's legal and happens all over the place
+    # when making a non-generic class generic.
+    unless (sanitize_typesig($oitem->{type}, $oitem) eq $oitem->{type} &&
+            sanitize_typesig($nitem->{type}, $nitem) eq $oitem->{type}) {
+      output_error($oitem, $nitem, $oclitem, $c, "bad",
+                   "type @{[sig2type($oitem->{type})]}", "type @{[sig2type($nitem->{type})]}");
+    } else {
+      # FIXME: Is it legal to do this on an array type? cf classpath's java.util.Vector
+      print "\npermitting $oitem->{rawitem} to change from $oitem->{type} to $nitem->{type}\n";
+    }
     # Do I win the award for "most consecutive close brackets"?
   }
 
@@ -704,15 +713,29 @@ sub compare_japi_item($$$$) {
   # the set of super-interfaces or superclasses.
   if ($member eq "") {
     foreach my $iface (keys %{$oitem->{ifaces}}) {
-      unless ($nitem->{ifaces}->{$iface}) {
-        output_error($oitem, $nitem, $oclitem, $c, "bad",
-                     "implements @{[sig2type($iface)]}", "doesn't implement @{[sig2type($iface)]}");
+      my $rawiface = $iface; $rawiface = $1 if $iface =~ /^([^<>]+)</;
+      unless ($nitem->{ifaces}->{$iface} || ($iface eq $rawiface && $nitem->{rawifaces}->{$rawiface})) {
+        if ($nitem->{ifaces}->{$rawiface}) {
+          output_error($oitem, $nitem, $oclitem, $c, "bad",
+                       "implements @{[sig2type($iface)]}", "implements raw $rawiface");
+        } else {
+          output_error($oitem, $nitem, $oclitem, $c, "bad",
+                       "implements @{[sig2type($iface)]}", "doesn't implement @{[sig2type($iface)]}");
+        }
       }
     }
     my $super = $oitem->{supers}->[0];
-    if (defined $super and !$nitem->{superset}->{$super}) {
-      output_error($oitem, $nitem, $oclitem, $c, "bad",
-                   "subclass of @{[sig2type($super)]}", "not a subclass of @{[sig2type($super)]}");
+    if (defined($super)) {
+      my $rawsuper = $super; $rawsuper = $1 if $super =~ /^([^<>]+)</;
+      unless ($nitem->{superset}->{$super} || ($super eq $rawsuper && $nitem->{rawsupers}->{$rawsuper})) {
+        if ($nitem->{superset}->{$rawsuper}) {
+          output_error($oitem, $nitem, $oclitem, $c, "bad",
+                       "subclass of @{[sig2type($super)]}", "subclass of raw $rawsuper");
+        } else {
+          output_error($oitem, $nitem, $oclitem, $c, "bad",
+                       "subclass of @{[sig2type($super)]}", "not a subclass of @{[sig2type($super)]}");
+        }
+      }
     }
 
     # Also check the SerialVersionUID if that is turned on. Do this last, to
@@ -998,6 +1021,40 @@ sub sanitize_member($) {
   }
 }
 
+sub gentypestr($) {
+  my ($item) = @_;
+  my $result = "";
+  my $num = 0;
+  unless ($item->{static}) {
+    my $gps = getgenparams($item->{clitem});
+    $num = scalar(@$gps);
+  }
+  my $count = 0;
+
+  foreach my $param (splitgenstr($item->{gparamstr})) {
+    $result .= ", " if $result;
+
+    my $bounds;
+    if ($param eq "Ljava/lang/Object;") {
+      $bounds = "";
+    } else {
+      $bounds = " extends ";
+
+      foreach my $bound (split /\&/, $param) {
+        $bounds .= " & " unless $bounds eq " extends ";
+        $bounds .= sig2type($bound);
+      }
+    }
+
+    $num++;
+    my $name = "T$num";
+    $name = "T" if $name eq "T1";
+    $result .= "$name$bounds";
+    $count++;
+  }
+  return $count > 1 ? "has generic type parameters <$result>" : "has generic type parameter <$result>";
+}
+
 # Convert a type signature as used in a japi file to a displayable type.
 sub sig2type($) {
   my ($sig) = @_;
@@ -1006,6 +1063,8 @@ sub sig2type($) {
   return "? super " . sig2type($1) if $sig =~ /^\}(.*)$/;
   return "?" if $sig eq "{Ljava/lang/Object;";
   return "? extends " . sig2type($1) if $sig =~ /^\{(.*)$/;
+  return "T" if $sig eq "\@0";
+  return "T" . ($1 + 1) if $sig =~ /^\@([0-9]+)$/;
   return $javatypes->{$sig} if $javatypes->{$sig};
   my $gparams;
   $sig = $1 if $sig =~ /^L(.*);$/;

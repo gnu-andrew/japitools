@@ -499,6 +499,8 @@ sub sig2type($) {
   return "? super " . sig2type($1) if $sig =~ /^\}(.*)$/;
   return "?" if $sig eq "{Ljava/lang/Object;";
   return "? extends " . sig2type($1) if $sig =~ /^\{(.*)$/;
+  return "T" if $sig eq "\@0";
+  return "T" . ($1 + 1) if $sig =~ /^\@([0-9]+)$/;
   return $javatypes->{$sig} if $javatypes->{$sig};
   my $gparams;
   $sig = $1 if $sig =~ /^L(.*);$/;

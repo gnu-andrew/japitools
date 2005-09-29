@@ -230,7 +230,7 @@ TODO:
 
 Foo<T extends Serializable & Comparable>
 
-Foo! Pcsnu class<java.io.Serializable&java.lang.Comparable>
+Foo! Pcsnu class<Ljava/io/Serializable;&Ljava/lang/Comparable;>
 
 ? extends T becomes {@0
 ? super T becomes }@0
@@ -239,3 +239,9 @@ Foo! Pcsnu class<java.io.Serializable&java.lang.Comparable>
 
 You can't specify both extends and super on the same wildcard so no syntax is needed for that.
 
+In the Signature attribute it's + and - instead of { and }, should we adopt this?
+
+Todo now:
+- Recognize the relationship between raw types and their generic equivalents:
+  - Return types and field types:
+    - If it's raw in orig it's allowed to be anything that sanitizes to the same value in new
