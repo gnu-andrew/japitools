@@ -7,13 +7,17 @@ this spec notes such bugs when they are known.
 Purpose of Version 0.9.7
 ------------------------
 
-The 0.9.7 version of the japi file format is an interim version on the road to
+Version 0.9.7 of the japi file format is a work in progress on the road to
 figuring out how to deal with the new language constructs introduced in Java
-1.5. Some of the new constructs are representable, some are ignored because a
-suitable representation has not yet been determined, and some are only
-partially represented. In particular, the following constructs have no
-representation in this version of the format:
+1.5. Most of the new constructs are now representable, but some are ignored
+because a suitable representation has not yet been determined. Currently, this
+document and the tools using it are evolving in parallel, so 0.9.7 does not
+refer to a single fixed format. Whether or not 0.9.7 is eventually frozen or
+a 0.9.8 version is defined instead once the issues have been worked out has
+not yet been decided.
 
+The only remaining feature to be inadequately representable in this version
+is annotations. Specifically, 0.9.7 japi files cannot yet represent:
 - Annotations applied to classes and members. The plan is to include all
   annotations that are @Documented.
 - Default values of annotation methods that are of Array and Annotation types.
@@ -42,13 +46,16 @@ item. The possible representations are:
   a simplistic approach that is easier to implement for now).
   Type parameters are represented as "@0", "@1", "@2" etc in the order they
   appear on the containing class. Type parameters of an inner class are numbered
-  starting where the parameters of the outer class leaves off.
+  starting where the parameters of the outer class leaves off unless the inner
+  class is static. Likewise, type parameters of a method are numbered starting
+  where the declaring class's parameters leave off, unless the method is static.
   There is NO representation of primitive types OR ARRAYS in Java Language
   representation (emphasis because it's easy to forget that JL representation
   can't express all reference types).
 - Type Signature representation: Can represent any Java type, including
-  primitive types and arrays. This is the format used in type signatures
-  internally within the Java virtual machine. The format looks like this:
+  primitive types and arrays. Up to Java 1.4 this was the format used internally
+  within the JVM, but japitools has diverged from the JVM in its representation
+  of the new 1.5 features. The format looks like this:
   - Primitive types are represented as single letter codes, specifically:
     boolean=Z, byte=B, char=C, short=S, int=I, long=J, float=F, double=D, void=V
   - Classes and interfaces are represented as the letter L, followed by the
@@ -75,6 +82,13 @@ item. The possible representations are:
   - Type parameters are represented as "@0", "@1", "@2", exactly as in Java
     Language representation. Note that a special rule applies for ordering
     methods with parameters of these types - see "Ordering", below.
+  - Wildcard types are represented by the upper or lower bound, as follows:
+    - "? extends pkg.Foo" becomes "{Lpkg/Foo;"
+    - "? super pkg.Foo" becomes "}Lpkg/Foo;"
+    - "?" is equivalent to "? extends java.lang.Object" and hence becomes
+      "{Ljava/lang/Object;" Open question is whether the actual bound of the
+      parameter the wildcard is being used in should appear here instead; this
+      may make a difference to erasure.
 - Japi sortable representation: Designed to make it easy to sort a japi file
   into a convenient order. The format is:
   <pkg>,<class>[$<innerclass>].
@@ -134,6 +148,24 @@ and interfaces can be included in a japi file.
 For each class and/or interface that is included, all its public and protected
 fields, methods and constructors must be included. This includes fields and
 methods (but not constructors!) inherited from public or protected superclasses.
+
+Due to the way generics are implemented in Java there are situations where a
+method may appear to be present to a generic-aware compiler but not to a
+pre-generics compiler, or vice versa; or that the same method may appear to
+take different typed arguments depending on whether the compiler is generic
+or not. An example:
+
+class Super<T> {
+  void meth(T t);
+}
+class Sub extends Super<String> {
+}
+
+Sub appears to have a meth(String) method on a generic-aware compiler and a
+meth(Object) method on a pre-generics compiler. In order to support
+comparisons of either kind of API, the method will be included both ways in
+the japi file. See the discussion of how methods are represented for more
+details.
 
 
 Ordering
@@ -246,10 +278,26 @@ represented:
 - The empty string, to refer to the class or interface itself.
 - #<fieldname>, to refer to a field.
 - (<argtypes>), to refer to a constructor.
-- <methodname>(<argtypes>), to refer to a method.
+- <methodname>(<argtypes>)<gnote>, to refer to a method.
 <fieldname> and <methodname> are simply the name of the field or method, eg
 "toString". <argtypes> is a comma-separated list of argument types, with each
 one listed in Type Signature representation, eg "[B,I,I,Ljava/lang/String;".
+
+<gnote> is usually the empty string, but for methods that are only present for
+a generics-aware compiler, a "+" appears here, and for methods that are only
+present to a pre-generics compiler, a "-" appears here. Thus the class Sub
+used as an example under "Inclusion" above would get:
+,Sub!foo(Ljava/lang/Object;)-
+,Sub!foo(Ljava/lang/String;)+
+
+The algorithm for determining exactly which methods should be annotated this
+way is complex and attempting to specify it here would almost certainly lead
+to simply enshrining bugs in the algorithm as spec requirements. The code of
+Japize gives one possible implementation, but it will be fixed if it turns out
+not to reflect what's really visible to the two different kinds of compiler.
+
+Consumers of Japi files should consider excluding one or the other kind of
+method in order to get a coherent view of the API.
 
 <modifiers> is a five-character string indicating the modifiers of the item:
 
@@ -278,12 +326,17 @@ appears here depends on what type of item this is.
 - For classes, the <typeinfo> field consists of the following parts:
   - The word "class"
   - If the class has any generic parameters, the character "<", followed by a
-    comma-separated list of the constraining type of each parameter in Type
-    Signature representation, followed by the character ">". For this interim
-    version of the specification, only the primary constraining type appears;
-    any further information about the constraints (including type arguments
-    of the constraining type) is not included. A suitable representation for
-    this information will be determined in future versions of this specification.
+    comma-separated list of the bounds of each parameter in Type Signature
+    representation, followed by the character ">". Type parameters with
+    multiple bounds are separated by "&" just as in the Java language.
+    The type parameters of the containing type are not included; it is up to
+    the consumer of the japi file to calculate the total list of parameters
+    if it needs them (eg to determine out which parameter "@n" refers to for
+    some n). Note that the types in this list may include references to
+    other types in the same list - the famous example being Enum<T extends
+    Enum<T>> which renders as "class<Ljava/lang/Enum<@0>;>". Another example
+    would be Foo<T, B extends T> which would render as
+    'class<Ljava/lang/Object;,@0>".
   - If the class is serializable, the character "#" followed by the
     SerialVersionUID of the class, represented in decimal. If the class is
     not serializable, this section does not appear.
@@ -312,6 +365,9 @@ appears here depends on what type of item this is.
 
 - For fields, the <typeinfo> field consists of the following parts:
   - The type of the field, in Type Signature format.
+  - If the field is inherited from a superclass, the character "=" followed by
+    the name of the class that declares it, in Java Language representation. Only
+    the name of the class appears, not any of its generic parameters.
   - If the field is a constant value other than null, the character ":" followed
     by the value of the field. In the case of a char value, this is the integer
     value of the character; in the case of a string, it is the escaped string.
@@ -334,13 +390,10 @@ appears here depends on what type of item this is.
     be listed).
 
 - For methods, the <typeinfo> field consists of the following parts:
-  - If the method is a generic static method, the character "<", followed by a
-    comma-separated list of the constraining type of each type parameter in Type
-    Signature representation, followed by the character ">". For this interim
-    version of the specification, only the primary constraining type appears;
-    any further information about the constraints (including type arguments
-    of the constraining type) is not included. A suitable representation for
-    this information will be determined in future versions of this specification.
+  - If the method is a generic method, the character "<", followed by a
+    comma-separated list of type parameter bounds, followed by the character
+    ">". The format of the type parameters is identical to that used for the
+    type parameters of classes, described above.
   - The return type of the method, in Type Signature format.
   - For every exception type thrown by this method, the character "*" followed
     by the name of the exception type, in Java Language representation. These
@@ -348,7 +401,10 @@ appears here depends on what type of item this is.
     java.lang.Error must be omitted, as must any exception that is a subclass of
     another exception that can be thrown (eg if both java.io.IOException and
     java.io.FileNotFoundException can be thrown, only java.io.IOException should
-    be listed).
+    be listed). When a parameter type (@0 etc) is thrown, it should currently be
+    included regardless of whether its bounds guarantee that it is a subclass of
+    RuntimeException, Error or another thrown exception. This is likely to change
+    in a future version of this specification.
   - If the method is part of an annotation, has a default value, and is of type
     String, Class, or a primitive type, the character ":" followed by the default
     value. The format of the default value is identical to that used by constant
