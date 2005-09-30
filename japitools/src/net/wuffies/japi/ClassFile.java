@@ -783,7 +783,6 @@ public class ClassFile implements ClassWrapper
         {
             String identifier = readIdentifier();
             consume(':');
-            // FIXME15 Jeroen, please look and see if I did the right thing here
             ArrayList bounds = new ArrayList();
             if(peekChar() != ':')
             {
@@ -829,42 +828,39 @@ public class ClassFile implements ClassWrapper
                 consume('/');
                 className += part + ".";
             }
-            RefType[] typeArguments = null;
+            ArrayList typeArguments = new ArrayList();
             if(peekChar() == '<')
             {
-                typeArguments = readTypeArguments();
+                readTypeArguments(typeArguments);
             }
             while(peekChar() == '.')
             {
                 consume('.');
-                String simpleClassName = readIdentifier();
+                className += "$" + readIdentifier();
                 if(peekChar() == '<')
                 {
-                    readTypeArguments();
+                    readTypeArguments(typeArguments);
                 }
             }
             consume(';');
-            return new ClassType(className, typeArguments);
+            RefType[] array = new RefType[typeArguments.size()];
+            typeArguments.toArray(array);
+            return new ClassType(className, array);
         }
 
-        private RefType[] readTypeArguments()
+        private void readTypeArguments(ArrayList list)
         {
             consume('<');
-            ArrayList list = new ArrayList();
             do
             {
                 list.add(readTypeArgument());
             } while((peekChar() != '>'));
             consume('>');
-            RefType[] arr = new RefType[list.size()];
-            list.toArray(arr);
-            return arr;
         }
 
         private RefType readTypeArgument()
         {
             char c = peekChar();
-	    // FIXME15 Jeroen, please check that I did the right thing here
             if(c == '+')
             {
 		consume('+');
@@ -877,10 +873,6 @@ public class ClassFile implements ClassWrapper
 	    }
             else if(c == '*')
             {
-                // FIXME what does this mean?
-		// FIXME15 Jeroen, I'm taking a totally wild guess that "*" means
-		// "?", equivalent to "? extends Object". Returning a WildcardType
-		// accordingly. Does this seem right?
                 consume('*');
                 return new WildcardType();
             }
