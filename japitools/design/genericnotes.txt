@@ -241,7 +241,79 @@ You can't specify both extends and super on the same wildcard so no syntax is ne
 
 In the Signature attribute it's + and - instead of { and }, should we adopt this?
 
-Todo now:
-- Recognize the relationship between raw types and their generic equivalents:
-  - Return types and field types:
-    - If it's raw in orig it's allowed to be anything that sanitizes to the same value in new
+
+Annotationotes:
+
+An annotation is represented as [pkg.Type|name=value|name=value]
+
+In the japi file they appear here:
+
+pkg,Foo!#member Pcsfu[pkg.Type][pkg.Type2|name=value] I
+
+methods of the annotation sort alphabetically
+
+annotation types sort alphabetically by FQCN
+
+
+method parameter annotations go inline with the parameters they refer to:
+
+pkg,Foo!method([pkg.Type]I,[pkg.Type][pkg.Type2]Ljava/lang/Object;)
+
+Value - legal types are:
+primitive
+string
+class
+annotation
+array of legal type
+
+We don't need to encode the type because it's known from the annotation (?)
+
+Encoded means s-\-\\-, s-(newline)-\n-, s-[^0-9a-zA-Z]-\u(4-digit-hex-unicode-number)-
+
+We update the encoding spec to say that constant strings must always be encoded this way (and actually implement it, unlike the old encoding spec).
+
+Then we do:
+primitive, string are represented just like the constant format. Only special character possible is "/" in floats and doubles, plus \.
+class is represented in typesig representation and encoded. Special characters would be /;<>, but since they're encoded they're not.
+Annotation is represented as [pkg.Type|name=value] etc but encoded. Special characters would be []|= but since they're encoded they're not.
+Array is represented as [value|value|value|value] but encoded. Special characters would be []| but since they're encoded they're not.
+
+This means that annotations as a whole can only be [\[\]\|A-Za-z0-9\/\=\.\$], specifically, an annotation is:
+
+/\[([A-Za-z0-9\.\$\\]+)(\|[A-Za-z0-9\\]+=[A-Za-z0-9\/\\]*)*\]/ with $1 as the type and $2 matching repeatedly as the name=value pair.
+
+
+Todo:
+- Go through all the places that say "OPENQ" and figure out what
+  the right thing to do is.
+- Handle multiple "-" annotated methods with different return values
+  (can't happen yet though)
+- -P option which suppresses "missing package" errors and also omits the
+  content of those packages from consideration for percentages etc.
+- Compare error-by-error the cvs output against the "production" output
+  and make sure all differences are for known and expected reasons.
+- Annotation support.
+- Testing system:
+  - test/
+    - orig/
+      - japitest/
+        - TnnnName.java
+        - TnnnName_Helper.java
+    - new/
+      - japitest/
+    - ignore/
+      - japitest/
+    - expected/
+      TnnnName_orig.japi
+      TnnnName_new.japi
+      TnnnName_ignore.japi
+      TnnnName.txt
+    - results/
+  - perl script that scans orig, identifies all the TnnnName strings, and loops over them doing:
+    - cd orig; javac japitest/TnnnName.java japitest/TnnnName_*.java
+    - japize unzip as results/TnnnName_orig classes japitest (classpath) +japitest.TnnnName +japitest.TnnnName_Helper ...
+    - if TnnnName.java exists in new or ignore, do the same thing
+    - if it existed in new, japicompat -tvo results/TnnnName.txt [-i TnnnName_ignore.japi] TnnnName_orig.japi TnnnName_new.japi
+    - for each of TnnnName_orig.japi, TnnnName_new.japi, TnnnName_ignore.japi, TnnnName.txt:
+      - diff expected/$n results/$n
+      - except that the date-dependant bits need to be ignored, figure out a solution to this

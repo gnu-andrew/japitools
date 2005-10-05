@@ -662,6 +662,12 @@ public class Japize {
       }
       type += mkIfaceString(c, "");
 
+      // Skip things that aren't entirely visible as defined below.
+      if (!isEntirelyVisible(c)) {
+        System.out.println("\nSKIP: " + entry);
+        return false;
+      }
+
       // Print out the japi entry for the class itself.
       printEntry(entry, type, mods, c.isDeprecated(), false);
 
@@ -697,7 +703,8 @@ public class Japize {
         }
         type = fields[i].getType().getTypeSig(c);
 
-        if (!fields[i].getDeclaringClass().getName().equals(c.getName())) {
+        if (Modifier.isPublic(fields[i].getModifiers()) &&
+            !fields[i].getDeclaringClass().getName().equals(c.getName())) {
           type += "=" + fields[i].getDeclaringClass().getName();
         }
 
@@ -745,6 +752,14 @@ public class Japize {
           } else {
             type += ":" + o;
           }
+        }
+
+        // Skip things that aren't entirely visible as defined below.
+        if (!isEntirelyVisible(fields[i])) {
+          if (Modifier.isPublic(mods) || Modifier.isProtected(mods)) {
+            System.out.println("\nSKIP: " + classEntry + "#" + fields[i].getName());
+          }
+          continue;
         }
 
         // Output the japi entry for the field.
@@ -831,6 +846,14 @@ public class Japize {
         // set it.
         if ("".equals(calls[i].getName())) {
           mmods &= ~Modifier.FINAL;
+        }
+
+        // Skip things that aren't entirely visible as defined below.
+        if (!isEntirelyVisible(calls[i])) {
+          if (Modifier.isPublic(mmods) || Modifier.isProtected(mmods)) {
+            System.out.println("\nSKIP: " + entry);
+          }
+          continue;
         }
 
         // Print the japi entry for the method.
@@ -1023,6 +1046,116 @@ public class Japize {
    */
   static ClassWrapper getWrapper(ClassType t) {
     return t == null ? null : t.getWrapper();
+  }
+
+
+  /**
+   * Determine whether the type parameter bounds of an item are entirely visible.
+   */
+  static boolean paramsEntirelyVisible(GenericWrapper wrapper) {
+    // Return true for now because otherwise you tend to get into infinite loops with, what else,
+    // Enum<T extends Enum<T>>...
+    return true;
+//    TypeParam[] params = TypeParam.getAllTypeParams(wrapper);
+//    if (params != null) {
+//      for (int i = 0; i < params.length; i++) {
+//        if (!isEntirelyVisible(params[i])) return false;
+//      }
+//    }
+//    return true;
+  }
+
+  /**
+   * Determine whether a class is entirely visible. If it's not then it should be skipped.
+   * A class is entirely visible if it's public or protected and all the bounds of its
+   * type parameters are entirely visible.
+   */
+  static boolean isEntirelyVisible(ClassWrapper cls) {
+    if (!Modifier.isPublic(cls.getModifiers()) && !Modifier.isProtected(cls.getModifiers())) {
+      return false;
+    }
+    return paramsEntirelyVisible(cls);
+  }
+
+  /**
+   * Determine whether a type is entirely visible. If it's not then it should be skipped.
+   * A type is entirely visible if it's a class that's entirely visible and all of its
+   * type arguments are entirely visible, or it's a primitive type, or it's an
+   * array type whose element type is entirely visible, or it's a wildcard type or type
+   * parameter whose bounds are entirely visible.
+   */
+  static boolean isEntirelyVisible(Type t) {
+    if (t == null) {
+      return true;
+    } else if (t instanceof PrimitiveType) {
+      return true;
+    } else if (t instanceof ArrayType) {
+      return isEntirelyVisible(((ArrayType) t).getElementType());
+    } else if (t instanceof ClassType) {
+      if (!isEntirelyVisible(((ClassType) t).getWrapper())) return false;
+      RefType[] args = ((ClassType) t).getTypeArguments();
+      if (args != null) {
+        for (int i = 0; i < args.length; i++) {
+          if (!isEntirelyVisible(args[i])) return false;
+        }
+      }
+      return true;
+    } else if (t instanceof TypeParam) {
+      // return true for now because otherwise we tend to get into an infinite loop on, what else,
+      // Enum<T extends Enum<T>>
+//      NonArrayRefType[] bounds = ((TypeParam) t).getBounds();
+//      for (int i = 0; i < bounds.length; i++) {
+//        if (!isEntirelyVisible(bounds[i])) return false;
+//      }
+      return true;
+    } else if (t instanceof WildcardType) {
+      NonArrayRefType upper = ((WildcardType) t).getUpperBound();
+      NonArrayRefType lower = ((WildcardType) t).getLowerBound();
+      if (lower != null && !isEntirelyVisible(lower)) return false;
+      return isEntirelyVisible(upper);
+    } else {
+      throw new RuntimeException("Unknown kind of Type " + t.getClass());
+    }
+  }
+
+  /**
+   * Determine whether a field is entirely visible. If it's not then it should be skipped.
+   * A field is entirely visible if it is itself public or protected, its declaring class
+   * is entirely visible and its type is entirely visible.
+   */
+  static boolean isEntirelyVisible(FieldWrapper field) {
+    if (!Modifier.isPublic(field.getModifiers()) && !Modifier.isProtected(field.getModifiers())) {
+      return false;
+    }
+    
+    return isEntirelyVisible(field.getDeclaringClass()) && isEntirelyVisible(field.getType());
+  }
+
+  /**
+   * Determine whether a method or constructor is entirely visible. If it's not then it
+   * should be skipped.
+   * A call is entirely visible if its declaring class is entirely visible, its
+   * return type is entirely visible, all of its parameter types are entirely
+   * visible, all of its thrown exception types are entirely visible, and all the
+   * bounds of its type parameters are entirely visible.
+   */
+  static boolean isEntirelyVisible(CallWrapper call) {
+    if (!Modifier.isPublic(call.getModifiers()) && !Modifier.isProtected(call.getModifiers())) {
+      return false;
+    }
+    if (!isEntirelyVisible(call.getDeclaringClass()) || !paramsEntirelyVisible(call) ||
+        !isEntirelyVisible(call.getReturnType())) {
+      return false;
+    }
+    for (int i = 0; i < call.getParameterTypes().length; i++) {
+      if (!isEntirelyVisible(call.getParameterTypes()[i])) return false;
+    }
+    // For now don't worry about exception types. Later we may handle them a different way
+    // (eg by rendering each one as its closest accessible superclass).
+    //for (int i = 0; i < call.getExceptionTypes().length; i++) {
+    //  if (!isEntirelyVisible(call.getExceptionTypes()[i])) return false;
+    //}
+    return true;
   }
 
   /**

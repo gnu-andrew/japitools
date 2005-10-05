@@ -40,6 +40,13 @@ public class WildcardType extends RefType {
     this.lowerBound = lowerBound;
   }
 
+  public NonArrayRefType getUpperBound() {
+    return upperBound;
+  }
+  public NonArrayRefType getLowerBound() {
+    return lowerBound;
+  }
+
   public String getTypeSig(GenericWrapper wrapper) {
     if (lowerBound == null) {
       return "{" + upperBound.getTypeSig(wrapper);
