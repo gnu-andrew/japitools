@@ -547,7 +547,8 @@ sub compare_japis($$) {
     $class = $oitem->{class};
     $oclitem = $oitem if $isnewclass;
     $class_has_ctors = 0 if $isnewclass;
-    $class_has_ctors = 1 if $oitem->{isa} eq "constructor";
+    $class_has_ctors = 1 if $oitem->{isa} eq "constructor" ||
+                            $oitem->{isa} eq "interface";
     $errhere = 0;
     if ($cmp) {
       my $ecount = 1;
