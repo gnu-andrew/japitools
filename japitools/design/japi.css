@@ -34,11 +34,12 @@ th { font-size: 12px; text-align: right }
 .colhead th { text-align: center }
 .alternating-1 { background-color: #ddddff }
 .alternating-2 { background-color: #eeeeee }
-.datestamp { text-align: right; color: #bbbbbb }
+.datestamp { text-align: right; color: #bbbbbb; margin-top: 3px; margin-bottom: 3px; font-size: 80%}
 a { color: black; text-decoration: none }
 a:hover { text-decoration: underline }
 .ehead { margin-bottom: 2px; padding-bottom: 2px }
 .phead { background-color: #ddddff }
 .sp { font-size: 0 }
-.notify { color: #440000 }
+.notify { color: #440000; margin-top: 5px; margin-bottom: 5px; font-size: 90%}
 .ok-moot a { color: #555555 }
+body, table { font-family: sans-serif }
