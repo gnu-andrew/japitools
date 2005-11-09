@@ -412,6 +412,35 @@ public class ClassFile implements ClassWrapper
 
 	public Type[] getParameterTypes()
 	{
+	    // The first parameter of a nonstatic inner class constructor is the enclosing
+	    // instance, rather than a real parameter. Identify this case and skip it.
+	    // Note: this doesn't handle anonymous classes which are scoped to a method since
+	    // getContainingWrapper() isn't a ClassWrapper in that case; these are handled
+	    // wrong but they are never public, so they never show up in japi files, so
+	    // having an incorrect view of their constructor parameters is irrelevant.
+	    if ("".equals(getName()) &&
+		!Modifier.isStatic(ClassFile.this.getModifiers()) &&
+		ClassFile.this.getContainingWrapper() != null &&
+		ClassFile.this.getContainingWrapper() instanceof ClassWrapper)
+	    {
+		// As far as I can tell all the things I check here are required by the JLS so
+		// I just throw if they're violated.
+		if (parameterTypes.length == 0)
+		    throw new RuntimeException("Nonstatic inner class " + ClassFile.this.getName() + " constructor has no parameters!");
+
+		if (!(parameterTypes[0] instanceof ClassType))
+		    throw new RuntimeException("First parameter of nonstatic inner class " + ClassFile.this.getName() + " constructor is not a class type");
+
+		ClassType t = (ClassType) parameterTypes[0];
+		ClassWrapper cw = (ClassWrapper) ClassFile.this.getContainingWrapper();
+		if (!t.getName().equals(cw.getName()))
+		    throw new RuntimeException("First parameter of nonstatic inner class " + ClassFile.this.getName() + " constructor is " + t.getName() + ", not " + cw.getName());
+
+		List paramList = Arrays.asList(parameterTypes);
+		List realParamList = paramList.subList(1, parameterTypes.length);
+		return (Type[]) realParamList.toArray(new Type[parameterTypes.length - 1]);
+	    }
+
 	    return parameterTypes;
 	}
 
