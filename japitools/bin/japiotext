@@ -169,7 +169,7 @@ foreach my $pkg (@packages) {
     if ($errors->{"$pkg/$cat"}) {
       my $cap = uc($1).$2 if $cat =~ /^(.)(.*)$/;
       print "$cap\n";
-      foreach my $line (@{$errors->{"$pkg/$cat"}}) {
+      foreach my $line (sort @{$errors->{"$pkg/$cat"}}) {
         my ($etype, $isa, $item, $sups, $rest) = split / /, $line, 5;
         my ($was, $is) = split /\//, $rest;
         $was =~ s/~s/\//g; $was =~ s/~t/~/g;

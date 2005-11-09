@@ -434,14 +434,14 @@ EOF
     <h4 class="ehead"><a name="err_${catl}_$pkgl"></a>$cap</h4>
     <ul class="$catc">
 EOF
-      foreach my $line (@{$errors->{"$pkg/$cat"}}) {
+      foreach my $line (sort @{$errors->{"$pkg/$cat"}}) {
         my ($etype, $isa, $item, $sups, $rest) = split / /, $line, 5;
         my ($was, $is) = split /\//, $rest;
         $was =~ s/~s/\//g; $was =~ s/~t/~/g;
         $is =~ s/~s/\//g; $is =~ s/~t/~/g;
         my $msg = $was ? "$was in $orig, but" : "";
         my $ritem = readable_item($item);
-        my $outline = htmlencode("$isa $ritem: $msg $is in $new");
+        my $outline = "<strong>$isa</strong> " . htmlencode("$ritem: $msg $is in $new");
         print <<EOF;
         <li>$outline</li>
 EOF
