@@ -24,7 +24,12 @@ public interface ClassWrapper extends GenericWrapper {
   ClassType getSuperclass();
   ClassType[] getInterfaces();
   boolean isSerializable();
-  long getSerialVersionUID();
+
+  /**
+   * Return the class's serialVersionUID, or null if a blank final
+   * serialVersionUID field exists.
+   */
+  Long getSerialVersionUID();
   FieldWrapper[] getFields();
   CallWrapper[] getCalls();
 

@@ -74,6 +74,11 @@ public class Japize {
    */
   private static PrintWriter out;
 
+  /**
+   * The output writer to write "lint" output to, if any.
+   */
+  private static PrintWriter lintOut;
+
   /* Disambiguation rules */
   private static final int UNSPECIFIED = 0;
   private static final int EXPLICITLY = 1;
@@ -93,6 +98,7 @@ public class Japize {
     int i = 0;
     boolean zipIt = true;
     String fileName = null;
+    String lintFileName = null;
 
     if (i < args.length && "unzip".equals(args[i])) {
       zipIt = false;
@@ -100,6 +106,10 @@ public class Japize {
     }
     if (i < args.length && "as".equals(args[i])) {
       fileName = args[++i];
+      i++;
+    }
+    if (i < args.length && "lint".equals(args[i])) {
+      lintFileName = args[++i];
       i++;
     }
 
@@ -241,9 +251,17 @@ public class Japize {
       }
     }
 
+    if (lintFileName != null) {
+      lintOut = new PrintWriter(new BufferedWriter(new FileWriter(lintFileName)));
+    }
+
     // Now actually go and japize the classes.
-    doJapize();
-    out.close();
+    try {
+      doJapize();
+    } finally {
+      out.close();
+      if (lintOut != null) lintOut.close();
+    }
   }
 
   private static String toClassRoot(String pkgpath) {
@@ -350,6 +368,11 @@ public class Japize {
       }
     }
   }
+
+  private static void lintPrint(String s) {
+    if (lintOut != null) lintOut.println(s);
+  }
+
 //- Sort all "plus" items - these will be our "roots".
 //- Identify whether java.lang.Object falls within the scope of things to process.
   //If it does, process it as a class root and then add "-java.lang,Object" to
@@ -518,7 +541,7 @@ public class Japize {
    * Print a usage message.
    */
   private static void printUsage() {
-    System.err.println("Usage: japize [unzip] [as <name>] apis <zipfile>|<dir> ... +|-<pkg> ...");
+    System.err.println("Usage: japize [unzip] [as <name>] [lint <filename>] apis <zipfile>|<dir> ... +|-<pkg> ...");
     System.err.println("At least one +pkg is required. 'name' will have .japi and/or .gz");
     System.err.println("appended if appropriate.");
     System.err.println("The word 'apis' can be replaced by 'explicitly', 'byname', 'packages' or");
@@ -638,7 +661,9 @@ public class Japize {
         // of the type string has mnemonic value for Brits, as the SVUID is a
         // special sort of 'hash' of the class.
         if (c.isSerializable()) {
-          type += "#" + c.getSerialVersionUID();
+          Long svuid = c.getSerialVersionUID();
+          if (svuid == null) lintPrint(c.getName() + " has a blank final serialVersionUID");
+          type += "#" + svuid;
         }
       }
 
@@ -650,6 +675,7 @@ public class Japize {
         ClassWrapper sup = supt.getWrapper();
         smods = sup.getModifiers();
         if (!Modifier.isPublic(smods) && !Modifier.isProtected(smods)) {
+          lintPrint(c.getName() + " has non-public class " + sup.getName() + " among its superclasses");
           progress('^');
         } else {
           type += ":" + supt.getJavaRepr(c);
@@ -663,10 +689,7 @@ public class Japize {
       type += mkIfaceString(c, "");
 
       // Skip things that aren't entirely visible as defined below.
-      if (!isEntirelyVisible(c)) {
-        System.out.println("\nSKIP: " + entry);
-        return false;
-      }
+      if (!isEntirelyVisible(c)) return false;
 
       // Print out the japi entry for the class itself.
       printEntry(entry, type, mods, c.isDeprecated(), false);
@@ -703,9 +726,22 @@ public class Japize {
         }
         type = fields[i].getType().getTypeSig(c);
 
-        if (Modifier.isPublic(fields[i].getModifiers()) &&
-            !fields[i].getDeclaringClass().getName().equals(c.getName())) {
-          type += "=" + fields[i].getDeclaringClass().getName();
+        if (fields[i].getName().equals("serialVersionUID") &&
+            fields[i].getDeclaringClass() == c) {
+          if (c.isInterface()) {
+            lintPrint("Useless serialVersionUID field in interface " + c.getName());
+          } else if (!Modifier.isStatic(fields[i].getModifiers()) ||
+                     !Modifier.isFinal(fields[i].getModifiers())) {
+            lintPrint("serialVersionUID field in " + c.getName() + " not 'static final'");
+          } else if (!c.isSerializable()) {
+            lintPrint("serialVersionUID field in non-serializable class " + c.getName());
+          }
+        }
+
+        if (!Modifier.isFinal(fields[i].getModifiers()) &&
+            (Modifier.isPublic(fields[i].getModifiers()) ||
+             Modifier.isStatic(fields[i].getModifiers()))) {
+          type += '=' + fields[i].getDeclaringClass().getName();
         }
 
         // A static, final field is a primitive constant if it is initialized to
@@ -755,12 +791,7 @@ public class Japize {
         }
 
         // Skip things that aren't entirely visible as defined below.
-        if (!isEntirelyVisible(fields[i])) {
-          if (Modifier.isPublic(mods) || Modifier.isProtected(mods)) {
-            System.out.println("\nSKIP: " + classEntry + "#" + fields[i].getName());
-          }
-          continue;
-        }
+        if (!isEntirelyVisible(fields[i])) continue;
 
         // Output the japi entry for the field.
         printEntry(classEntry + "#" + fields[i].getName(), type, mods,
@@ -849,12 +880,7 @@ public class Japize {
         }
 
         // Skip things that aren't entirely visible as defined below.
-        if (!isEntirelyVisible(calls[i])) {
-          if (Modifier.isPublic(mmods) || Modifier.isProtected(mmods)) {
-            System.out.println("\nSKIP: " + entry);
-          }
-          continue;
-        }
+        if (!isEntirelyVisible(calls[i])) continue;
 
         // Print the japi entry for the method.
         printEntry(entry, type, mmods, calls[i].isDeprecated(), false);
@@ -921,8 +947,7 @@ public class Japize {
    //   original (or drop the entry entirely if bind14() gives null).
    // * When outputting, we output a "-" after anything with exclude15 and a "+" after anything with
    //   exclude14.
-   // - Process bridge methods but create them with exclude15 right off the bat? Seems
-   //   reasonable. That means creating the BoundCall and instantly bind14()ing it.
+   // * Process bridge methods but create them with exclude15 right off the bat.
    // NOTE: This algorithm does not handle methods that differ only in return value but are all present.
    // BUT it seems likely that an algorithm like this will work for that situation. The trick is that
    // when there *is* such a "confusion", we want getNonGenericTypeSig to include the return value for
@@ -950,11 +975,13 @@ public class Japize {
     }
     CallWrapper[] calls = c.getCalls();
     for (int i = 0; i < calls.length; i++) {
-      // JDK15: skip bridge methods (the ACC_VOLATILE bit corresponds to the ACC_BRIDGE bit)
-      if (Modifier.isVolatile(calls[i].getModifiers())) continue;
-
       BoundCall call = new BoundCall(calls[i], outer);
       if (ctype == null || call.isInheritable()) {
+
+        // JDK15: handle bridge methods (the ACC_VOLATILE bit corresponds to the ACC_BRIDGE bit)
+        // These get immediately bind14()d because they are only visible in the 1.4 view of the universe
+        if (Modifier.isVolatile(calls[i].getModifiers())) call = call.bind14();
+
         callMap.put(call.getNonGenericSig(), call);
       }
     }
@@ -1128,7 +1155,13 @@ public class Japize {
       return false;
     }
     
-    return isEntirelyVisible(field.getDeclaringClass()) && isEntirelyVisible(field.getType());
+    if (!isEntirelyVisible(field.getDeclaringClass())) return false;
+    if (!isEntirelyVisible(field.getType())) {
+      lintPrint("field " + field.getDeclaringClass().getName() + "." + field.getName() +
+                " has non-public type " + field.getType().getTypeSig(field.getDeclaringClass()));
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -1143,19 +1176,32 @@ public class Japize {
     if (!Modifier.isPublic(call.getModifiers()) && !Modifier.isProtected(call.getModifiers())) {
       return false;
     }
-    if (!isEntirelyVisible(call.getDeclaringClass()) || !paramsEntirelyVisible(call) ||
-        !isEntirelyVisible(call.getReturnType())) {
-      return false;
+    if (!isEntirelyVisible(call.getDeclaringClass()) || !paramsEntirelyVisible(call)) return false;
+
+    boolean result = true;
+    if (!isEntirelyVisible(call.getReturnType())) {
+      result = false;
+      lintPrint("method " + call.getDeclaringClass().getName() + "." + call.getName() +
+                "() has non-public return type " + call.getReturnType().getTypeSig(call.getDeclaringClass()));
     }
     for (int i = 0; i < call.getParameterTypes().length; i++) {
-      if (!isEntirelyVisible(call.getParameterTypes()[i])) return false;
+      if (!isEntirelyVisible(call.getParameterTypes()[i])) {
+        result = false;
+        lintPrint("method " + call.getDeclaringClass().getName() + "." + call.getName() +
+                  "() has non-public type " + call.getParameterTypes()[i].getTypeSig(call.getDeclaringClass()) +
+                  " among its parameters");
+      }
     }
     // For now don't worry about exception types. Later we may handle them a different way
-    // (eg by rendering each one as its closest accessible superclass).
-    //for (int i = 0; i < call.getExceptionTypes().length; i++) {
-    //  if (!isEntirelyVisible(call.getExceptionTypes()[i])) return false;
-    //}
-    return true;
+    // (eg by rendering each one as its closest accessible superclass). But we'll still
+    // print the error.
+    for (int i = 0; i < call.getExceptionTypes().length; i++) {
+      if (!isEntirelyVisible(call.getExceptionTypes()[i])) {
+        lintPrint("method " + call.getDeclaringClass().getName() + "." + call.getName() +
+                  "() throws non-public exception " + call.getExceptionTypes()[i].getTypeSig(call.getDeclaringClass()));
+      }
+    }
+    return result;
   }
 
   /**
@@ -1247,5 +1293,36 @@ public class Japize {
   public static ClassWrapper getClassWrapper(String className) 
       throws  ClassNotFoundException {
     return ClassFile.forName(className);
+  }
+
+  /**
+   * Encode a string. The encoding is:
+   * "\" translates to "\\"
+   * newline translates to "\n"
+   * all other characters except for 0-9a-zA-Z translate to \ uNNNN where N is the unicode value.
+   */
+  private static String jencode(String str) {
+    StringBuffer sb = new StringBuffer(str.length());
+    for (int i = 0; i < str.length(); i++) {
+      char ch = str.charAt(i);
+      if (ch == '\\') {
+        sb.append("\\\\");
+      } else if (ch == '\n') {
+        sb.append("\\n");
+      } else if ((ch >= '0' && ch <= '9') ||
+                 (ch >= 'a' && ch <= 'z') ||
+                 (ch >= 'A' && ch <= 'Z')) {
+        sb.append(ch);
+      } else {
+        sb.append("\\u" + to4charHexString(ch));
+      }
+    }
+    return sb.toString();
+  }
+  private static String to4charHexString(char ch) {
+    String result = Integer.toHexString((int) ch);
+    if (result.length() > 4) throw new RuntimeException("toHexString gave a longer than 4-char output");
+    while (result.length() < 4) result = "0" + result;
+    return result;
   }
 }

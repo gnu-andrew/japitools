@@ -365,9 +365,13 @@ appears here depends on what type of item this is.
 
 - For fields, the <typeinfo> field consists of the following parts:
   - The type of the field, in Type Signature format.
-  - If the field is inherited from a superclass, the character "=" followed by
-    the name of the class that declares it, in Java Language representation. Only
-    the name of the class appears, not any of its generic parameters.
+  - If all the following criteria are met, the character "=" followed by the name
+    of the class that declares it, in Java Language representation. Only the name
+    of the class appears, not any of its generic parameters. The criteria are:
+    - The field is not final, AND
+    - EITHER:
+      - The field is public, OR
+      - The field is static
   - If the field is a constant value other than null, the character ":" followed
     by the value of the field. In the case of a char value, this is the integer
     value of the character; in the case of a string, it is the escaped string.

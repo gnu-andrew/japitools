@@ -1156,7 +1156,7 @@ public class ClassFile implements ClassWrapper
 
     // This code is partially based on GNU Classpath's implementation which is
     // (c) FSF and licensed under the GNU Library General Public License.
-    public long getSerialVersionUID()
+    public Long getSerialVersionUID()
     {
 	for(int i = 0; i < fields.length; i++)
 	{
@@ -1165,16 +1165,7 @@ public class ClassFile implements ClassWrapper
 		Modifier.isStatic(fields[i].getModifiers()) &&
 		Modifier.isFinal(fields[i].getModifiers()))
 	    {
-                Long val = (Long)fields[i].getPrimitiveValue();
-                if (val == null)
-                {
-                    // It's a blank final, we don't support that.
-                    // (We'd have to run the <clinit> to get the value.)
-                    System.err.println();
-                    System.err.println("Warning: " + name + " has a blank final serialVersionUID");
-                    return 0;
-                }
-		return val.longValue();
+                return (Long) fields[i].getPrimitiveValue();
 	    }
 	}
 	// The class didn't define serialVersionUID, so we have to compute it
@@ -1304,7 +1295,7 @@ public class ClassFile implements ClassWrapper
 	    for (int i=0; i < len; i++)
 		result += (long)(sha[i] & 0xFF) << (8 * i);
   
-	    return result;
+	    return new Long(result);
 	}
 	catch (NoSuchAlgorithmException e) 
 	{

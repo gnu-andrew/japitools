@@ -331,8 +331,10 @@ EOF
     $mitem->{constbits} = $bits if defined $bits;
     $mitem->{constant} = $val if defined $val;
 
-    # Fields also get the declaring class separated by = unless they're declared
-    # in this class.
+    # Fields also get the declaring class separated by "=" in cases where it matters.
+    # The rules for when it matters are defined in japi-spec-0.9.7.txt and in
+    # Japize, but basically, it's when the field is nonfinal and either public or
+    # static.
     my $decl;
     ($type, $decl) = split(/=/, $type, 2);
     $mitem->{decl} = $decl if defined $decl;
@@ -811,9 +813,12 @@ sub compare_japi_item($$$$) {
       }
     }
 
-    my $odecl = $oitem->{decl} || "$oitem->{package}.$oitem->{class}";
-    my $ndecl = $nitem->{decl} || "$oitem->{package}.$oitem->{class}";
-    if ($oitem->{public} && $nitem->{public} && $odecl ne $ndecl) {
+    # When the declaring class is given, check that the fields are declared in the same
+    # class. Note that we're relying on Japize to only tell us the declaring class in
+    # the right situations.
+    my $odecl = $oitem->{decl};
+    my $ndecl = $nitem->{decl};
+    if ($odecl && $ndecl && $odecl ne $ndecl) {
       output_error($oitem, $nitem, $oclitem, $c, "bad",
                    "declared in $odecl", "declared in $ndecl");
     }

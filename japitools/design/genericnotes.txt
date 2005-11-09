@@ -266,17 +266,27 @@ class
 annotation
 array of legal type
 
-We don't need to encode the type because it's known from the annotation (?)
-
 Encoded means s-\-\\-, s-(newline)-\n-, s-[^0-9a-zA-Z]-\u(4-digit-hex-unicode-number)-
 
 We update the encoding spec to say that constant strings must always be encoded this way (and actually implement it, unlike the old encoding spec).
+
+Primitives: lettervalue eg I3, F0.1\u002f34a2321c  (accounts for characters ZCBSIJFD)
+String: svalue eg sHello\u0020World
+Class: Ljava\u002flang\u002fString\u003b
+Annotation: A\u005bpkg.Type\u007c...\u005b
+Array: \u005bsvalue\u007cs\u007csvalue\u007c\u007csvalue\u005d means {"value", "", "value", null, "value"}
+
 
 Then we do:
 primitive, string are represented just like the constant format. Only special character possible is "/" in floats and doubles, plus \.
 class is represented in typesig representation and encoded. Special characters would be /;<>, but since they're encoded they're not.
 Annotation is represented as [pkg.Type|name=value] etc but encoded. Special characters would be []|= but since they're encoded they're not.
 Array is represented as [value|value|value|value] but encoded. Special characters would be []| but since they're encoded they're not.
+Problem with array rep: how to distinguish null from empty string? Maybe say that string, always, is represented as [value]?
+
+[[value]|[value]|[]||[value]] represents {"value", "value", "", null, "value"}
+
+
 
 This means that annotations as a whole can only be [\[\]\|A-Za-z0-9\/\=\.\$], specifically, an annotation is:
 
