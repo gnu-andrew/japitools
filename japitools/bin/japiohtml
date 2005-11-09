@@ -474,7 +474,10 @@ sub readable_item($) {
     $class =~ s/\$/./g;
     $ritem .= ".$class";
   }
-  $ritem .= "." . readable_member($member) if $member;
+  if ($member) {
+    $ritem .= "." unless $member =~ /^\(/;
+    $ritem .= readable_member($member);
+  }
   return $ritem;
 }
 
