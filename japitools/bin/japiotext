@@ -25,7 +25,7 @@ $japiover = "0.9.2";
 @categories = ();
 @packages = ();
 # Would be nice not to hardcode this - maybe later...
-@things = ("package", "class", "interface", "field", "method", "constructor");
+@things = ("package", "class", "interface", "enum", "annotation", "field", "method", "constructor");
 
 $javatypes = {Z=>'boolean', B=>'byte', C=>'char', D=>'double', F=>'float',
                   I=>'int', J=>'long', S=>'short', V=>'void'};

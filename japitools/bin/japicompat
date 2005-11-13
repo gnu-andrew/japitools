@@ -913,7 +913,7 @@ sub merge_results($) {
         # classes, which should be reported regardless of whether their
         # superclass is missing too. It also doesn't apply to errors in
         # constructors, since they aren't inherited.
-        unless ((($isa eq 'class' || $isa eq 'interface') &&
+        unless ((($isa eq 'class' || $isa eq 'interface' || $isa eq 'enum' || $isa eq 'annotation') &&
                  $etype eq 'missing') ||
                 $isa eq 'constructor') {
           foreach my $sup (@sups) {
@@ -975,6 +975,8 @@ sub print_summary() {
   count_summary($sc, "#package");
   count_summary($sc, "#class");
   count_summary($sc, "#interface");
+  count_summary($sc, "#enum");
+  count_summary($sc, "#annotation");
   count_summary($sc, "#field");
   count_summary($sc, "#constructor");
   count_summary($sc, "#method");
