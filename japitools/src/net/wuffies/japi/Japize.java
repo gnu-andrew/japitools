@@ -708,14 +708,6 @@ public class Japize {
       // Iterate over the fields in the class.
       for (int i = 0; i < fields.length; i++) {
 
-        // Fields that are declared in a non-public superclass are not accessible.
-        // Skip them.
-        int dmods = fields[i].getDeclaringClass().getModifiers();
-        if (!Modifier.isPublic(dmods) && !Modifier.isProtected(dmods)) {
-          progress('>');
-          continue;
-        }
-
         // Get the modifiers and type of the field.
         mods = fields[i].getModifiers();
 
@@ -800,14 +792,6 @@ public class Japize {
 
       // Iterate over the methods and constructors in the class.
       for (int i = 0; i < calls.length; i++) {
-
-        // Methods that are declared in a non-public superclass are not
-        // publically accessible. Skip them.
-        int dmods = calls[i].getDeclaringClass().getModifiers();
-        if (!Modifier.isPublic(dmods) && !Modifier.isProtected(dmods)) {
-          progress('}');
-          continue;
-        }
 
         // Skip calls called <init> and <clinit>. Constructors are handled
         // with an empty method name, and class initializers are never part of
