@@ -29,7 +29,7 @@ $progdir = $1 if $prog =~ /^(.*)\/[^\/]+$/;
 
 sub printusage() {
   print STDERR <<EOF;
-Usage: $progname [unzip] [as <name>] apis <zipfile>|<dir> ... +|-<pkg> ...
+Usage: $progname [unzip] [as <name>] [lint <filename>] apis <zipfile>|<dir> ... +|-<pkg> ...
 At least one +pkg is required. 'name' will have .japi and/or .gz
 appended if appropriate.
 The word 'apis' can be replaced by 'explicitly', 'byname', 'packages' or
@@ -61,6 +61,7 @@ my $fn = "";
 my $zip = 1;
 do { shift @args; $zip = 0 } if @args[0] eq 'unzip';
 do { shift @args; $fn = shift @args } if @args[0] eq 'as';
+do { shift @args; shift @args } if @args[0] eq 'lint';
 printusage
   unless {explicitly=>1,apis=>1,byname=>1,packages=>1,classes=>1}->{@args[0]};
 shift @args;
