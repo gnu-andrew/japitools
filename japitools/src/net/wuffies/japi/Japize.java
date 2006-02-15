@@ -1139,7 +1139,10 @@ public class Japize {
       return false;
     }
     
-    if (!isEntirelyVisible(field.getDeclaringClass())) return false;
+    // This rule actually doesn't apply - fields declared in non-public
+    // superclasses actually are accessible.
+    //if (!isEntirelyVisible(field.getDeclaringClass())) return false;
+
     if (!isEntirelyVisible(field.getType())) {
       lintPrint("field " + field.getDeclaringClass().getName() + "." + field.getName() +
                 " has non-public type " + field.getType().getTypeSig(field.getDeclaringClass()));
@@ -1160,7 +1163,9 @@ public class Japize {
     if (!Modifier.isPublic(call.getModifiers()) && !Modifier.isProtected(call.getModifiers())) {
       return false;
     }
-    if (!isEntirelyVisible(call.getDeclaringClass()) || !paramsEntirelyVisible(call)) return false;
+    // The bit about the declaring class actually doesn't apply, because
+    // public members of non-public superclasses actually are accessible.
+    if (/*!isEntirelyVisible(call.getDeclaringClass()) ||*/ !paramsEntirelyVisible(call)) return false;
 
     boolean result = true;
     if (!isEntirelyVisible(call.getReturnType())) {
