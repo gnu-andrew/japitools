@@ -164,7 +164,7 @@ sub read_japi_item($$) {
       $line = $fh->getline;
     }
   } else {
-    while ($line && $line =~ /^[^ ]+\)-{1-2}/) {
+    while ($line && $line =~ /^[^ ]+\)-{1,2}/) {
       $line = $fh->getline;
     }
   }
