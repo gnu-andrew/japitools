@@ -290,6 +290,17 @@ used as an example under "Inclusion" above would get:
 ,Sub!foo(Ljava/lang/Object;)-
 ,Sub!foo(Ljava/lang/String;)+
 
+With the combination of covariance and generics it is possible to end up with
+two or more methods with exactly the same parameter types, differing only in
+return type. Only one of these methods can ever be applicable to a
+generics-aware compiler. When this happens, all the methods appear in the
+japi file; the methods that are *not* visible to a generics-aware compiler
+appearing first sorted by the erased type signature of the return type, and
+the method that *is* visible to a generics-aware compiler appearing last.
+In addition, all the methods visible to a non-generic compiler (ie, not
+gnoted with "+"), *except* the last such, get a double minus "--" instead of
+a single "-".
+
 The algorithm for determining exactly which methods should be annotated this
 way is complex and attempting to specify it here would almost certainly lead
 to simply enshrining bugs in the algorithm as spec requirements. The code of

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Japize - Output a machine-readable description of a Java API.
-// Copyright (C) 2000,2002,2003,2004  Stuart Ballard <stuart.a.ballard@gmail.com>
+// Copyright (C) 2000,2002,2003,2004,2005,2006  Stuart Ballard <stuart.a.ballard@gmail.com>
 // 
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -695,15 +695,9 @@ public class Japize {
       printEntry(entry, type, mods, c.isDeprecated(), false);
 
       // Get the class's members.
-      Map fieldMap = new HashMap();
-      Map callMap = new HashMap();
-      getFieldsAndCalls(c, null, fieldMap, callMap);
-      BoundField[] fields = new BoundField[fieldMap.size()];
-      fieldMap.values().toArray(fields);
-      Arrays.sort(fields);
-      BoundCall[] calls = new BoundCall[callMap.size()];
-      callMap.values().toArray(calls);
-      Arrays.sort(calls);
+      BoundMemberSet members = getFieldsAndCalls(c, null);
+      BoundField[] fields = members.getFields();
+      BoundCall[] calls = members.getCalls();
 
       // Iterate over the fields in the class.
       for (int i = 0; i < fields.length; i++) {
@@ -730,10 +724,25 @@ public class Japize {
           }
         }
 
+        // If the field is nonfinal and either public or static, the class it's declared
+        // in can affect the behavior of code that uses it. However, we don't want to
+        // expose nonpublic classes so we find the nearest public/protected class instead.
+        // FIXME: difficult outstanding bug here: A and B both extend (nonpublic) C,
+        // C has a static field f. A.f and B.f are the same field but with this
+        // algorithm you can't tell that. What to do, what to do?
         if (!Modifier.isFinal(fields[i].getModifiers()) &&
             (Modifier.isPublic(fields[i].getModifiers()) ||
              Modifier.isStatic(fields[i].getModifiers()))) {
-          type += '=' + fields[i].getDeclaringClass().getName();
+          ClassWrapper wrapper = c;
+          String declaringName = wrapper.getName();
+          while (!wrapper.equals(fields[i].getDeclaringClass())) {
+            wrapper = wrapper.getSuperclass().getWrapper();
+            if (Modifier.isPublic(wrapper.getModifiers()) ||
+                Modifier.isProtected(wrapper.getModifiers())) {
+              declaringName = wrapper.getName();
+            }
+          }
+          type += '=' + declaringName;
         }
 
         // A static, final field is a primitive constant if it is initialized to
@@ -796,6 +805,8 @@ public class Japize {
         // Skip calls called <init> and <clinit>. Constructors are handled
         // with an empty method name, and class initializers are never part of
         // the public API.
+        // This code is probably dead since I'm pretty sure ClassFile knows to
+        // give us these in the right form.
         if ("<init>".equals(calls[i].getName()) ||
             "<clinit>".equals(calls[i].getName())) {
           continue;
@@ -808,12 +819,14 @@ public class Japize {
         // say, "Object clone();" and thereby specify that implementors must
         // not throw CloneNotSupportedException from their clone method.
         // Surprisingly, Cloneable doesn't do this...)
-        if (c.isInterface()) {
-          if (objCalls.contains(getObjComparableString(calls[i]))) {
-            progress(';');
-            continue;
-          }
+        if (c.isInterface() &&
+            objCalls.contains(getObjComparableString(calls[i]))) {
+          progress(';');
+          continue;
         }
+
+        // Skip things that aren't entirely visible as defined below.
+        if (!isEntirelyVisible(calls[i])) continue;
 
         // Construct the name of the method, of the form Class!method(params).
         entry = classEntry + calls[i].getName() + "(";
@@ -824,10 +837,35 @@ public class Japize {
           comma = ",";
         }
         entry += ")";
-        if (calls[i].getExclude14()) {
+        if (!calls[i].isVisible14()) {
           entry += "+";
-        } else if (calls[i].getExclude15()) {
+        } else if (!calls[i].isVisible15()) {
           entry += "-";
+
+          // Find the next call that would be included. If it has the exact same
+          // nonGenericSig AND is visible14, we need a double-minus instead of a
+          // single one.
+          if (i < calls.length) {
+            for (int j = i + 1; j < calls.length; j++) {
+              if (!calls[j].getNonGenericSig().equals(calls[i].getNonGenericSig())) break;
+
+              // All the reasons we might skip an item above, we skip it here as well.
+              if ("<init>".equals(calls[j].getName()) ||
+                  "<clinit>".equals(calls[j].getName())) {
+                continue;
+              }
+              if (c.isInterface() &&
+                  objCalls.contains(getObjComparableString(calls[j]))) {
+                continue;
+              }
+              if (!isEntirelyVisible(calls[j])) continue;
+
+              if (calls[j].isVisible14()) {
+                entry += "-";
+                break;
+              }
+            }
+          }
         }
 
         // Construct the "type" field, of the form returnType*exception*except2...
@@ -862,9 +900,6 @@ public class Japize {
         if ("".equals(calls[i].getName())) {
           mmods &= ~Modifier.FINAL;
         }
-
-        // Skip things that aren't entirely visible as defined below.
-        if (!isEntirelyVisible(calls[i])) continue;
 
         // Print the japi entry for the method.
         printEntry(entry, type, mmods, calls[i].isDeprecated(), false);
@@ -911,81 +946,39 @@ public class Japize {
 
   /**
    * Load all the fields and calls for a particular class, taking inheritance into account.
-   * fieldMap and callMap will be maps from string to BoundField and BoundCall respectively.
-   * You can ignore the strings and just sort the values afterwards.
    */
-   // Plan to handle overriding:
-   // * BoundCall defines exclude15 and exclude14 fields and corresponding getters. Both default to false.
-   // * It's an exception to end up with both true :)
-   // * If bind() is called on an item with exclude15=true it returns this.
-   // * If bind() is called on an item with exclude14=true, exclude14 is true in the result.
-   // * The bind() method checks to see whether the nonGenericSig of its return value is different than its
-   //   own. If it is, its return value gets created with exclude14=true.
-   // * There's a new bind14() method which returns an exact clone of the BoundCall but with exclude15 set
-   //   and all generic information dropped - all type params replaced with their bounds etc. This probably
-   //   needs a new getNonGenericType() method on Type, which probably ought to be used in bindWithFallback().
-   //   BUT if bind14 is called on something that's exclude14 already, it returns null.
-   // * In the loop marked HERE below, where we're going through and binding all the calls, we look to see
-   //   whether the newly-bound method has exclude14 set. If it is, we create a new entry for the newly-bound
-   //   method (with the new nonGenericSig) and update the existing one to the result of bind14() on the
-   //   original (or drop the entry entirely if bind14() gives null).
-   // * When outputting, we output a "-" after anything with exclude15 and a "+" after anything with
-   //   exclude14.
-   // * Process bridge methods but create them with exclude15 right off the bat.
-   // NOTE: This algorithm does not handle methods that differ only in return value but are all present.
-   // BUT it seems likely that an algorithm like this will work for that situation. The trick is that
-   // when there *is* such a "confusion", we want getNonGenericTypeSig to include the return value for
-   // correct behavior. But for other cases we don't. Do we? Perhaps the existence of bridge methods to
-   // "mask out" the subclass versions as exclude15 might be enough here. But it is relying on the
-   // compiler to get that right...
-   // Perhaps getNonGenericSig on something that's exclude15 includes the return type? Not sure, at all.
-  private static void getFieldsAndCalls(ClassWrapper outer, ClassType ctype, Map fieldMap, Map callMap) {
-    ClassWrapper c = (ctype == null) ? outer : ctype.getWrapper();
-
+  private static BoundMemberSet getFieldsAndCalls(ClassWrapper outer, ClassType ctype) {
+    ClassWrapper c = (ctype != null ? ctype.getWrapper() : outer);
+    BoundMemberSet members = new BoundMemberSet();
     ClassType[] ifaces = c.getInterfaces();
     for (int i = 0; i < ifaces.length; i++) {
       ClassType iface = ifaces[i];
       if (ctype != null) iface = (ClassType) iface.bind(ctype);
-      getFieldsAndCalls(outer, iface, fieldMap, callMap);
+      members.bindAndAddAll(getFieldsAndCalls(outer, iface), ctype);
     }
     ClassType sup = c.getSuperclass();
     if (sup != null) {
       if (ctype != null) sup = (ClassType) sup.bind(ctype);
-      getFieldsAndCalls(outer, sup, fieldMap, callMap);
+      members.bindAndAddAll(getFieldsAndCalls(outer, sup), ctype);
     }
     FieldWrapper[] fields = c.getFields();
     for (int i = 0; i < fields.length; i++) {
-      fieldMap.put(fields[i].getName(), new BoundField(fields[i]));
+      members.bindAndAdd(new BoundField(fields[i]), ctype);
     }
     CallWrapper[] calls = c.getCalls();
     for (int i = 0; i < calls.length; i++) {
       BoundCall call = new BoundCall(calls[i], outer);
+
       if (ctype == null || call.isInheritable()) {
 
         // JDK15: handle bridge methods (the ACC_VOLATILE bit corresponds to the ACC_BRIDGE bit)
         // These get immediately bind14()d because they are only visible in the 1.4 view of the universe
         if (Modifier.isVolatile(calls[i].getModifiers())) call = call.bind14();
 
-        callMap.put(call.getNonGenericSig(), call);
+        members.bindAndAdd(call, ctype);
       }
     }
-    if (ctype != null) {
-      for (Iterator i = fieldMap.entrySet().iterator(); i.hasNext(); ) {
-        Map.Entry ent = (Map.Entry) i.next();
-        ent.setValue(((BoundField) ent.getValue()).bind(ctype));
-      }
-      for (Iterator i = new ArrayList(callMap.entrySet()).iterator(); i.hasNext(); ) {
-        Map.Entry ent = (Map.Entry) i.next();
-        String nonGenSig = (String) ent.getKey();
-        BoundCall call = (BoundCall) ent.getValue();
-        if (!call.getNonGenericSig().equals(nonGenSig)) throw new RuntimeException("unmatched sigs: " + nonGenSig + ", " + call.getNonGenericSig());
-        BoundCall boundCall = call.bind(ctype);
-        if (boundCall.getExclude14() && !call.getExclude14()) {
-          callMap.put(nonGenSig, call.bind14());
-        }
-        callMap.put(boundCall.getNonGenericSig(), boundCall);
-      }
-    }
+    return members;
   }
 
   /**
@@ -1131,17 +1124,13 @@ public class Japize {
 
   /**
    * Determine whether a field is entirely visible. If it's not then it should be skipped.
-   * A field is entirely visible if it is itself public or protected, its declaring class
-   * is entirely visible and its type is entirely visible.
+   * A field is entirely visible if it is itself public or protected and its type is
+   * entirely visible.
    */
   static boolean isEntirelyVisible(FieldWrapper field) {
     if (!Modifier.isPublic(field.getModifiers()) && !Modifier.isProtected(field.getModifiers())) {
       return false;
     }
-    
-    // This rule actually doesn't apply - fields declared in non-public
-    // superclasses actually are accessible.
-    //if (!isEntirelyVisible(field.getDeclaringClass())) return false;
 
     if (!isEntirelyVisible(field.getType())) {
       lintPrint("field " + field.getDeclaringClass().getName() + "." + field.getName() +
@@ -1154,18 +1143,15 @@ public class Japize {
   /**
    * Determine whether a method or constructor is entirely visible. If it's not then it
    * should be skipped.
-   * A call is entirely visible if its declaring class is entirely visible, its
-   * return type is entirely visible, all of its parameter types are entirely
-   * visible, all of its thrown exception types are entirely visible, and all the
-   * bounds of its type parameters are entirely visible.
+   * A call is entirely visible if its return type is entirely visible, all of its
+   * parameter types are entirely visible, all of its thrown exception types are
+   * entirely visible, and all the bounds of its type parameters are entirely visible.
    */
   static boolean isEntirelyVisible(CallWrapper call) {
     if (!Modifier.isPublic(call.getModifiers()) && !Modifier.isProtected(call.getModifiers())) {
       return false;
     }
-    // The bit about the declaring class actually doesn't apply, because
-    // public members of non-public superclasses actually are accessible.
-    if (/*!isEntirelyVisible(call.getDeclaringClass()) ||*/ !paramsEntirelyVisible(call)) return false;
+    if (!paramsEntirelyVisible(call)) return false;
 
     boolean result = true;
     if (!isEntirelyVisible(call.getReturnType())) {

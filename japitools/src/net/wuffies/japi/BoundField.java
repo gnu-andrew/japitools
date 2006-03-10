@@ -36,6 +36,7 @@ class BoundField implements FieldWrapper, Comparable {
   }
 
   public BoundField bind(ClassType t) {
+    if (t == null) return this;
     return new BoundField(base, type.bindWithFallback(t));
   }
 

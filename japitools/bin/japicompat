@@ -154,9 +154,9 @@ sub read_japi_item($$) {
   my $fh = $japi->{fh};
   my $line = $fh->getline;
 
-  # Ignore "-" annotated methods unless -4 was specified in which case ignore
+  # Ignore "-" or "--" annotated methods unless -4 was specified in which case ignore
   # "+" ones.
-  if ($line && $refusegen && $line =~ /^[^ ]+\)[+-] /) {
+  if ($line && $refusegen && $line =~ /^[^ ]+\)[+-]{1,2} /) {
     die "Cannot use 1.4-compatible mode when $japi->{name} contains 1.5-only items";
   }
   if ($nongen) {
@@ -164,7 +164,7 @@ sub read_japi_item($$) {
       $line = $fh->getline;
     }
   } else {
-    while ($line && $line =~ /^[^ ]+\)- /) {
+    while ($line && $line =~ /^[^ ]+\)-{1-2}/) {
       $line = $fh->getline;
     }
   }
@@ -174,8 +174,12 @@ sub read_japi_item($$) {
   # Parse and interpret the entry.
   my ($item, $flags, $type) = split / /, $line, 3;
 
+  # If the item was "--" annotated, store that fact, it affects processing later
+  my $duplicate = 0;
+  $duplicate = 1 if $item =~ /\)--$/;
+
   # Strip off the "+" or "-" annotation.
-  $item =~ s/\)[+-]$/\)/;
+  $item =~ s/\)[+-]{1,2}$/\)/;
 
   my $rawitem = $item;
 
@@ -232,6 +236,7 @@ EOF
   $mitem->{enumfield} = ($final eq 'e' || 0);
   $mitem->{deprecated} = ($deprecated eq 'd' ? 1 :
                           $deprecated eq 'u' ? 0 : undef);
+  $mitem->{duplicate} = $duplicate;
 
   # Store information about the containing class
   if ($member ne "") {
@@ -353,8 +358,12 @@ EOF
   $mitem->{rawitem} = $rawitem;
 
   die "\nIncorrect ordering of $japi->{name}:\n$japi->{last_item} >=\n$item"
-    if defined($japi->{last_item}) && $japi->{last_item} ge $rawitem;
+    if defined($japi->{last_item}) &&
+      ($japi->{last_item} gt $rawitem || 
+       ($japi->{last_item} eq $rawitem && !$japi->{last_was_dup}));
+
   $japi->{last_item} = $rawitem;
+  $japi->{last_was_dup} = $duplicate;
 
   return $mitem;
 }
@@ -584,6 +593,19 @@ sub compare_japis($$) {
                    "", "missing", $ecount);
     } else {
       $nclitem = $nitem if $isnewclass;
+
+      # If we're in 1.4-compatible mode and the "new" item is marked as a
+      # duplicate, and the erasure of the return types don't match, we
+      # read on to the next item.
+      # Note that if we're in 1.4-compatible mode we don't need to
+      # sanitize $oitem->{type} because the orig file isn't allowed to
+      # contain generics when we're comparing that way.
+      while ($nongen && $nitem->{duplicate} &&
+             sanitize_typesig($nitem->{type}, $nitem) ne $oitem->{type}) {
+        $nitem = read_japi_item($new, 0);
+      }
+
+      # Otherwise, we just do a straight one-to-one comparison of the items.
       inc($c, $pkg, $oitem->{isa}, "good")
         unless compare_japi_item($oitem, $nitem, $oclitem, $c);
       $oitem = read_japi_item($orig, $nongen);
