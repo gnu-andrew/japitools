@@ -59,17 +59,16 @@ sub gentypestr($);
 ## MAIN LOOP ##
 
 # Parse cmdline and give a usage message.
-getopts("svqhtjw4o:i:", \%opts);
+getopts("svqhtjwo:i:", \%opts);
 my $sun_only = 1 if $opts{"s"};
 my $svuid_errors = 1 if $opts{"v"};
 my $buggywarn = 1 unless $opts{"w"};
 my $dot = $opts{"q"} ? "" : ".";
 my $outprog = $opts{"h"} ? "japiohtml" : $opts{"j"} ? undef : "japiotext";
-my $nongen = 1 if $opts{"4"};
 my $ignorefile = $opts{"i"};
 my ($origfile, $newfile) = @ARGV;
 if (!defined $newfile) {
-  print STDERR "Usage: japicompat [-svqhtjw4] [-o outfile] [-i ignorefiles,commaseparated] <original api> <api to check>\n";
+  print STDERR "Usage: japicompat [-svqhtjw] [-o outfile] [-i ignorefiles,commaseparated] <original api> <api to check>\n";
   exit 1;
 }
 
@@ -150,20 +149,12 @@ EOF
 }
 
 sub read_japi_item($$) {
-  my ($japi, $refusegen) = @_;
+  my ($japi, $is_lhs) = @_;
   my $fh = $japi->{fh};
   my $line = $fh->getline;
 
-  # Ignore "-" or "--" annotated methods unless -4 was specified in which case ignore
-  # "+" ones.
-  if ($line && $refusegen && $line =~ /^[^ ]+\)[+-]{1,2} /) {
-    die "Cannot use 1.4-compatible mode when $japi->{name} contains 1.5-only items";
-  }
-  if ($nongen) {
-    while ($line && $line =~ /^[^ ]+\)\+ /) {
-      $line = $fh->getline;
-    }
-  } else {
+  # Ignore "-" or "--" annotated methods on the LHS
+  if ($is_lhs) {
     while ($line && $line =~ /^[^ ]+\)-{1,2}/) {
       $line = $fh->getline;
     }
@@ -177,6 +168,10 @@ sub read_japi_item($$) {
   # If the item was "--" annotated, store that fact, it affects processing later
   my $duplicate = 0;
   $duplicate = 1 if $item =~ /\)--$/;
+  my $bridge = 0;
+  $bridge = 1 if $item =~ /\)-$/ || $duplicate;
+  my $nobridge = 0;
+  $nobridge = 1 if $item =~ /\)\+$/;
 
   # Strip off the "+" or "-" annotation.
   $item =~ s/\)[+-]{1,2}$/\)/;
@@ -200,9 +195,6 @@ sub read_japi_item($$) {
            $type =~ /^enum/ ? "enum" :
            $type =~ /^annotation/ ? "annotation" :
            die "\nUnknown kind of Type: $type";
-    if ($refusegen && ($isa eq "enum" || $isa eq "annotation")) {
-      die "Cannot use 1.4-compatible mode when $japi->{name} contains 1.5-only items";
-    }
   } elsif ($member =~ /^\(.*\)$/) {
     $isa = "constructor";
   } elsif ($member =~ /\(.*\)$/) {
@@ -237,6 +229,8 @@ EOF
   $mitem->{deprecated} = ($deprecated eq 'd' ? 1 :
                           $deprecated eq 'u' ? 0 : undef);
   $mitem->{duplicate} = $duplicate;
+  $mitem->{bridge} = $bridge;
+  $mitem->{nobridge} = $nobridge;
 
   # Store information about the containing class
   if ($member ne "") {
@@ -286,8 +280,6 @@ EOF
     my $genericparams;
     ($type, $genericparams) = ($1, $2) if $type =~ /^([^<>]+)<(.+)>$/;
     if (defined $genericparams) {
-      die "Cannot use 1.4-compatible mode when $japi->{name} contains 1.5-only items"
-        if $refusegen;
       $mitem->{gparamstr} = $genericparams;
       $mitem->{genericparams} = [];
       my $ct = 0;
@@ -311,8 +303,6 @@ EOF
     my $genericparams;
     ($genericparams, $type) = ($1, $2) if $type =~ /<(.*?)>([^>,;].*)?$/;
     if (defined $genericparams) {
-      die "Cannot use 1.4-compatible mode when $japi->{name} contains 1.5-only items"
-        if $refusegen;
       $mitem->{gparamstr} = $genericparams;
       $mitem->{genericparams} = [];
       my $ct = 0;
@@ -352,9 +342,6 @@ EOF
 
   # Ensure that this item is correctly ordered.
   $rawitem =~ s/\Q$mitem->{gmember}\E/$mitem->{member}/ if $mitem->{gmember};
-  if ($refusegen && $rawitem ne $mitem->{rawitem}) {
-    die "Cannot use 1.4-compatible mode when $japi->{name} contains 1.5-only items";
-  }
   $mitem->{rawitem} = $rawitem;
 
   die "\nIncorrect ordering of $japi->{name}:\n$japi->{last_item} >=\n$item"
@@ -521,7 +508,7 @@ sub compare_japis($$) {
   my $pkg = "";
   my $class = "";
   my $c = {}; # counts
-  my $oitem = read_japi_item($orig, $nongen);
+  my $oitem = read_japi_item($orig, 1);
   my $nitem = read_japi_item($new, 0);
   my $class_has_ctors = 0;
   my ($oclitem, $nclitem);
@@ -570,7 +557,7 @@ sub compare_japis($$) {
         $eitem->{class} = "";
         $eitem->{item} = "$pkg,!";
         while (defined $oitem && $oitem->{package} eq $pkg) {
-          $oitem = read_japi_item($orig, $nongen);
+          $oitem = read_japi_item($orig, 1);
           if (defined $oitem && $oitem->{package} eq $pkg) {
             inc($c, $pkg, $oitem->{isa}, "total");
             $ecount++;
@@ -579,7 +566,7 @@ sub compare_japis($$) {
       } elsif ($isnewclass) {
         while (defined $oitem && $oitem->{package} eq $pkg &&
                $oitem->{class} eq $class) {
-          $oitem = read_japi_item($orig, $nongen);
+          $oitem = read_japi_item($orig, 1);
           if (defined $oitem && $oitem->{package} eq $pkg &&
               $oitem->{class} eq $class) {
             inc($c, $pkg, $oitem->{isa}, "total");
@@ -587,28 +574,26 @@ sub compare_japis($$) {
           }
         }
       } else {
-        $oitem = read_japi_item($orig, $nongen);
+        $oitem = read_japi_item($orig, 1);
       }
       output_error($eitem, undef, $oclitem, $c, "missing",
                    "", "missing", $ecount);
     } else {
       $nclitem = $nitem if $isnewclass;
 
-      # If we're in 1.4-compatible mode and the "new" item is marked as a
+      # If the orig item is non-generic (sanitize of the method doesn't have
+      # any effect) and the "new" item is marked as a
       # duplicate, and the erasure of the return types don't match, we
       # read on to the next item.
-      # Note that if we're in 1.4-compatible mode we don't need to
-      # sanitize $oitem->{type} because the orig file isn't allowed to
-      # contain generics when we're comparing that way.
-      while ($nongen && $nitem->{duplicate} &&
-             sanitize_typesig($nitem->{type}, $nitem) ne $oitem->{type}) {
+      while ($nitem->{duplicate} && $oitem->{gmember} eq $oitem->{member} &&
+             sanitize_typesig($nitem->{type}, $nitem) ne sanitize_typesig($oitem->{type}, $oitem)) {
         $nitem = read_japi_item($new, 0);
       }
 
       # Otherwise, we just do a straight one-to-one comparison of the items.
       inc($c, $pkg, $oitem->{isa}, "good")
         unless compare_japi_item($oitem, $nitem, $oclitem, $c);
-      $oitem = read_japi_item($orig, $nongen);
+      $oitem = read_japi_item($orig, 1);
     }
   }
 
@@ -643,12 +628,8 @@ sub compare_japi_item($$$$) {
 
   # Check that the item hasn't gone from class to interface, annotation to
   # class etc.
-  # OPENQ: we treat it as legal for a class to turn into an enum, and an
-  # interface to turn into an annotation. Should it be?
   if ($oitem->{isa} ne $nitem->{isa}) {
     if ($oitem->{isa} eq "class" && $nitem->{isa} eq "enum") {
-      # Do nothing, we're treating this as legal.
-    } elsif ($oitem->{isa} eq "interface" && $nitem->{isa} eq "annotation") {
       # Do nothing, we're treating this as legal.
     } else {
       output_error($oitem, $nitem, $oclitem, $c, "bad",
@@ -783,6 +764,13 @@ sub compare_japi_item($$$$) {
         output_error($oitem, $nitem, $oclitem, $c, "bad",
                      "doesn't throw $excp", "throws $excp");
       }
+    }
+
+    # Check that if the original was a "real" method, the new one is at least
+    # a bridge.
+    if ($nitem->{nobridge} && !$oitem->{nobridge}) {
+      output_error($oitem, $nitem, $oclitem, $c, "bad",
+                   "", "no bridge method");
     }
 
     # Check the default value if applicable

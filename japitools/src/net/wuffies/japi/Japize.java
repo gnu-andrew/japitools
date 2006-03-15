@@ -843,7 +843,7 @@ public class Japize {
           entry += "-";
 
           // Find the next call that would be included. If it has the exact same
-          // nonGenericSig AND is visible14, we need a double-minus instead of a
+          // nonGenericSig, we need a double-minus instead of a
           // single one.
           if (i < calls.length) {
             for (int j = i + 1; j < calls.length; j++) {
@@ -860,10 +860,8 @@ public class Japize {
               }
               if (!isEntirelyVisible(calls[j])) continue;
 
-              if (calls[j].isVisible14()) {
-                entry += "-";
-                break;
-              }
+              entry += "-";
+              break;
             }
           }
         }
