@@ -1015,6 +1015,7 @@ sub sanitize_typesig($$) {
     }
     $str =~ s/\@([0-9]+)/$gparams->[$1]/g;
   }
+  $str =~ s/&.*$//;
   #print "\n${lastsanitized}Sub: $str with gparams=@$gparams\n" if $str =~ /\@[0-9]/;
   return $str;
 }

@@ -325,7 +325,9 @@ not to reflect what's really visible to the two different kinds of compiler.
   set as such.
 
 - The fifth character is either "d" for deprecated, "u" for undeprecated, or
-  "?" if the deprecation status is unknown.
+  "?" if the deprecation status is unknown. Members of a deprecated type are
+  considered deprecated; inner classes of a deprecated type are not, unless
+  explicitly marked so. This is modeled after the logic that javadoc uses.
 
 <typeinfo> is a catch-all for general information about the item. What exactly
 appears here depends on what type of item this is.

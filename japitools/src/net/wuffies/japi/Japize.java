@@ -796,7 +796,7 @@ public class Japize {
 
         // Output the japi entry for the field.
         printEntry(classEntry + "#" + fields[i].getName(), type, mods,
-                   fields[i].isDeprecated(), fields[i].isEnumField());
+                   fields[i].isDeprecated() || c.isDeprecated(), fields[i].isEnumField());
       }
 
       // Iterate over the methods and constructors in the class.
@@ -900,7 +900,7 @@ public class Japize {
         }
 
         // Print the japi entry for the method.
-        printEntry(entry, type, mmods, calls[i].isDeprecated(), false);
+        printEntry(entry, type, mmods, calls[i].isDeprecated() || c.isDeprecated(), false);
       }
 
       // Return true because we did parse this class.
