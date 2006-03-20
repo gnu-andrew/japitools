@@ -692,7 +692,7 @@ public class Japize {
       if (!isEntirelyVisible(c)) return false;
 
       // Print out the japi entry for the class itself.
-      printEntry(entry, type, mods, c.isDeprecated(), false);
+      printEntry(entry, type, mods, c.isDeprecated(), false, false);
 
       // Get the class's members.
       BoundMemberSet members = getFieldsAndCalls(c, null);
@@ -796,7 +796,7 @@ public class Japize {
 
         // Output the japi entry for the field.
         printEntry(classEntry + "#" + fields[i].getName(), type, mods,
-                   fields[i].isDeprecated() || c.isDeprecated(), fields[i].isEnumField());
+                   fields[i].isDeprecated() || c.isDeprecated(), fields[i].isEnumField(), false);
       }
 
       // Iterate over the methods and constructors in the class.
@@ -874,9 +874,15 @@ public class Japize {
 
         Type rtnType = calls[i].getReturnType();
         type += (rtnType == null) ? "constructor" : rtnType.getTypeSig(calls[i]);
+
+        boolean isStub = false;
         NonArrayRefType[] excps = calls[i].getExceptionTypes();
         for (int j = 0; j < excps.length; j++) {
           if (includeException(excps, j)) type += "*" + excps[j].getJavaRepr(calls[i]);
+          if (excps[j] instanceof ClassType &&
+              ((ClassType) excps[j]).getName().endsWith(".NotImplementedException")) {
+            isStub = true;
+          }
         }
 
         // Get the modifiers for this method. Methods of interfaces are
@@ -900,7 +906,7 @@ public class Japize {
         }
 
         // Print the japi entry for the method.
-        printEntry(entry, type, mmods, calls[i].isDeprecated() || c.isDeprecated(), false);
+        printEntry(entry, type, mmods, calls[i].isDeprecated() || c.isDeprecated(), false, isStub);
       }
 
       // Return true because we did parse this class.
@@ -1013,19 +1019,24 @@ public class Japize {
    * with 3 fields - the name of the "thing", the modifiers, and the type
    * (which generally includes more information than *just* the type; see the
    * implementation of japizeClass for what actually gets passed in here).
-   * The modifiers are represented as a four-letter string consisting of 1
+   * The modifiers are represented as a six-letter string consisting of 1
    * character each for the accessibility ([P]ublic or [p]rotected), the
    * abstractness ([a]bstract or [c]oncrete), the staticness ([s]tatic or
-   * [i]nstance) and the finalness ([f]inal or [n]onfinal).
+   * [i]nstance), the finalness ([f]inal or [n]onfinal, or [e]num field),
+   * the deprecatedness ([d]eprecated or [u]ndeprecated) and whether the
+   * method is a [S]tub or [r]eal.
    *
    * @param thing The name of the "thing" (eg class, field, etc) to print.
    * @param type The contents of the "type" field.
    * @param mods The modifiers of the thing, as returned by {Class, Field,
    * Method, Constructor}.getModifiers().
    * @param deprecated Whether the thing is deprecated.
+   * @param enumField Whether the field is an enum field.
+   * @param stub Whether the method is a stub.
    */
   public static void printEntry(String thing, String type, int mods,
-                                boolean deprecated, boolean enumField) {
+                                boolean deprecated, boolean enumField,
+                                boolean stub) {
     if (!Modifier.isPublic(mods) && !Modifier.isProtected(mods)) return;
     if (thing.startsWith("java.lang,Object!")) out.print('+');
     if (thing.startsWith("java.lang,") ||
@@ -1037,6 +1048,7 @@ public class Japize {
     out.print(Modifier.isStatic(mods) ? 's' : 'i');
     out.print(enumField ? 'e' : Modifier.isFinal(mods) ? 'f' : 'n');
     out.print(deprecated ? 'd' : 'u');
+    out.print(stub ? 'S' : 'r');
     out.print(' ');
     out.println(type);
   }

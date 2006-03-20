@@ -220,7 +220,7 @@ EOF
   $mitem->{class} = $class;
   $mitem->{package} = $pkg;
   $mitem->{gmember} = $member;
-  my ($public, $abstract, $static, $final, $deprecated) = split //, $flags;
+  my ($public, $abstract, $static, $final, $deprecated, $stub) = split //, $flags;
   $mitem->{public} = ($public eq 'P' || 0);
   $mitem->{abstract} = ($abstract eq 'a' || 0);
   $mitem->{static} = ($static eq 's' || 0);
@@ -228,6 +228,7 @@ EOF
   $mitem->{enumfield} = ($final eq 'e' || 0);
   $mitem->{deprecated} = ($deprecated eq 'd' ? 1 :
                           $deprecated eq 'u' ? 0 : undef);
+  $mitem->{stub} = ($stub eq 'S' || 0);
   $mitem->{duplicate} = $duplicate;
   $mitem->{bridge} = $bridge;
   $mitem->{nobridge} = $nobridge;
@@ -377,7 +378,6 @@ sub mootinc($$$$$;$) {
 
 sub output_error($$$$$$$;$) {
   my ($oitem, $nitem, $oclitem, $c, $etype, $was, $is, $count) = (@_, 1);
-  print STDERR "Warning: output_error call unconverted ($was)\n" if $is =~ /^[0-9]+$/;
   my ($supct, $sups);
   if ($oitem->{isa} eq "package") {
     $supct = 0;
@@ -625,6 +625,11 @@ sub compare_japi_item($$$$) {
 
   my $isa = $oitem->{isa};
   my $member = $oitem->{member};
+
+  if (!$oitem->{stub} && $nitem->{stub}) {
+    output_error($oitem, $nitem, $oclitem, $c, "missing",
+                 "", "not implemented");
+  }
 
   # Check that the item hasn't gone from class to interface, annotation to
   # class etc.
