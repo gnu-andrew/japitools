@@ -35,7 +35,7 @@ goto SKIP_TOOLS
 
 set JAVA=%JAVA_HOME%\bin\java
 
-if exist "%JAVA_HOME%\bin\java" goto SKIP_TOOLS
+if exist "%JAVA_HOME%\bin\java.exe" goto SKIP_TOOLS
 echo Could not locate %JAVA_HOME%\bin\java. Unexpected results may occur.
 echo Make sure that JAVA_HOME points to a compatible JVM installation.
 
