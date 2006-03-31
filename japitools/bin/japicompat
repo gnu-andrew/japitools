@@ -475,6 +475,30 @@ sub dump_output($) {
       print OUT "notify Warning: $newsname API was read by a version of japitools that contained known bugs that cause inaccuracies in the output.\n";
     }
   }
+  if ($orig->{"noserial"}) {
+    my @serialexc = split /;/, $orig->{"noserial"};
+    foreach my $exc (@serialexc) {
+      if ($exc =~ /,$/) {
+        $exc =~ s/,//;
+        print out "notify Serialization compatibility of classes in $exc and subpackages, and their subclasses, has not been checked.\n";
+      } else {
+        $exc =~ s/,//;
+        print out "notify Serialization compatibility of $exc and its subclasses has not been checked.\n";
+      }
+    }
+    if ($orig->{"serial"}) {
+      my @serialinc = split /;/, $orig->{"serial"};
+      foreach my $inc (@serialinc) {
+        if ($inc =~ /,$/) {
+          $inc =~ s/,//;
+          print out "notify Serialization compatibility of classes in $inc and subpackages HAS been checked unless they're subclasses of a class mentioned above.\n";
+        } else {
+          $inc =~ s/,//;
+          print out "notify Serialization compatibility of $inc HAS been checked unless it's a subclass of a class mentioned above.\n";
+        }
+      }
+    }
+  }
   print OUT "categories =good ";
   print OUT "=mi_nor " if $svuid_errors;
   print OUT "bad missing";

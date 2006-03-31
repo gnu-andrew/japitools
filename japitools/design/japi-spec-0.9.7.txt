@@ -255,6 +255,12 @@ following names and values are permitted:
 date=yyyy/mm/dd_hh:mm:ss_TZ
 creator=<toolname>
 origver=<original japi file version that this was updated from>
+noserial=<any packages or classes whose serialVersionUIDs have been skipped>
+serial=<any subpackages or classes whose serialVersionUIDs have been included
+        despite being in "noserial">
+
+The format of the last two items is a semicolon-separated list with packages
+represented as "pkg.name," and classes as "pkg.name,ClassName".
 
 
 File Format: API Items
@@ -306,7 +312,7 @@ to simply enshrining bugs in the algorithm as spec requirements. The code of
 Japize gives one possible implementation, but it will be fixed if it turns out
 not to reflect what's really visible to the two different kinds of compiler.
 
-<modifiers> is a five-character string indicating the modifiers of the item:
+<modifiers> is a six-character string indicating the modifiers of the item:
 
 - The first character is either "P" for public or "p" for protected.
   Package-private (default access) and private items do not appear in japi
@@ -328,6 +334,18 @@ not to reflect what's really visible to the two different kinds of compiler.
   "?" if the deprecation status is unknown. Members of a deprecated type are
   considered deprecated; inner classes of a deprecated type are not, unless
   explicitly marked so. This is modeled after the logic that javadoc uses.
+
+- The sixth character is either "S" for stub or "r" for real. This requires a
+  little background. When implementing an API it is sometimes desirable or
+  necessary to create placeholder implementations of some methods, either to
+  allow programs to compile (if they use that method in a codepath that will
+  not actually be invoked at runtime, for example) or to provide a starting
+  point for implementation. Normally japitools would simply report that such
+  methods are present and correct, even though a human could easily tell that
+  they do nothing useful. If a convention for identifying such stubs is
+  established, they may be marked with "S" in this field. Japize, for example,
+  will mark a method as a stub if it contains a "NotImplementedException" in
+  its throws clause.
 
 <typeinfo> is a catch-all for general information about the item. What exactly
 appears here depends on what type of item this is.
@@ -367,7 +385,8 @@ appears here depends on what type of item this is.
   of "class", and the SerialVersionUID and superclasses are not applicable.
 
 - For enums, the format is identical to that of classes except that "enum"
-  appears instead of "class".
+  appears instead of "class", and the serialVersionUID is never included because
+  the enum serialization standard does not require one.
 
 - For annotations, the format is identical to that of interfaces except that
   "annotation" appears instead of "interface".

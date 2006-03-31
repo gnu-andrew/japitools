@@ -48,7 +48,7 @@ import java.util.Date;
 /**
  * Process a Java API and emit a machine-readable description of the API,
  * suitable for comparison to other APIs. Specifically, the perl script
- * japicompat.pl can test APIs for source/binary compatibility with each other.
+ * japicompat can test APIs for source/binary compatibility with each other.
  *
  * @author Stuart Ballard &lt;<a href="mailto:stuart.a.ballard@gmail.com">stuart.a.ballard@gmail.com</a>&gt;
  */
@@ -68,6 +68,18 @@ public class Japize {
    * The packages to exclude.
    */
   private static SortedSet exclusions = new TreeSet();
+
+  /**
+   * Classes and packages to exclude from serialization
+   */
+  private static SortedSet serialExclusions = new TreeSet();
+
+  /**
+   * Classes and packages that would otherwise be excluded from serialization
+   * that shouldn't be. Also includes "," representing the root package to
+   * ensure that serialization defaults to included.
+   */
+  private static SortedSet serialRoots = new TreeSet(new String[] {","});
 
   /**
    * The output writer to write results to.
@@ -146,7 +158,13 @@ public class Japize {
         char first = args[i].charAt(0);
         String pkgpath = args[i].substring(1);
         if (first == '+' || first == '-') {
-          SortedSet setToAddTo = first == '+' ? roots : exclusions;
+          SortedSet setToAddTo;
+          if (pkgpath.endsWith(":serial")) {
+            setToAddTo = first == '+' ? serialRoots : serialExclusions;
+            pkgpath = pkgpath.substring(0, pkgpath.lastIndexOf(':'));
+          } else {
+            setToAddTo = first == '+' ? roots : exclusions;
+          }
 
           // First identify *whether* it's ambiguous - and whether it's legal.
           int commapos = pkgpath.indexOf(',');
@@ -298,8 +316,30 @@ public class Japize {
     // Print the header identifier. The syntax is "%%japi ver anything".
     // The "anything" is currently used for name/value pairs indicating the
     // creation date and creation tool.
-    out.println("%%japi 0.9.7 creator=japize date=" +
+    out.print("%%japi 0.9.7 creator=japize date=" +
         new SimpleDateFormat("yyyy/MM/dd_hh:mm:ss_z").format(new Date()));
+    if (!serialExclusions.isEmpty()) {
+      out.print(" noserial=");
+      boolean first = true;
+      for (Iterator i = serialExclusions.iterator(); i.hasNext(); ) {
+        if (!first) out.print(";");
+        first = false;
+        out.print(i.next());
+      }
+      if (serialRoots.size() > 1) {
+        out.print(" serial=");
+        first = true;
+        for (Iterator i = serialRoots.iterator(); i.hasNext(); ) {
+          String root = i.next();
+          if (!",".equals(root)) {
+            if (!first) out.print(";");
+            first = false;
+            out.print(root);
+          }
+        }
+      }
+    }
+    out.println();
 
     // Identify whether java.lang,Object fits into our list of things to
     // process. If it does, process it first, then add it to the list of
@@ -323,18 +363,9 @@ public class Japize {
     }
     
     // Remove all roots that are subpackages of java.lang.
-    for (Iterator i = new TreeSet(langRoots).iterator(); i.hasNext(); ) {
-      roots.remove(i.next());
+    for (Iterator i = langRoots.iterator(); i.hasNext(); ) {
+      i.remove();
     }
-    // Note that the following code would be more efficient but requires
-    // a fully-functional subSet() implementation. Doing it this way allows
-    // for the possibility of a hacky partial subSet() implementation, which
-    // could allow japize to run on Kaffe or Classpath. When they both get
-    // full subSet implementations, this should be changed to the more
-    // efficient code).
-//  for (Iterator i = langRoots.iterator(); i.hasNext(); ) {
-//    i.next(); i.remove();
-//  }
 
     jlObjectWrapper = getClassWrapper(J_L_OBJECT.replace(',', '.'));
     CallWrapper[] calls = jlObjectWrapper.getCalls();
@@ -660,7 +691,7 @@ public class Japize {
         // output as well. The separation by the '#' character from the rest
         // of the type string has mnemonic value for Brits, as the SVUID is a
         // special sort of 'hash' of the class.
-        if (c.isSerializable()) {
+        if (c.isSerializable() && !c.isEnum() && serialIncluded(c)) {
           Long svuid = c.getSerialVersionUID();
           if (svuid == null) lintPrint(c.getName() + " has a blank final serialVersionUID");
           type += "#" + svuid;
@@ -1236,6 +1267,20 @@ public class Japize {
    * @return true if the class should be included, false if not.
    */
   public static boolean checkIncluded(String cname) {
+    return checkIncluded(cname, roots, exclusions);
+  }
+  public static boolean serialIncluded(String cname) {
+    return checkIncluded(cname, serialRoots, serialExclusions);
+  }
+  public static boolean serialIncluded(ClassWrapper c) {
+    if (!serialIncluded(toClassRoot(c.getName()))) return false;
+
+    ClassType supt = c.getSuperclass();
+    if (supt != null && !serialIncluded(supt.getWrapper())) return false;
+
+    return true;
+  }
+  public static boolean checkIncluded(String cname, Set roots, Set exclusions) {
 
     if (roots.contains(cname)) return true;
     if (exclusions.contains(cname)) return false;
