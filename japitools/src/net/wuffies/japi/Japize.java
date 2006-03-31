@@ -28,6 +28,8 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.SortedSet;
+import java.util.Set;
+import java.util.Arrays;
 import java.util.TreeSet;
 import java.util.HashSet;
 import java.util.Map;
@@ -79,7 +81,7 @@ public class Japize {
    * that shouldn't be. Also includes "," representing the root package to
    * ensure that serialization defaults to included.
    */
-  private static SortedSet serialRoots = new TreeSet(new String[] {","});
+  private static SortedSet serialRoots = new TreeSet(Arrays.asList(new String[] {","}));
 
   /**
    * The output writer to write results to.
@@ -330,7 +332,7 @@ public class Japize {
         out.print(" serial=");
         first = true;
         for (Iterator i = serialRoots.iterator(); i.hasNext(); ) {
-          String root = i.next();
+          String root = (String) i.next();
           if (!",".equals(root)) {
             if (!first) out.print(";");
             first = false;
