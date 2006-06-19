@@ -511,20 +511,22 @@ public class Japize {
 
     // Iterate over the files and directories within this directory.
     String[] entries = dir.list();
-    for (int i = 0; i < entries.length; i++) {
-      File f2 = new File(dir, entries[i]);
+    if (entries != null) {
+      for (int i = 0; i < entries.length; i++) {
+        File f2 = new File(dir, entries[i]);
 
-      // If the entry is another directory, add the package associated with
-      // it to the set of subpackages.
-      // "-" entry for it.
-      if (f2.isDirectory()) {
-        subpkgs.add(pkg + '.' + entries[i] + ',');
+        // If the entry is another directory, add the package associated with
+        // it to the set of subpackages.
+        // "-" entry for it.
+        if (f2.isDirectory()) {
+          subpkgs.add(pkg + '.' + entries[i] + ',');
 
-      // If the entry is a file ending with ".class", add the class name to
-      // the set of classes.
-      } else if (entries[i].endsWith(".class")) {
-        classes.add(pkg + ',' +
-            entries[i].substring(0, entries[i].length() - 6));
+        // If the entry is a file ending with ".class", add the class name to
+        // the set of classes.
+        } else if (entries[i].endsWith(".class")) {
+          classes.add(pkg + ',' +
+              entries[i].substring(0, entries[i].length() - 6));
+        }
       }
     }
   }
