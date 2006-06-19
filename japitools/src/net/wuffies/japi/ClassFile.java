@@ -778,7 +778,7 @@ public class ClassFile implements ClassWrapper
                 }
                 container = container.getContainingWrapper();
             } while (container != null);
-            throw new ClassFormatError("TypeParameter '" + name + "' does not exist");
+            throw new ClassFormatError("TypeParameter '" + name + "' does not exist in " + associatedWrapper);
         }
     }
  
