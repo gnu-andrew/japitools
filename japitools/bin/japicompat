@@ -480,10 +480,10 @@ sub dump_output($) {
     foreach my $exc (@serialexc) {
       if ($exc =~ /,$/) {
         $exc =~ s/,//;
-        print out "notify Serialization compatibility of classes in $exc and subpackages, and their subclasses, has not been checked.\n";
+        print OUT "notify Serialization compatibility of classes in $exc and subpackages, and their subclasses, has not been checked.\n";
       } else {
         $exc =~ s/,//;
-        print out "notify Serialization compatibility of $exc and its subclasses has not been checked.\n";
+        print OUT "notify Serialization compatibility of $exc and its subclasses has not been checked.\n";
       }
     }
     if ($orig->{"serial"}) {
@@ -491,10 +491,10 @@ sub dump_output($) {
       foreach my $inc (@serialinc) {
         if ($inc =~ /,$/) {
           $inc =~ s/,//;
-          print out "notify Serialization compatibility of classes in $inc and subpackages HAS been checked unless they're subclasses of a class mentioned above.\n";
+          print OUT "notify Serialization compatibility of classes in $inc and subpackages HAS been checked unless they're subclasses of a class mentioned above.\n";
         } else {
           $inc =~ s/,//;
-          print out "notify Serialization compatibility of $inc HAS been checked unless it's a subclass of a class mentioned above.\n";
+          print OUT "notify Serialization compatibility of $inc HAS been checked unless it's a subclass of a class mentioned above.\n";
         }
       }
     }

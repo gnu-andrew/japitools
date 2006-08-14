@@ -57,6 +57,17 @@ Jochen Hoenicke. If I forgot anyone,
       (updated nightly).
 </li>
 <li>
+Apache Harmony:
+      <a href="htmlout/h-jdk10-harmony.html">vs JDK1.0</a>,
+      <a href="htmlout/h-jdk11-harmony.html">vs JDK1.1</a>,
+      <a href="htmlout/h-jdk12-harmony.html">vs JDK1.2</a>,
+      <a href="htmlout/h-jdk13-harmony.html">vs JDK1.3</a>,
+      <a href="htmlout/h-jdk14-harmony.html">vs JDK1.4</a>,
+      <a href="htmlout/h-jdk15-harmony.html">vs JDK1.5</a>,
+      <a href="htmlout/h-harmony-jdk15.html">JDK1.5 vs it</a>
+      (updated nightly).
+</li>
+<li>
 <a href="http://jnode.sourceforge.net/portal/">JNode</a>:
       <a href="htmlout/h-jdk10-jnode.html">vs JDK1.0</a>,
       <a href="htmlout/h-jdk11-jnode.html">vs JDK1.1</a>,
@@ -79,13 +90,9 @@ Jochen Hoenicke. If I forgot anyone,
       (updated manually).
 </li>
 </ul>
-<p>The JDK 1.5 results do NOT include comparisons of the aspects of the API that
-use new language features. Japitools does not yet understand these features,
-so it does a comparison purely based on the underlying 1.4-compatible binary
-semantics. We're working on it...</p>
-<p>Previously, the <a href="http://wonka.acunia.com/wonka.html">Wonka</a> VM was
-also included in this list, but they seem to have stopped providing japi files
-some time ago, so they have been removed. Also, a Kaffe+JacORB listing used to be here, until it was determined that all the bits of JacORB that cover APIs in the JDK were using the non-free OMG source anyway.</p>
+<p>The JDK 1.5 results include comparisons of most of the aspects of the API
+that use language features, but not quite all: Japitools still does not yet
+understand annotations applied to classes and members.</p>
 <p>A tarball of the JDK japi files used to generate this output can be
 downloaded from <a href="jdkjapis.tar">here</a>. These japi files were
 created by running japize over the rt.jar (or equivalent) files from each

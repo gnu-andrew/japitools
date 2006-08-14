@@ -1116,13 +1116,17 @@ public class Japize {
 
   /**
    * Determine whether a class is entirely visible. If it's not then it should be skipped.
-   * A class is entirely visible if it's public or protected and all the bounds of its
+   * A class is entirely visible if it's public or protected, its containing
+   * class, if any, is entirely visible, and all the bounds of its
    * type parameters are entirely visible.
    */
   static boolean isEntirelyVisible(ClassWrapper cls) {
     if (!Modifier.isPublic(cls.getModifiers()) && !Modifier.isProtected(cls.getModifiers())) {
       return false;
     }
+    ClassWrapper containing = (ClassWrapper) cls.getContainingWrapper();
+    if (containing != null && !isEntirelyVisible(containing)) return false;
+
     return paramsEntirelyVisible(cls);
   }
 
