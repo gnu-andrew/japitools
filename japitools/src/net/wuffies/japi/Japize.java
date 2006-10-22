@@ -59,29 +59,35 @@ public class Japize {
   /**
    * The path to scan for classes in.
    */
-  private static List path = new ArrayList();
+  private static List path;
 
   /**
    * The package roots to scan in.
    */
-  private static SortedSet roots = new TreeSet();
+  private static SortedSet roots;
 
   /**
    * The packages to exclude.
    */
-  private static SortedSet exclusions = new TreeSet();
+  private static SortedSet exclusions;
+
+  /**
+   * Packages that are included exactly and whose subpackages shouldn't be
+   * descended into.
+   */
+  private static SortedSet exact;
 
   /**
    * Classes and packages to exclude from serialization
    */
-  private static SortedSet serialExclusions = new TreeSet();
+  private static SortedSet serialExclusions;
 
   /**
    * Classes and packages that would otherwise be excluded from serialization
    * that shouldn't be. Also includes "," representing the root package to
    * ensure that serialization defaults to included.
    */
-  private static SortedSet serialRoots = new TreeSet(Arrays.asList(new String[] {","}));
+  private static SortedSet serialRoots;
 
   /**
    * The output writer to write results to.
@@ -106,6 +112,14 @@ public class Japize {
    */
   public static void main(String[] args)
       throws NoSuchMethodException, IllegalAccessException, IOException, ClassNotFoundException {
+
+    // init for case of multiple invocations
+    path = new ArrayList();
+    roots = new TreeSet();
+    exclusions = new TreeSet();
+    exact = new TreeSet();
+    serialExclusions = new TreeSet();
+    serialRoots = new TreeSet(Arrays.asList(new String[] {","}));
 
     // Scan the arguments until the end of keywords is reached, interpreting
     // all the intermediate arguments and dealing with them as appropriate.
@@ -159,14 +173,22 @@ public class Japize {
       for (; i < args.length; i++) {
         char first = args[i].charAt(0);
         String pkgpath = args[i].substring(1);
-        if (first == '+' || first == '-') {
+        if (first == '+' || first == '-' || first == '=') {
           SortedSet setToAddTo;
+          boolean isExact = false;
           if (pkgpath.endsWith(":serial")) {
+            if (first == '=') {
+              System.err.println("Cannot use '=' with ':serial' qualifier");
+              printUsage();
+            }
             setToAddTo = first == '+' ? serialRoots : serialExclusions;
             pkgpath = pkgpath.substring(0, pkgpath.lastIndexOf(':'));
           } else {
-            setToAddTo = first == '+' ? roots : exclusions;
+            setToAddTo = first == '-' ? exclusions : roots;
+            isExact = (first == '=');
           }
+
+          String pathToAdd = null;
 
           // First identify *whether* it's ambiguous - and whether it's legal.
           int commapos = pkgpath.indexOf(',');
@@ -179,7 +201,7 @@ public class Japize {
               System.err.println("Illegal package/class name " + pkgpath +
                                  " - skipping");
             } else {
-              setToAddTo.add(pkgpath);
+              pathToAdd = pkgpath;
             }
 
           // Otherwise it's ambiguous. Figure out what to do based on the
@@ -191,24 +213,32 @@ public class Japize {
                                    " not allowed with 'explicitly' - skipping");
                 break;
               case APIS:
+                // Since "apis" results in two separate roots being added, we add the
+                // class root directly here, and don't worry about "exact" or not
+                // because that only applies to packages.
                 setToAddTo.add(toClassRoot(pkgpath));
-                setToAddTo.add(pkgpath + ",");
+                pathToAdd = pkgpath + ",";
                 break;
               case BYNAME:
                 int dotpos = pkgpath.lastIndexOf('.');
                 if (Character.isUpperCase(pkgpath.charAt(dotpos + 1))) {
-                  setToAddTo.add(toClassRoot(pkgpath));
+                  pathToAdd = toClassRoot(pkgpath);
                 } else {
-                  setToAddTo.add(pkgpath + ",");
+                  pathToAdd = pkgpath + ",";
                 }
                 break;
               case PACKAGES:
-                setToAddTo.add(pkgpath + ",");
+                pathToAdd = pkgpath + ",";
                 break;
               case CLASSES:
-                setToAddTo.add(toClassRoot(pkgpath));
+                pathToAdd = toClassRoot(pkgpath);
                 break;
             }
+          }
+
+          if (pathToAdd != null) {
+            setToAddTo.add(pathToAdd);
+            if (isExact) exact.add(pathToAdd);
           }
 
         // If it doesn't start with + or -, it's a path component.
@@ -464,18 +494,30 @@ public class Japize {
       if (!exclusions.contains(cls)) japizeClass(cls);
     }
 
-    // Iterate over the packages found, and process each in turn, unless they
-    // are explicitly excluded. If they *are* explicitly excluded, check for and
-    // process any roots that lie within the excluded package.
-    for (Iterator i = subpkgs.iterator(); i.hasNext(); ) {
-      String subpkg = (String) i.next();
-      if (!exclusions.contains(subpkg)) {
-        processPackage(subpkg);
-      } else {
-        // Identify any roots that lie within the excluded package and process
-        // them. The '/' character sorts after '.' and ',', but before any
-        // alphanumerics, so it covers a.b.c.d and a.b.c,D but not a.b.cd.
-        processRootSet(roots.subSet(subpkg, subpkg + '/'));
+    // For packages included with '=' instead of '+', we only include subpackages
+    // if they're themselves roots.
+    if (exact.contains(pkg)) {
+      // The '/' character sorts after '.' and ',', but before any
+      // alphanumerics, so it covers a.b.c.d and a.b.c,D but not a.b.cd. The
+      // character ' ' comes before all of these.
+      processRootSet(roots.subSet(pkg + ' ', pkg + '/'));
+
+    // Otherwise descend recursively into subpackages.
+    } else {
+
+      // Iterate over the packages found, and process each in turn, unless they
+      // are explicitly excluded. If they *are* explicitly excluded, check for and
+      // process any roots that lie within the excluded package.
+      for (Iterator i = subpkgs.iterator(); i.hasNext(); ) {
+        String subpkg = (String) i.next();
+        if (!exclusions.contains(subpkg)) {
+          processPackage(subpkg);
+        } else {
+          // Identify any roots that lie within the excluded package and process
+          // them. The '/' character sorts after '.' and ',', but before any
+          // alphanumerics, so it covers a.b.c.d and a.b.c,D but not a.b.cd.
+          processRootSet(roots.subSet(subpkg, subpkg + '/'));
+        }
       }
     }
   }

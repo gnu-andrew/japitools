@@ -7,11 +7,15 @@
     <property name="name" value="japitools"/>
     <property name="version" value="0.9.1"/>
     <property name="src.dir" value="${basedir}/src"/>
+    <property name="test.dir" value="${basedir}/test"/>
     <property name="lib.dir" value="${basedir}/share/java"/>
     <property name="build.dir" value="${basedir}/build"/>
     <property name="build.bin.dir" value="${build.dir}/bin"/>
     <property name="build.classes.dir" value="${build.dir}/classes"/>
+    <property name="build.test.classes.dir" value="${build.dir}/tests"/>
+    <property name="build.test.report.dir" value="${build.dir}/testreports"/>
     <property name="japi.jar" value="${name}.jar"/>
+    <property name="junit.jar" value="/usr/share/java/junit.jar"/>
 
     <path id="getopt.classpath">
     </path>
@@ -39,7 +43,12 @@
     <!-- =============================================================== -->
     <target name="compile" depends="init" description="Compiles source code">
         <mkdir dir="${build.classes.dir}"/>
-        <javac destdir="${build.classes.dir}" debug="on" deprecation="off" optimize="off" classpathref="base.path">
+        <javac destdir="${build.classes.dir}" source="1.4" debug="on" deprecation="off" optimize="off" classpathref="base.path">
+            <classpath>
+                <!-- we need Ant's JAR files on classpath to compile
+                     our own task -->
+                <path path="${java.class.path}"/>
+            </classpath>
             <src path="${src.dir}"/>
         </javac>
     </target>
@@ -48,6 +57,7 @@
     <!-- Creates the jar archives                                        -->
     <!-- =============================================================== -->
     <target name="jar" depends="compile" description="Create jar">
+        <mkdir dir="${lib.dir}"/>
         <jar jarfile="${lib.dir}/${japi.jar}">
             <fileset dir="${build.classes.dir}" includes="net/wuffies/**"/>
         </jar>
@@ -96,5 +106,42 @@
     <target name="clean" depends="init" description="Clean build directory">
         <delete dir="${build.dir}"/>
         <delete file="${lib.dir}/${japi.jar}"/>
+    </target>
+
+    <!-- =============================================================== -->
+    <!-- Compiles the tests                                              -->
+    <!-- =============================================================== -->
+    <target name="test-compile" depends="jar" description="Compiles source code">
+        <mkdir dir="${build.test.classes.dir}"/>
+        <javac destdir="${build.test.classes.dir}" source="1.4" debug="on" deprecation="off" optimize="off" classpathref="base.path">
+            <src path="${test.dir}"/>
+            <classpath>
+                <!-- we need Ant's JAR files on classpath to compile
+                     our own task -->
+                <path path="${java.class.path}"/>
+                <path location="${junit.jar}"/>
+                <path location="${lib.dir}/${japi.jar}"/>
+            </classpath>
+        </javac>
+    </target>
+    <!-- =============================================================== -->
+    <!-- Run the tests                                                   -->
+    <!-- =============================================================== -->
+    <target name="test" depends="test-compile" description="Compiles source code">
+        <junit showoutput="true" haltonfailure="yes">
+          <classpath>
+                <path path="${java.class.path}"/>
+                <path location="${build.test.classes.dir}"/>
+                <path location="${junit.jar}"/>
+                <path location="${lib.dir}/${japi.jar}"/>
+          </classpath>
+
+          <formatter type="brief" usefile="false"/>
+          <batchtest fork="yes" >
+            <fileset dir="${test.dir}">
+              <include name="**/*Test*.java"/>
+            </fileset>
+          </batchtest>
+        </junit>
     </target>
 </project>
