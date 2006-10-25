@@ -411,12 +411,12 @@ public class Japize {
     progress("");
   }
 
-  private static String packageRootTweak(String packageRoot, char ch) {
+  private static String packageRootTweak(String packageRoot, String tweak) {
     if (!packageRoot.endsWith(",")) throw new RuntimeException("packageRootTweak must be passed a package root ending in comma, not " + packageRoot);
-    return packageRoot.substring(0, packageRoot.length() - 1) + ch;
+    return packageRoot.substring(0, packageRoot.length() - 1) + tweak;
   }
   private static String endPackageRoot(String packageRoot) {
-    return packageRootTweak(packageRoot, '/');
+    return packageRootTweak(packageRoot, "/");
   }
 
   private static void processRootSet(SortedSet rootSet) 
@@ -509,7 +509,7 @@ public class Japize {
       // The '/' character sorts after '.' and ',', but before any
       // alphanumerics, so it covers a.b.c.d and a.b.c,D but not a.b.cd. The
       // character ' ' comes before all of these.
-      processRootSet(roots.subSet(packageRootTweak(pkg, ' '), endPackageRoot(pkg)));
+      processRootSet(roots.subSet(packageRootTweak(pkg, ", "), endPackageRoot(pkg)));
 
     // Otherwise descend recursively into subpackages.
     } else {

@@ -29,7 +29,7 @@ $progdir = $1 if $prog =~ /^(.*)\/[^\/]+$/;
 
 sub printusage() {
   print STDERR <<EOF;
-Usage: $progname [unzip] [as <name>] [lint <filename>] apis <zipfile>|<dir> ... +|-<pkg> ...
+Usage: $progname [unzip] [as <name>] [lint <filename>] apis <zipfile>|<dir> ... +|-|=<pkg> ...
 At least one +pkg is required. 'name' will have .japi and/or .gz
 appended if appropriate.
 The word 'apis' can be replaced by 'explicitly', 'byname', 'packages' or
@@ -39,7 +39,7 @@ EOF
   exit(1);
 }
 sub illegalpkgpath() {
-  $errarg =~ s/^[+-]//;
+  $errarg =~ s/^[+=-]//;
   print STDERR <<EOF;
 Specified package path $errarg is not a valid package path.
 Legal paths are of the form 'pkg.sub.Class' or 'pkg.sub', or use the
@@ -68,11 +68,11 @@ shift @args;
 my $plusses = 0;
 my $paths = 0;
 foreach my $arg (@args) {
-  if ($arg =~ /^[+-]/) {
+  if ($arg =~ /^[+=-]/) {
     $errarg = $arg;
     illegalpkgpath
-      unless $arg =~ /^[+-](?:(?:[a-zA-Z0-9_]+\.)*[a-zA-Z0-9_\$]+)?(?:,[a-zA-Z0-9_\$]*)?(?::serial)?$/;
-    $plusses++ if $arg =~ /^\+/;
+      unless $arg =~ /^[+=-](?:(?:[a-zA-Z0-9_]+\.)*[a-zA-Z0-9_\$]+)?(?:,[a-zA-Z0-9_\$]*)?(?::serial)?$/;
+    $plusses++ unless $arg =~ /^-/;
   } else {
     $paths++;
   }
