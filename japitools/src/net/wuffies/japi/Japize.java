@@ -396,6 +396,7 @@ public class Japize {
     
     // Remove all roots that are subpackages of java.lang.
     for (Iterator i = langRoots.iterator(); i.hasNext(); ) {
+      i.next();
       i.remove();
     }
 

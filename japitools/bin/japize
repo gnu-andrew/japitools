@@ -81,6 +81,7 @@ printusage unless $plusses && $paths;
 $errarg = $fn;
 zipfnerror if !$zip && $fn =~ /\.gz$/;
 
+$ENV{JAVA} = 'java' unless defined $ENV{JAVA};
 $ENV{CLASSPATH} = "$progdir/../share/java/japitools.jar:$ENV{CLASSPATH}";
 print STDERR "...\n";
-exec('java', 'net.wuffies.japi.Japize', @ARGV);
+exec($ENV{JAVA}, 'net.wuffies.japi.Japize', @ARGV);
