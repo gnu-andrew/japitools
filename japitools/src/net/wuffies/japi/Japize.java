@@ -384,7 +384,7 @@ public class Japize {
     }
 
     // Then do the same thing with java.lang as a whole.
-    SortedSet langRoots = roots.subSet(J_LANG, J_LANG + '/');
+    SortedSet langRoots = roots.subSet(J_LANG, endPackageRoot(J_LANG));
     if (checkIncluded(J_LANG)) {
       processPackage(J_LANG);
       exclusions.add(J_LANG);
@@ -411,6 +411,14 @@ public class Japize {
     progress("");
   }
 
+  private static String packageRootTweak(String packageRoot, char ch) {
+    if (!packageRoot.endsWith(",")) throw new RuntimeException("packageRootTweak must be passed a package root ending in comma, not " + packageRoot);
+    return packageRoot.substring(0, packageRoot.length() - 1) + ch;
+  }
+  private static String endPackageRoot(String packageRoot) {
+    return packageRootTweak(packageRoot, '/');
+  }
+
   private static void processRootSet(SortedSet rootSet) 
       throws NoSuchMethodException, IllegalAccessException,
              ClassNotFoundException, IOException {
@@ -428,7 +436,7 @@ public class Japize {
         processClass(root);
       } else {
         processPackage(root);
-        skipping = root.substring(0, root.length() - 1) + "/";
+        skipping = endPackageRoot(root);
       }
     }
   }
@@ -501,7 +509,7 @@ public class Japize {
       // The '/' character sorts after '.' and ',', but before any
       // alphanumerics, so it covers a.b.c.d and a.b.c,D but not a.b.cd. The
       // character ' ' comes before all of these.
-      processRootSet(roots.subSet(pkg + ' ', pkg + '/'));
+      processRootSet(roots.subSet(packageRootTweak(pkg, ' '), endPackageRoot(pkg)));
 
     // Otherwise descend recursively into subpackages.
     } else {
@@ -517,7 +525,7 @@ public class Japize {
           // Identify any roots that lie within the excluded package and process
           // them. The '/' character sorts after '.' and ',', but before any
           // alphanumerics, so it covers a.b.c.d and a.b.c,D but not a.b.cd.
-          processRootSet(roots.subSet(subpkg, subpkg + '/'));
+          processRootSet(roots.subSet(subpkg, endPackageRoot(subpkg)));
         }
       }
     }
