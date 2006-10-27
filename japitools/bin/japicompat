@@ -59,16 +59,17 @@ sub gentypestr($);
 ## MAIN LOOP ##
 
 # Parse cmdline and give a usage message.
-getopts("svqhtjwo:i:", \%opts);
+getopts("svqhtjwpo:i:", \%opts);
 my $sun_only = 1 if $opts{"s"};
 my $svuid_errors = 1 if $opts{"v"};
 my $buggywarn = 1 unless $opts{"w"};
+my $skip_missing_pkgs = 1 if $opts{"p"};
 my $dot = $opts{"q"} ? "" : ".";
 my $outprog = $opts{"h"} ? "japiohtml" : $opts{"j"} ? undef : "japiotext";
 my $ignorefile = $opts{"i"};
 my ($origfile, $newfile) = @ARGV;
 if (!defined $newfile) {
-  print STDERR "Usage: japicompat [-svqhtjw] [-o outfile] [-i ignorefiles,commaseparated] <original api> <api to check>\n";
+  print STDERR "Usage: japicompat [-svqhtjwp] [-o outfile] [-i ignorefiles,commaseparated] <original api> <api to check>\n";
   exit 1;
 }
 
@@ -120,18 +121,13 @@ EOF
   chomp $japiline;
   die <<EOF unless $japiline =~ /^%\%japi ([^ ]*)(?: (.*))?$/;
 
-This looks like an old-style japi file. The format was changed since version
-0.7 to save disk space and avoid a theoretically possible ambiguity. Most
-new japis are approx. 30% smaller than the coresponding old-style ones. It was
-changed again since version 0.8 to allow japicompat to use smarter algorithms.
-You can use japifix to convert to the new format.
+This looks like a very old japi file. I'm surprised it even exists, in fact.
 EOF
   my ($filever, $info) = ($1, $2);
   die <<EOF if $filever lt $japiver;
 
 This japi file claims to be version $filever, but this version of japicompat
-only understands version $japiver. You can use japifix to upgrade old japi
-files to version $japiver.
+only understands version $japiver.
 EOF
   die <<EOF if $filever gt $japiver;
 
@@ -582,7 +578,7 @@ sub compare_japis($$) {
         $eitem->{item} = "$pkg,!";
         while (defined $oitem && $oitem->{package} eq $pkg) {
           $oitem = read_japi_item($orig, 1);
-          if (defined $oitem && $oitem->{package} eq $pkg) {
+          if (!$skip_missing_pkgs && defined $oitem && $oitem->{package} eq $pkg) {
             inc($c, $pkg, $oitem->{isa}, "total");
             $ecount++;
           }
@@ -600,8 +596,10 @@ sub compare_japis($$) {
       } else {
         $oitem = read_japi_item($orig, 1);
       }
-      output_error($eitem, undef, $oclitem, $c, "missing",
-                   "", "missing", $ecount);
+      unless ($skip_missing_pkgs && $eitem->{isa} = "package") {
+        output_error($eitem, undef, $oclitem, $c, "missing",
+                     "", "missing", $ecount);
+      }
     } else {
       $nclitem = $nitem if $isnewclass;
 
