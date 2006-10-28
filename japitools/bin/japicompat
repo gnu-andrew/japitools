@@ -534,7 +534,6 @@ sub compare_japis($$) {
   my ($oclitem, $nclitem);
   print STDERR "Comparing...\n" if $dot;
   while (defined $oitem) {
-    inc($c, $oitem->{package}, $oitem->{isa}, "total");
     my $isnewpkg = ($pkg ne $oitem->{package});
     my $isnewclass = $isnewpkg || ($class ne $oitem->{class});
     my $cmp;
@@ -567,6 +566,12 @@ sub compare_japis($$) {
     $class_has_ctors = 0 if $isnewclass;
     $class_has_ctors = 1 if $oitem->{isa} eq "constructor" ||
                             $oitem->{isa} eq "interface";
+
+    unless ($skip_missing_pkgs && $isnewpkg &&
+            (!defined($nitem) || $nitem->{package} ne $oitem->{package})) {
+      inc($c, $oitem->{package}, $oitem->{isa}, "total");
+    }
+
     $errhere = 0;
     if ($cmp) {
       my $ecount = 1;
