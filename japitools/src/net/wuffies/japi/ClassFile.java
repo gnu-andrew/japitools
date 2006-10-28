@@ -893,12 +893,12 @@ public class ClassFile implements ClassWrapper
             if(c == '+')
             {
 		consume('+');
-		return new WildcardType((NonArrayRefType) readFieldTypeSignature());
+		return new WildcardType((RefType) readFieldTypeSignature());
             }
             else if(c == '-')
             {
 		consume('-');
-		return new WildcardType(null, (NonArrayRefType) readFieldTypeSignature());
+		return new WildcardType(null, (RefType) readFieldTypeSignature());
 	    }
             else if(c == '*')
             {
