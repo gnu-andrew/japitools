@@ -1213,8 +1213,8 @@ public class Japize {
 //      }
       return true;
     } else if (t instanceof WildcardType) {
-      NonArrayRefType upper = ((WildcardType) t).getUpperBound();
-      NonArrayRefType lower = ((WildcardType) t).getLowerBound();
+      RefType upper = ((WildcardType) t).getUpperBound();
+      RefType lower = ((WildcardType) t).getLowerBound();
       if (lower != null && !isEntirelyVisible(lower)) return false;
       return isEntirelyVisible(upper);
     } else {

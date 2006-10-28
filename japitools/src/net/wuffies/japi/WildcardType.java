@@ -21,16 +21,16 @@ package net.wuffies.japi;
 
 public class WildcardType extends RefType {
 
-  private NonArrayRefType upperBound;
-  private NonArrayRefType lowerBound;
+  private RefType upperBound;
+  private RefType lowerBound;
 
   public WildcardType() {
     this(null);
   }
-  public WildcardType(NonArrayRefType upperBound) {
+  public WildcardType(RefType upperBound) {
     this(upperBound, null);
   }
-  public WildcardType(NonArrayRefType upperBound, NonArrayRefType lowerBound) {
+  public WildcardType(RefType upperBound, RefType lowerBound) {
     if (upperBound == null) upperBound = new ClassType("java.lang.Object");
     if (!(upperBound instanceof ClassType && "java.lang.Object".equals(((ClassType)upperBound).getName()))) {
       if (lowerBound != null) throw new RuntimeException("Upper and lower bounds cannot both be set");
@@ -40,10 +40,10 @@ public class WildcardType extends RefType {
     this.lowerBound = lowerBound;
   }
 
-  public NonArrayRefType getUpperBound() {
+  public RefType getUpperBound() {
     return upperBound;
   }
-  public NonArrayRefType getLowerBound() {
+  public RefType getLowerBound() {
     return lowerBound;
   }
 
@@ -61,14 +61,14 @@ public class WildcardType extends RefType {
     return upperBound.getNonGenericType();
   }
   public void resolveTypeParameters() {
-    upperBound = (NonArrayRefType) resolveTypeParameter(upperBound);
-    lowerBound = (NonArrayRefType) resolveTypeParameter(lowerBound);
+    upperBound = (RefType) resolveTypeParameter(upperBound);
+    lowerBound = (RefType) resolveTypeParameter(lowerBound);
   }
   public Type bind(ClassType t) {
     debugStart("Bind", "to " + t);
     try {
-      return new WildcardType((NonArrayRefType) upperBound.bindWithFallback(t),
-                              lowerBound == null ? null : (NonArrayRefType) lowerBound.bind(t));
+      return new WildcardType((RefType) upperBound.bindWithFallback(t),
+                              lowerBound == null ? null : (RefType) lowerBound.bind(t));
     } finally {
       debugEnd();
     }
