@@ -596,7 +596,7 @@ sub compare_japis($$) {
       } else {
         $oitem = read_japi_item($orig, 1);
       }
-      unless ($skip_missing_pkgs && $eitem->{isa} = "package") {
+      unless ($skip_missing_pkgs && $eitem->{isa} eq "package") {
         output_error($eitem, undef, $oclitem, $c, "missing",
                      "", "missing", $ecount);
       }
