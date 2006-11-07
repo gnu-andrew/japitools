@@ -65,7 +65,7 @@ public class ClassFile implements ClassWrapper
     {
 	Object getConstantValue()
 	{
-	    throw new InternalError();
+	    throw new RuntimeException();
 	}
     }
 
@@ -739,24 +739,24 @@ public class ClassFile implements ClassWrapper
 
         public String getNonGenericTypeSig()
         {
-            throw new Error();
+            throw new RuntimeException();
         }
 
         public void resolveTypeParameters()
         {
-            throw new Error();
+            throw new RuntimeException();
         }
 	public Type bind(ClassType t)
 	{
-	    throw new Error();
+	    throw new RuntimeException();
 	}
 	public String getJavaRepr(GenericWrapper wrapper)
 	{
-	    throw new Error();
+	    throw new RuntimeException();
 	}
 	public Type getNonGenericType()
 	{
-	    throw new Error();
+	    throw new RuntimeException();
 	}
 
         public TypeParam resolve()
@@ -778,7 +778,7 @@ public class ClassFile implements ClassWrapper
                 }
                 container = container.getContainingWrapper();
             } while (container != null);
-            throw new ClassFormatError("TypeParameter '" + name + "' does not exist in " + associatedWrapper);
+            throw new RuntimeException("ClassFormatError: TypeParameter '" + name + "' does not exist in " + associatedWrapper);
         }
     }
  
@@ -838,7 +838,7 @@ public class ClassFile implements ClassWrapper
                 case 'T':
                     return readTypeVariableSignature();
                 default:
-                    throw new ClassFormatError("at pos = " + pos);
+                    throw new RuntimeException("ClassFormatError: at pos = " + pos);
             }
         }
 
@@ -961,7 +961,7 @@ public class ClassFile implements ClassWrapper
         void consume(char c)
         {
             if(readChar() != c)
-                throw new ClassFormatError("at pos = " + pos);
+                throw new RuntimeException("ClassFormatError: at pos = " + pos);
         }
     }
 
@@ -1350,7 +1350,7 @@ public class ClassFile implements ClassWrapper
         if(superClass != null)
             return ClassFile.forName(superClass).findMethod(name, descriptor);
         else
-            throw new NoSuchMethodError(name + descriptor);
+            throw new RuntimeException("NoSuchMethodError: " + name + descriptor);
     }
 
     public CallWrapper[] getCalls()
