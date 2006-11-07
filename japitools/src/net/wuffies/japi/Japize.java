@@ -998,16 +998,7 @@ public class Japize {
       // Return true because we did parse this class.
       progress('+');
       return true;
-    } catch (NoClassDefFoundError e) {
-      System.err.println("\nFailed to Japize " + n + ": " + e);
-      e.printStackTrace();
-    } catch (NullPointerException e) {
-      System.err.println("\nFailed to Japize " + n + ": " + e);
-      e.printStackTrace();
     } catch (ClassNotFoundException e) {
-      System.err.println("\nFailed to Japize " + n + ": " + e);
-      e.printStackTrace();
-    } catch (IndexOutOfBoundsException e) {
       System.err.println("\nFailed to Japize " + n + ": " + e);
       e.printStackTrace();
     } catch (RuntimeException e) {

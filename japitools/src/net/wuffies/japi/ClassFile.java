@@ -1161,7 +1161,7 @@ public class ClassFile implements ClassWrapper
 	    {
 		serializableClass = forName("java.io.Serializable");
 	    }
-	    catch (NoClassDefFoundError e) {}
+	    catch (RuntimeException e) {}
 	}
  	return serializableClass != null && !isInterface() && isSubTypeOf(serializableClass);
     }
@@ -1547,7 +1547,7 @@ public class ClassFile implements ClassWrapper
 		return cf;
 	    }
 	}
-	throw new NoClassDefFoundError(name);
+	throw new RuntimeException("NoClassDefFoundError: " + name);
     }
 
     public static void setClasspath(String classpath) throws IOException
