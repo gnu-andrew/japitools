@@ -45,6 +45,7 @@ public class ClassFile implements ClassWrapper
     private static final int CONSTANT_NameAndType = 12;
     private static final int CONSTANT_Utf8 = 1;
 
+    private DataInputStream in;
     private ConstantPoolItem[] constant_pool;
     private int access_flags;
     private int raw_access_flags;
@@ -555,9 +556,9 @@ public class ClassFile implements ClassWrapper
 	}
     }
 
-    private ClassFile(InputStream inStream) throws IOException
+    private ClassFile(byte[] buf) throws IOException
     {
-	DataInputStream in = new DataInputStream(inStream);
+	in = new DataInputStream(new ByteArrayInputStream(buf));
 	if(in.readInt() != 0xCAFEBABE)
 	{
 	    throw new IOException("Illegal magic");
@@ -611,6 +612,26 @@ public class ClassFile implements ClassWrapper
 	name = this_class == 0 ? null : getClassConstantName(this_class);
 	int super_class = in.readUnsignedShort();
 	superClass = (super_class == 0 || Modifier.isInterface(access_flags)) ? null : getClassConstantName(super_class);
+    }
+
+    private void ensureParsed()
+    {
+        if (in != null)
+        {
+            try
+            {
+                readSecondPart();
+            }
+            catch (IOException x)
+            {
+                throw new RuntimeException(x);
+            }
+            in = null;
+        }
+    }
+
+    private void readSecondPart() throws IOException
+    {
 	int interfaces_count = in.readUnsignedShort();
 	interfaces = new String[interfaces_count];
 	for(int i = 0; i < interfaces_count; i++)
@@ -1129,6 +1150,7 @@ public class ClassFile implements ClassWrapper
 
     public boolean isDeprecated()
     {
+        ensureParsed();
 	return deprecated;
     }
 
@@ -1154,7 +1176,8 @@ public class ClassFile implements ClassWrapper
 
     public boolean isSerializable()
     {
-	if (!gotSerializable)
+        ensureParsed();
+        if (!gotSerializable)
 	{
 	    gotSerializable = true;
 	    try
@@ -1168,7 +1191,8 @@ public class ClassFile implements ClassWrapper
 
     public boolean isSubTypeOf(ClassFile c)
     {
-	if(this == c)
+        ensureParsed();
+        if(this == c)
 	    return true;
 
 	for(int i = 0; i < interfaces.length; i++)
@@ -1187,7 +1211,8 @@ public class ClassFile implements ClassWrapper
     // (c) FSF and licensed under the GNU Library General Public License.
     public Long getSerialVersionUID()
     {
-	for(int i = 0; i < fields.length; i++)
+        ensureParsed();
+        for(int i = 0; i < fields.length; i++)
 	{
 	    if(fields[i].getName().equals("serialVersionUID") &&
 		fields[i].getType() == PrimitiveType.LONG &&
@@ -1355,7 +1380,8 @@ public class ClassFile implements ClassWrapper
 
     public CallWrapper[] getCalls()
     {
-	// FIXME - should we take a copy here to make sure the caller can't mess
+        ensureParsed();
+        // FIXME - should we take a copy here to make sure the caller can't mess
 	// with this class's internal state?
 	return methods;
 
@@ -1409,17 +1435,20 @@ public class ClassFile implements ClassWrapper
     }
     public GenericWrapper getContainingWrapper()
     {
-	return containingWrapper;
+        ensureParsed();
+        return containingWrapper;
     }
 
     public ClassType[] getInterfaces()
     {
+        ensureParsed();
         return interfaceTypes;
     }
 
     public FieldWrapper[] getFields()
     {
-	// FIXME - should we take a copy here to make sure the caller can't mess
+        ensureParsed();
+        // FIXME - should we take a copy here to make sure the caller can't mess
 	// with this class's internal state?
 	return fields;
 
@@ -1457,7 +1486,8 @@ public class ClassFile implements ClassWrapper
 
     public TypeParam[] getTypeParams()
     {
-	return typeParameters;
+        ensureParsed();
+        return typeParameters;
     }
 
     private static ClassPathEntry[] classpath;
@@ -1484,14 +1514,16 @@ public class ClassFile implements ClassWrapper
 		ZipEntry entry = zf.getEntry(name.replace('.', '/') + ".class");
 		if(entry != null)
 		{
-		    InputStream in = zf.getInputStream(entry);
+		    DataInputStream dis = new DataInputStream(zf.getInputStream(entry));
                     try
                     {
-                        return new ClassFile(in);
+                        byte[] buf = new byte[(int)entry.getSize()];
+                        dis.readFully(buf);
+                        return new ClassFile(buf);
                     }
                     finally
                     {
-		        in.close();
+		        dis.close();
                     }
 		}
 	    }
@@ -1516,14 +1548,16 @@ public class ClassFile implements ClassWrapper
             try
             {
                 File f = new File(dir, name.replace('.', File.separatorChar) + ".class");
-                FileInputStream in = new FileInputStream(f);
+                DataInputStream dis = new DataInputStream(new FileInputStream(f));
                 try
                 {
-                    return new ClassFile(in);
+                    byte[] buf = new byte[(int)f.length()];
+                    dis.readFully(buf);
+                    return new ClassFile(buf);
                 }
                 finally
                 {
-                    in.close();
+                    dis.close();
                 }
             }
             catch(IOException x)
