@@ -45,7 +45,7 @@ public class ClassFile implements ClassWrapper
     private static final int CONSTANT_NameAndType = 12;
     private static final int CONSTANT_Utf8 = 1;
 
-    private DataInputStream in;
+    private DataInputStream todo;
     private ConstantPoolItem[] constant_pool;
     private int access_flags;
     private int raw_access_flags;
@@ -558,7 +558,8 @@ public class ClassFile implements ClassWrapper
 
     private ClassFile(byte[] buf) throws IOException
     {
-	in = new DataInputStream(new ByteArrayInputStream(buf));
+	DataInputStream in = new DataInputStream(new ByteArrayInputStream(buf));
+        todo = in;
 	if(in.readInt() != 0xCAFEBABE)
 	{
 	    throw new IOException("Illegal magic");
@@ -616,21 +617,22 @@ public class ClassFile implements ClassWrapper
 
     private void ensureParsed()
     {
-        if (in != null)
+        if (todo != null)
         {
             try
             {
-                readSecondPart();
+                DataInputStream in = todo;
+                todo = null;
+                readSecondPart(in);
             }
             catch (IOException x)
             {
                 throw new RuntimeException(x);
             }
-            in = null;
         }
     }
 
-    private void readSecondPart() throws IOException
+    private void readSecondPart(DataInputStream in) throws IOException
     {
 	int interfaces_count = in.readUnsignedShort();
 	interfaces = new String[interfaces_count];
