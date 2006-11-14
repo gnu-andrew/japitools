@@ -45,5 +45,9 @@ public interface ClassWrapper extends GenericWrapper {
    * True if this class is actually an enum.
    */
   boolean isEnum();
+  /**
+   * True if this class is visible.
+   */
+  boolean isPublicOrProtected();
 }
 

@@ -1145,9 +1145,15 @@ public class ClassFile implements ClassWrapper
 	return ((Utf8ConstantPoolItem)constant_pool[idx]).string;
     }
 
+    public boolean isPublicOrProtected()
+    {
+        return (raw_access_flags & Modifier.PUBLIC) != 0;
+    }
+
     public int getModifiers()
     {
-	return access_flags;
+        ensureParsed();
+        return access_flags;
     }
 
     public boolean isDeprecated()
@@ -1425,14 +1431,17 @@ public class ClassFile implements ClassWrapper
 
     public boolean isInterface()
     {
-	return Modifier.isInterface(access_flags);
+        ensureParsed();
+        return Modifier.isInterface(access_flags);
     }
     public boolean isAnnotation()
     {
-	return (access_flags & 0x2000) != 0;
+        ensureParsed();
+        return (access_flags & 0x2000) != 0;
     }
     public boolean isEnum()
     {
+        ensureParsed();
         return (access_flags & 0x4000) != 0;
     }
     public GenericWrapper getContainingWrapper()

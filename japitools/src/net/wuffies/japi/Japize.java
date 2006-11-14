@@ -748,8 +748,7 @@ public class Japize {
       ClassWrapper c = getClassWrapper(n);
 
       // Load the class and check its accessibility.
-      int mods = c.getModifiers();
-      if (!Modifier.isPublic(mods) && !Modifier.isProtected(mods)) {
+      if (!c.isPublicOrProtected()) {
         progress('-');
         return false;
       }
@@ -769,7 +768,8 @@ public class Japize {
       }
 
       type += getTypeParamStr(c);
-      
+
+      int mods = c.getModifiers();
       if (c.isInterface()) {
         mods |= Modifier.ABSTRACT; // Interfaces are abstract by definition,
 
