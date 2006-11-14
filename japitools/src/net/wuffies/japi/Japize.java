@@ -44,6 +44,8 @@ import java.io.OutputStreamWriter;
 import java.util.zip.GZIPOutputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
+import java.io.FileReader;
+import java.io.LineNumberReader;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -120,6 +122,10 @@ public class Japize {
     exact = new TreeSet();
     serialExclusions = new TreeSet();
     serialRoots = new TreeSet(Arrays.asList(new String[] {","}));
+
+    // Interpret any arguments that start with @ as filenames, and replace the argument with the
+    // contents of those files.
+    args = scanForFileArgs(args);
 
     // Scan the arguments until the end of keywords is reached, interpreting
     // all the intermediate arguments and dealing with them as appropriate.
@@ -312,6 +318,33 @@ public class Japize {
       out.close();
       if (lintOut != null) lintOut.close();
     }
+  }
+
+  private static String[] scanForFileArgs(String[] args) throws IOException {
+    ArrayList result = new ArrayList();
+
+    for (int i = 0; i < args.length; i++) {
+      if (args[i].startsWith("@")) {
+        FileReader file = new FileReader(args[i].substring(1));
+        try {
+          LineNumberReader lines = new LineNumberReader(file);
+          try {
+            String line;
+            while ((line = lines.readLine()) != null) {
+              result.add(line);
+            }
+          } finally {
+            lines.close();
+          }
+        } finally {
+          file.close();
+        }
+      } else {
+        result.add(args[i]);
+      }
+    }
+
+    return (String[]) result.toArray(args);
   }
 
   private static String toClassRoot(String pkgpath) {
