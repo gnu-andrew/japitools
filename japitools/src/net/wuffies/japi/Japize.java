@@ -748,7 +748,7 @@ public class Japize {
       ClassWrapper c = getClassWrapper(n);
 
       // Load the class and check its accessibility.
-      if (!c.isPublicOrProtected()) {
+      if (!isEntirelyVisible(c)) {
         progress('-');
         return false;
       }
@@ -774,6 +774,12 @@ public class Japize {
         mods |= Modifier.ABSTRACT; // Interfaces are abstract by definition,
 
       } else {
+
+        // Enums are considered non-abstract and final
+        if (c.isEnum()) {
+          mods |= Modifier.FINAL;
+          mods &= ~Modifier.ABSTRACT;
+        }
 
         // Classes that happen to be Serializable get their SerialVersionUID
         // output as well. The separation by the '#' character from the rest
@@ -1017,6 +1023,12 @@ public class Japize {
           mmods |= Modifier.FINAL;
         }
 
+        // Methods of enums are by definition final and non-abstract
+        if (c.isEnum()) {
+          mmods |= Modifier.FINAL;
+          mmods &= ~Modifier.ABSTRACT;
+        }
+
         // Constructors are never final. The verifier should enforce this
         // so this should always be a no-op, except for when the line above
         // set it.
@@ -1196,7 +1208,7 @@ public class Japize {
    * type parameters are entirely visible.
    */
   static boolean isEntirelyVisible(ClassWrapper cls) {
-    if (!Modifier.isPublic(cls.getModifiers()) && !Modifier.isProtected(cls.getModifiers())) {
+    if (!cls.isPublicOrProtected()) {
       return false;
     }
     ClassWrapper containing = (ClassWrapper) cls.getContainingWrapper();
