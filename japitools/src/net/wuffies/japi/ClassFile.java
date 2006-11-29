@@ -61,6 +61,7 @@ public class ClassFile implements ClassWrapper
     private ClassType superclassType;
     private ClassType[] interfaceTypes;
     private GenericWrapper containingWrapper;
+    private ClassFile declaringClass;
 
     private class ConstantPoolItem
     {
@@ -669,9 +670,13 @@ public class ClassFile implements ClassWrapper
                         int mask = Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PRIVATE | Modifier.STATIC;
 			this.access_flags &= ~mask;
                         this.access_flags |= access_flags & mask;
-                        if(outer_class != 0 && !Modifier.isStatic(access_flags))
+                        if(outer_class != 0)
                         {
-                            containingWrapper = ClassFile.forName(getClassConstantName(outer_class));
+                            declaringClass = ClassFile.forName(getClassConstantName(outer_class));
+                            if(!Modifier.isStatic(access_flags))
+                            {
+                                containingWrapper = declaringClass;
+                            }
                         }
 		    }
 		}
@@ -1445,6 +1450,12 @@ public class ClassFile implements ClassWrapper
     {
         ensureParsed();
         return containingWrapper;
+    }
+
+    public ClassWrapper getDeclaringClass()
+    {
+        ensureParsed();
+        return declaringClass;
     }
 
     public ClassType[] getInterfaces()

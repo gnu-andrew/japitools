@@ -813,9 +813,6 @@ public class Japize {
       }
       type += mkIfaceString(c, "");
 
-      // Skip things that aren't entirely visible as defined below.
-      if (!isEntirelyVisible(c)) return false;
-
       // Print out the japi entry for the class itself.
       printEntry(entry, type, mods, c.isDeprecated(), false, false);
 
@@ -1203,14 +1200,22 @@ public class Japize {
 
   /**
    * Determine whether a class is entirely visible. If it's not then it should be skipped.
-   * A class is entirely visible if it's public or protected, its containing
-   * class, if any, is entirely visible, and all the bounds of its
+   * A class is entirely visible if it's public or protected, its declaring
+   * / containing class, if any, is entirely visible, and all the bounds of its
    * type parameters are entirely visible.
    */
   static boolean isEntirelyVisible(ClassWrapper cls) {
     if (!cls.isPublicOrProtected()) {
       return false;
     }
+
+    // Declaring and containing class should be the same but a redundant
+    // check doesn't harm anything. The difference is subtle and I'm not
+    // 100% sure.
+
+    ClassWrapper declaring = cls.getDeclaringClass();
+    if (declaring != null && !isEntirelyVisible(declaring)) return false;
+
     ClassWrapper containing = (ClassWrapper) cls.getContainingWrapper();
     if (containing != null && !isEntirelyVisible(containing)) return false;
 
