@@ -1217,11 +1217,32 @@ public class ClassFile implements ClassWrapper
 	    return false;
     }
 
+    private static boolean gotEnum = false;
+    private static ClassFile enumClass = null;
+
+    private boolean isEnumOrSubClass()
+    {
+	if (!gotEnum)
+	{
+	    gotEnum = true;
+	    try
+	    {
+		enumClass = forName("java.lang.Enum");
+	    }
+	    catch (RuntimeException e) { }
+	}
+	return enumClass != null && isSubTypeOf(enumClass);
+    }
+
     // This code is partially based on GNU Classpath's implementation which is
     // (c) FSF and licensed under the GNU Library General Public License.
     public Long getSerialVersionUID()
     {
         ensureParsed();
+	if(isEnumOrSubClass())
+	{
+	    return Long.valueOf(0L);
+	}
         for(int i = 0; i < fields.length; i++)
 	{
 	    if(fields[i].getName().equals("serialVersionUID") &&
