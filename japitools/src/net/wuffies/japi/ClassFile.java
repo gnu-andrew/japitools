@@ -1325,7 +1325,8 @@ public class ClassFile implements ClassWrapper
 	    for (int i = 0; i < fields.length; i++) 
 	    {
 		FieldInfoItem field = fields[i];
-		modifiers = field.getModifiers();
+		modifiers = field.getModifiers()
+		    & (Modifier.PUBLIC | Modifier.PRIVATE | Modifier.PROTECTED | Modifier.STATIC | Modifier.FINAL | Modifier.VOLATILE | Modifier.TRANSIENT);
 		if (Modifier.isPrivate (modifiers) &&
 		    (Modifier.isStatic(modifiers) ||
 		    Modifier.isTransient(modifiers))) 
@@ -1360,7 +1361,8 @@ public class ClassFile implements ClassWrapper
 	    for (int i = 0; i < methods.length; i++) 
 	    {
 		MethodInfoItem method = methods[i];
-		modifiers = method.getModifiers();
+		modifiers = method.getModifiers()
+		    & (Modifier.PUBLIC | Modifier.PRIVATE | Modifier.PROTECTED | Modifier.STATIC | Modifier.FINAL | Modifier.SYNCHRONIZED | Modifier.NATIVE | Modifier.ABSTRACT | Modifier.STRICT);
 		if (Modifier.isPrivate(modifiers)) 
 		{
 		    continue;
