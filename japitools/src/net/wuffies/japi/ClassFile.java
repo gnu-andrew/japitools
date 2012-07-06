@@ -1303,6 +1303,7 @@ public class ClassFile implements ClassWrapper
 		data_out.writeUTF(interfaces[i]);
 	    }
 
+            FieldInfoItem[] fields = (FieldInfoItem[])this.fields.clone();
 	    Arrays.sort(fields, new Comparator() 
 	    {
 		public int compare(Object o1, Object o2) 
@@ -1339,6 +1340,7 @@ public class ClassFile implements ClassWrapper
 		data_out.writeUTF(field.getType().getNonGenericTypeSig());
 	    }
 
+            MethodInfoItem[] methods = (MethodInfoItem[])this.methods.clone();
 	    Arrays.sort(methods, new Comparator() 
 	    {
 		public int compare(Object o1, Object o2) 
