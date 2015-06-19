@@ -1,0 +1,27 @@
+2015-06-09  Andrew John Hughes  <gnu.andrew@member.fsf.org>
+
+	* src/net/wuffies/japi/ClassFile.java:
+	(CONSTANT_MethodHandle): Added.
+	(CONSTANT_MethodType): Likewise.
+	(CONSTANT_InvokeDynamic): Likewise.
+	(MethodHandleConstantPoolItem): Added inner
+	class for new constant pool item in Java 8.
+	(MethodHandleConstantPoolItem.MethodHandleConstantPoolItem(int,int)):
+	Likewise.
+	(MethodTypeConstantPoolItem): Likewise.
+	(MethodTypeConstantPoolItem.MethodTypeConstantPoolItem(int)): Likewise.
+	(InvokeDynamicConstantPoolItem): Likewise.
+	(InvokeDynamicConstantPoolItem.InvokeDynamicConstantPoolItem(int,int)):
+	Likewise.
+	(ClassFile(buf[])): Handle cases for CONSTANT_MethodHandle,
+	CONSTANT_MethodType and CONSTANT_InvokeDynamic so Java 8
+	class files can be parsed.
+	(ClassPathEntry.load(String)): Declare as throwing
+	IOException.
+	(JarClassPathEntry.load(String)): Throw IOException rather
+	than suppressing it.
+	(JarClassPathEntry.toString()): Implemented to return the
+	name of the zip file.
+	(DirClassPathEntry.forName(String)): Handle IOException
+	and attach it as the cause of the RuntimeException.
+	Throw an IllegalStateException if the class is not found.

@@ -1,6 +1,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Japize - Output a machine-readable description of a Java API.
 // Copyright (C) 2004  Jeroen Frijters <jeroen@frijters.net>
+// Copyright (C) 2015  Andrew John Hughes <gnu_andrew@member.fsf.org>
 // 
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -44,6 +45,9 @@ public class ClassFile implements ClassWrapper
     private static final int CONSTANT_Double = 6;
     private static final int CONSTANT_NameAndType = 12;
     private static final int CONSTANT_Utf8 = 1;
+    private static final int CONSTANT_MethodHandle = 15;
+    private static final int CONSTANT_MethodType = 16;
+    private static final int CONSTANT_InvokeDynamic = 18;
 
     private DataInputStream todo;
     private ConstantPoolItem[] constant_pool;
@@ -190,6 +194,41 @@ public class ClassFile implements ClassWrapper
 	}
     }
 
+    private class MethodHandleConstantPoolItem extends ConstantPoolItem
+    {
+	int reference_kind;
+	int reference_index;
+	
+	MethodHandleConstantPoolItem(int reference_kind, int reference_index)
+	{
+	    this.reference_kind = reference_kind;
+	    this.reference_index = reference_index;
+	}
+    }
+
+    private class MethodTypeConstantPoolItem extends ConstantPoolItem					     
+    {
+	int descriptor_index;
+
+	MethodTypeConstantPoolItem(int descriptor_index)
+	{
+	    this.descriptor_index = descriptor_index;
+	}
+    }
+
+    private class InvokeDynamicConstantPoolItem extends ConstantPoolItem
+    {
+	int bootstrap_method_attr_index;
+	int name_and_type_index;
+
+	InvokeDynamicConstantPoolItem(int boostrap_method_attr_index,
+				      int name_and_type_index)
+	{
+	    this.bootstrap_method_attr_index = bootstrap_method_attr_index;
+	    this.name_and_type_index = name_and_type_index;
+	}
+    }
+    
     private abstract class FMInfoItem implements Wrapper
     {
 	int access_flags;
@@ -600,6 +639,15 @@ public class ClassFile implements ClassWrapper
 		    break;
 		case CONSTANT_Utf8:
 		    constant_pool[i] = new Utf8ConstantPoolItem(in.readUTF());
+		    break;
+	        case CONSTANT_MethodHandle:
+		    constant_pool[i] = new MethodHandleConstantPoolItem(in.readUnsignedByte(), in.readUnsignedShort());
+		    break;
+	        case CONSTANT_MethodType:
+		    constant_pool[i] = new MethodTypeConstantPoolItem(in.readUnsignedShort());
+		    break;
+	        case CONSTANT_InvokeDynamic:
+		    constant_pool[i] = new InvokeDynamicConstantPoolItem(in.readUnsignedShort(), in.readUnsignedShort());
 		    break;
 		default:
 		    throw new IOException("unrecognized constant pool item");
@@ -1539,7 +1587,7 @@ public class ClassFile implements ClassWrapper
 
     private static abstract class ClassPathEntry
     {
-	abstract ClassFile load(String name);
+	abstract ClassFile load(String name) throws IOException;
     }
 
     private static class JarClassPathEntry extends ClassPathEntry
@@ -1551,30 +1599,29 @@ public class ClassFile implements ClassWrapper
 	    this.zf = new ZipFile(f);
 	}
 
-	ClassFile load(String name)
+	ClassFile load(String name) throws IOException
 	{
-	    try
+	  ZipEntry entry = zf.getEntry(name.replace('.', '/') + ".class");
+	  if(entry != null)
 	    {
-		ZipEntry entry = zf.getEntry(name.replace('.', '/') + ".class");
-		if(entry != null)
+	      DataInputStream dis = new DataInputStream(zf.getInputStream(entry));
+	      try
 		{
-		    DataInputStream dis = new DataInputStream(zf.getInputStream(entry));
-                    try
-                    {
-                        byte[] buf = new byte[(int)entry.getSize()];
-                        dis.readFully(buf);
-                        return new ClassFile(buf);
-                    }
-                    finally
-                    {
-		        dis.close();
-                    }
+		  byte[] buf = new byte[(int)entry.getSize()];
+		  dis.readFully(buf);
+		  return new ClassFile(buf);
+		}
+	      finally
+		{
+		  dis.close();
 		}
 	    }
-	    catch(IOException x)
-	    {
-	    }
-	    return null;
+	  return null;
+	}
+
+	public String toString()
+	{
+	    return zf.getName();
 	}
     }
 
@@ -1616,16 +1663,23 @@ public class ClassFile implements ClassWrapper
 	ClassFile cf = (ClassFile)cache.get(name);
 	if(cf != null)
 	    return cf;
-	for(int i = 0; i < classpath.length; i++)
-	{
-	    cf = classpath[i].load(name);
-	    if(cf != null)
+	try
 	    {
-		cache.put(name, cf);
-		return cf;
+		for(int i = 0; i < classpath.length; i++)
+		    {
+			cf = classpath[i].load(name);
+			if (cf != null)
+			    {
+				cache.put(name, cf);
+				return cf;
+			    }
+		    }
 	    }
-	}
-	throw new RuntimeException("NoClassDefFoundError: " + name);
+	catch (IOException iox)
+	    {
+		throw new RuntimeException("NoClassDefFoundError: " + name, iox);
+	    }
+	throw new IllegalStateException("forName(" + name + ") failed to load class");
     }
 
     public static void setClasspath(String classpath) throws IOException
